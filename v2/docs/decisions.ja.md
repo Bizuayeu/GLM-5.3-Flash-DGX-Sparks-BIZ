@@ -15,6 +15,7 @@
 | 上流の#285・#294、patch 0080（書き直し）、TR3の名を2.5.0のエンジンに同乗させる | 2026-10-08 | 専用の版は切らず、次にエンジンのリリースのbranchを切るときに取り込んだ：#285（MiaAI-Lab。end tokenが `</tool_call>` より先に来たGLMのtool呼び出しを、全体がparseできれば送る）と#294（plotarmordev。起動時に開けるファイル数の上限を上げる）はそのまま、作者もそのまま。MiaAI-Labのpatch 0080は書き直し（会話に引用された画像の印は本物の画像の隣で文字のまま。codeは写していない）、エンジンの表示に挙げた。EXL3/TR3のcheckpointの名を `brandonmusic/GLM-5.3-Flash-tr3-4bpw` にし、取り下げられたMia-AiLabの再掲は一覧に残した。既定の経路（画像なし・toolなし）のtokenは変わらない。2.5.0の受け入れは[リリースでの測定値](../README.ja.md#リリースでの測定値)にある | — |
 | #294の時機に左右される試験をforkで直す | 2026-10-08 | 上流の試験は時機によって落ちることがあった：試験のserverが受けたsocketをworkerのthreadで閉じ、それが試験のsqueezeと次のacceptの間に入ることがあった。forkの試験はその場で閉じる | — |
 | loop guardを入れ、既定では無効にする（`TF_GLM_LOOP_GUARD`）：`1` にすると、rank 0は、16 token以下の完全な周期が256 token続くか、直近256 tokenの半分を一つのtokenが占めるかで潰れた思考のblockを、思考の予算が閉じるのと同じ形で閉じ、応答の `tensorfold` blockに `loop_guard` として数える。MiaAI-Labのpatch 0091を取り込み、試験は書き直した | 2026-10-09 | 無効ならgateは作られず、どの要求も変わらない。配信の負荷でまだ測っていないので無効のままにする | 配信の負荷で測る |
+| serverは、全文のあいだGILを握る `encode` の代わりに、PythonのGILを放すtokenizerのbatchの呼び出し（`encode_batch_fast`）でtokenizeする。MiaAI-Labのpatch 0099に倣う | 2026-10-11 | 長い要求のtokenizeが、取り消しのpollを含むserverの他のthreadを止めなくなる。GLMのtokenizerは1,106の文（最長2.1M token）で、special tokenの有無とも同じidを出した。画像のpromptは画像のprocessorでtokenizeするので変わらない | — |
 
 ## 精度とメモリ
 
@@ -68,6 +69,8 @@
 | prefillの交換の既定を `split` に（`TF_GLM_PREFILL_REDUCE`） | 2026-10-03 | TP=3、一続きの起動の中で：それまでの `gather`（1,394〜1,398 tok/s）に対し `scatter` +6.8%、`split` +19.6%。decode検査のhashもNLL採点セットも変わらない。rankどうしが送り合えるところで採り、それ以外は `gather`。TP=2（2026-10-06、2.1.1）では、promptの2つの速さのどちらでも `split` が `gather` より約5%速く（1,326対1,262 tok/s、1,228対1,171）、decode検査のtoken idと文字列は同じだった | — |
 | indexerのpromptの仕事：programあたり16行、選択が読むpoolの列だけを採点、長い行の読みを5回から3回に | 2026-10-03 | 実のDSAの層で1 GPU、1M tokenでのchunkのtokenの選択が209.5 → 165.5 ms（−21%）、同じビット。上の交換の仕事と合わせ、200Kと500Kの実測に当てた1Mのprefillの見積もりは短くなった（[長い入力](validation.ja.md#長い入力)）。試して遅かったもの：histogramを採点に融合、11 bitで3 pass、persistent grid、2,048のblock | — |
 | prompt chunkのpoolのscoreを、programあたり16行・1 blockでなく、1行・32 pool blockで計算する（`SCORE_LOOP`）。decodeの窓はprogramあたり1 blockのまま。MiaAI-Labのpatch 0086に倣い、この木のFP8のpool keyと採点する列に合わせて書き直した | 2026-10-09 | programあたり1 blockでは、blockごとに各行のindexのqueryとheadの重みを読み直していた。今は行のそれを32 blockのために一度だけ読み、各blockの計算は前と同じで、ビットも同じ。固定の重みのTP=3で、なしの起動3回とありの起動3回：熱の待ちを除いた約226K tokenのprefillが5.8〜5.9%短く、ありの起動はどれも、なしの起動のどれより速く、返答は同じ（[リリースでの測定値](../README.ja.md#リリースでの測定値)） | — |
+| clientが去ったpromptは、埋めているchunkの後で止める：最後を除く各chunkの後に、どのrankもint32を1つall-gatherし、どれかが望めばそろって止まる（`TF_GLM_PROMPT_STOP`、既定で有効、すべてのrankで同じに）。MiaAI-Labのpatch 0109（branch `tp4`）に倣う | 2026-10-11 | これまでは、clientが去っても両rankがpromptを最後まで埋めていた。入れると、約70,000 tokenの切ったpromptから、rankは切ってTP=2で2.12秒、TP=3で1.04秒で次の要求に空いた（埋め切るには54.58秒と41.92秒）。止めないpromptのビットは同じで、投票はchunkごとにint32 1つのall-gather（[リリースでの測定値](../README.ja.md#リリースでの測定値)） | — |
+| MiaAI-Labのpatch 0101（prompt chunkのtop-kのpoolを、標本で決めた床から各行を1回読んで選ぶ） | 2026-10-11に採らない | この木の見えるpoolの上限に合わせて書くとpoolもtieも同じだったが、この木の選択はすでに長い行を5回でなく約3回しか読まない。GPU 1台で512行のblockが226K tokenで1.52 → 1.06 ms、590Kで3.92 → 2.31 ms。32Kではかえって遅い（0.14 → 0.18 ms） | 400K tokenを越えるpromptをよく配るとき |
 | ビットが変わるprefillの案 | 2026-10-02と03に不採用 | 行のblockの32頭を一つのGEMMで採点し頭の和を後に回す（採点が2倍速くなれば1Mのprefillで約240秒の短縮と見積もり）、FP8のtensor coreでの採点、chunked KDA（その漸化式は38,960 tokenのpromptで2.06秒で、得は多くて数%）、MiaAI-Labの1 passのsparse attention。どれも基準のhashとNLLの元のビットを変える、または変え得る | — |
 
 ## 熱

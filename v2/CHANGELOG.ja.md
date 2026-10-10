@@ -6,6 +6,27 @@
 
 TensorFoldで配信する2.x系です。`v2.*` のタグはこのファイルの節を公開します。1.x系の履歴は[v1/CHANGELOG.ja.md](../v1/CHANGELOG.ja.md)にあります。
 
+## 2.9.0 — 2026-10-11
+
+### Engine
+
+- imageは [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold) のbranch `release/2.9.0` の `d2dd932a2da15478b85d4b0bd5f60a4bae61599c` からTensorFoldをbuildします（[`TENSORFOLD_REF`](docker/Dockerfile)）。2.8.0のエンジンに次を足したものです：
+  - clientが去ったpromptは、埋めているchunkの後で、すべてのrankで止まります。最後を除く各chunkの後に、rankはそれぞれint32を1つall-gatherし、どれかが望めばそろって止まります。cacheは埋め終えた行を残し、要求は取り消しとして終わります。これまでは、clientが去っても両rankがpromptを最後まで埋めていました。止めないpromptのビットは変わりません。`TF_GLM_PROMPT_STOP=0`（すべてのrankで同じに）で、どのpromptも最後まで埋めます（[決定の記録](docs/decisions.ja.md#prefill)）。MiaAI-Labのpatch 0109-glm-prompt-stop（branch `tp4`、Apache-2.0。それ自体は上流TensorFoldのchunkの境目でのpromptの停止に倣う）に倣います。
+  - serverはtokenizerのbatchの呼び出しでtokenizeし、PythonのGILを放します。長い要求のtokenizeが、serverの他のthreadを止めなくなります。idは同じです。MiaAI-Labのpatch 0099-glm-tokenize-nogil（Apache-2.0）に倣います。
+
+imageは `glm53-tf:2.9.0`（linux/arm64 `sha256:1f811b00bb30a756ac342a05905f57832f6a2d555b7dd6f72dbf408dcf67d567`）です。
+
+### Accepted
+
+2026-10-11に参照機で、画像入力を有効にして、リリース候補のimage（linux/arm64 `sha256:1f811b00bb30a756ac342a05905f57832f6a2d555b7dd6f72dbf408dcf67d567`、3台で同じ）で、固定の重みとAXLのそれぞれをTP=2とTP=3で：
+
+- decode検査は4回の起動すべてで2.8.0のtoken idと受理長を出し、`bench --kinds decode` は2.8.0の返答、`bench --kinds edit` は基準の返答（`ecd7a283a48a0cc4`）。
+- clientが切ったprompt（固定の重み。約70,000 token、prefillの3秒でclientが去り、続けて短い要求）：短い要求は、切ってからTP=2で2.12秒、TP=3で1.04秒で返った。同じpromptを切らずに埋めると54.58秒と41.92秒。
+- `top_k` 0（固定の重み、TP=2、2.8.0の要求）：どの返答のtokenも2.7.0のhostの規則と同じ。
+- TP=2のNLLの組は両方の重みで2.8.0と同じ。TP=2のtool-eval-benchは固定の重みが92／93、AXLが89／91で、直ではTC-43でSafety Gateを通らず、ゲート越しでは通過（2.8.0と同じ）。固定の重み、TP=2とTP=3：画像の検査はすべて合格。
+- この窓では回していないもの：2.8.0と同じ。
+- 窓の前に03で、`d2dd932` のエンジンで：小さなモデルのビットの照合はBF16とFP8とも2.8.0と同じhash、briefの一式は1,544 passed（42 skipped。2.8.0の1,528とpromptの停止の16）、tokenizeの試験は14 passed。GLMのtokenizerは、batchの呼び出しで `encode` と同じidを、1,106の文（最長2.1M token）でspecial tokenの有無とも出した。
+
 ## 2.8.0 — 2026-10-09
 
 ### Engine

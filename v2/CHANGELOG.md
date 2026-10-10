@@ -4,6 +4,27 @@
 
 The 2.x line, served by TensorFold. A `v2.*` tag publishes its section from this file. The 1.x line's history is in [v1/CHANGELOG.md](../v1/CHANGELOG.md).
 
+## 2.9.0 — 2026-10-11
+
+### Engine
+
+- The image builds TensorFold from the branch `release/2.9.0` of [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold) at `d2dd932a2da15478b85d4b0bd5f60a4bae61599c` ([`TENSORFOLD_REF`](docker/Dockerfile)): 2.8.0's engine with these:
+  - A prompt whose client left stops after the chunk being filled, on every rank: after each chunk but the last, the ranks all-gather one int32 each and stop together when any of them wishes, the caches keeping the rows already filled, and the request ends as cancelled. Before it, both ranks filled a prompt to its end after its client left. A prompt that is not stopped computes the same bits. `TF_GLM_PROMPT_STOP=0`, the same on every rank, fills every prompt to its end ([decisions](docs/decisions.md#prefill)). After MiaAI-Lab's patch 0109-glm-prompt-stop (branch `tp4`, Apache-2.0), itself after upstream TensorFold's prompt stop at chunk boundaries.
+  - The server tokenizes through the tokenizer's batch call, which releases Python's GIL, so a long request's tokenization no longer stops the server's other threads; the ids are the same. After MiaAI-Lab's patch 0099-glm-tokenize-nogil (Apache-2.0).
+
+The image is `glm53-tf:2.9.0` (linux/arm64 `sha256:1f811b00bb30a756ac342a05905f57832f6a2d555b7dd6f72dbf408dcf67d567`).
+
+### Accepted
+
+On the reference hosts on 2026-10-11 with image input on, with the release candidate image (linux/arm64 `sha256:1f811b00bb30a756ac342a05905f57832f6a2d555b7dd6f72dbf408dcf67d567`, the same on the three hosts), on the pinned weights and on AXL, at TP=2 and TP=3:
+
+- The decode check gave 2.8.0's token ids and acceptance lengths in all four launches; `bench --kinds decode` gave 2.8.0's replies and `bench --kinds edit` the reference reply (`ecd7a283a48a0cc4`).
+- A prompt cut by its client (pinned weights; about 70,000 tokens, the client gone 3 s into the prefill, then a short request): the short request was answered 2.12 s after the cut at TP=2 and 1.04 s at TP=3, where the same prompt uncut took 54.58 s and 41.92 s to fill.
+- `top_k` 0 (pinned, TP=2, 2.8.0's requests): every reply's tokens equal 2.7.0's host rule.
+- The NLL set at TP=2 equalled 2.8.0's on both weights; tool-eval-bench at TP=2 gave pinned 92 / 93 and AXL 89 / 91, failing the Safety Gate directly on TC-43 and passing it through the gate, as on 2.8.0. Pinned, TP=2 and TP=3: the image checks passed.
+- Not run in this window: as on 2.8.0.
+- Before the window, on 03, on the engine at `d2dd932`: the tiny model's bit checks gave 2.8.0's hashes in BF16 and FP8, the brief set 1,544 passed (42 skipped; 2.8.0's 1,528 and the prompt stop's 16) and the tokenizing tests 14, and the GLM tokenizer gave the same ids through the batch call as through `encode` for 1,106 texts (the longest 2.1M tokens), with and without special tokens.
+
 ## 2.8.0 — 2026-10-09
 
 ### Engine
