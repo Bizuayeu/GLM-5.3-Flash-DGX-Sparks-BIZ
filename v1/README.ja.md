@@ -163,7 +163,7 @@ fixtureは元の幅・experts・選択したtensor bytesを保持しますが、
 
 ### DGX Spark向けの他のGLM-5.3-Flashレシピ
 
-同じモデルを同じ級の機体で動かす公開レシピが複数あり、エンジン・量子化・割り切りがそれぞれ違います。選ぶ前に比べる価値があります。各レシピのリンク、2026-09-18〜10-03に確認したライセンス、本リポジトリが取り込んだものは、この表が正典です。他の文書は名前とPR番号だけで引用します。コードを取り込んだものの表示は[第三者表示](../THIRD_PARTY_NOTICES.md)にあります。
+同じモデルを同じ級の機体で動かす公開レシピが複数あり、エンジン・量子化・割り切りがそれぞれ違います。選ぶ前に比べる価値があります。各レシピのリンク、2026-09-18〜10-11に確認したライセンス、本リポジトリが取り込んだものは、この表が正典です。他の文書は名前とPR番号だけで引用します。コードを取り込んだものの表示は[第三者表示](../THIRD_PARTY_NOTICES.md)にあります。
 
 | レシピ | ライセンス | 本リポジトリが取り込んだもの |
 |---|---|---|
@@ -180,6 +180,7 @@ fixtureは元の幅・experts・選択したtensor bytesを保持しますが、
 | [kindlingai/glm-5.3-flash-gx10](https://github.com/kindlingai/glm-5.3-flash-gx10) | なし（ライセンスファイルなし。一部のファイルにApache-2.0のヘッダ） | コードは採用しない。機構と測定：RecoverSSM（要求ごとにKDAの再帰状態を1本、[施策台帳P30](docs/optimization-catalog.ja.md#性能施策一覧)）の動機と測定、shm_broadcastのspin待ちの観察、3台で1M tokenを通した測定（issue #52）、TP=3で長いprefillの閾値をKDAのblockの倍数にすること |
 | [jetnet/glm53-flash-nvfp4-tp3](https://github.com/jetnet/glm53-flash-nvfp4-tp3) | MIT | コードは採用しない。NVIDIAのcheckpointでのTP=3の設定と、token・rankあたりのKVのbyte数の実測を[施策台帳P28](docs/optimization-catalog.ja.md#性能施策一覧)の参照として |
 | [coolbho3k/GLM-5.3-Flash-NVFP4-DFlash2-2x-DGX-Spark](https://github.com/coolbho3k/GLM-5.3-Flash-NVFP4-DFlash2-2x-DGX-Spark) | なし | コードは採用しない。decode context parallel（DCP2：MLAのKVを系列方向に分ける。論理約4.6〜4.7M tokenと報告）を、KVを全rankに持つ形の代わりとして[施策台帳P28](docs/optimization-catalog.ja.md#性能施策一覧)の参照に |
+| [Enntity/sparkglm](https://github.com/Enntity/sparkglm)（自前のエンジン[Atlas](https://github.com/Enntity/atlas)） | AGPL-3.0 | コードは採用しない。同じNVIDIAのcheckpointと同じ2台のSparkを自前のエンジンで動かすレシピで、投機decode（DFlash2）を使い、prefillはrow-invariantでないと作者自身が記している。参照点：MoEのdecodeのpersistentなkernel（SMごとに1 CTA、次のexpertのtileを先読み、従来のkernelとbit一致）、KVの2台への分割、diskのprefix cache、表示用carveoutのKV cacheへの転用、複数のpromptを交互に回す1 streamのdecodeの測り方。測定は別のエンジンと別の契約によるもので、本リポジトリの値とは比べない |
 
 ## 免責事項
 
