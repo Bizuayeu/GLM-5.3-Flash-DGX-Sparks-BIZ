@@ -11,7 +11,7 @@
 ## Summary
 
 - **What it is.** Build steps, launch scripts and acceptance checks that serve the pinned checkpoint through a pinned TensorFold commit as one OpenAI-compatible endpoint: two hosts at TP=2 over a direct ConnectX-7 link, or three at TP=3 in a switchless ring. The published measurements come from MSI EdgeXpert (MS-C931) systems.
-- **Status.** 2.0.0 was accepted on the reference hosts on 2026-10-04 against the reference values of [validation](docs/validation.md), at both TP sizes ([measured on the release](#measured-on-the-release)). Each later image was accepted against the same reference values, at the TP sizes and with the checks its [changelog](CHANGELOG.md) section names; the current one, 2.9.0's, at TP=2 and TP=3 with image input on, on the pinned checkpoint and on the published AXL weights ([measured on the release](#measured-on-the-release)). That is the scope of the claim; other hosts are qualified by running the same checks.
+- **Status.** 2.0.0 was accepted on the reference hosts on 2026-10-04 against the reference values of [validation](docs/validation.md), at both TP sizes ([measured on the release](#measured-on-the-release)). Each later image was accepted against the same reference values, at the TP sizes and with the checks its [changelog](CHANGELOG.md) section names; the current one, 2.9.1's, at TP=2 and TP=3 with image input on, on the pinned checkpoint and on the published AXL weights, with the hosts on DGX OS 7.6.0 ([measured on the release](#measured-on-the-release), [host preparation](../docs/hosts.md)). That is the scope of the claim; other hosts are qualified by running the same checks.
 - **Repeatable by contract.** Drafted replies equal serial ones, a resumed prompt equals a fresh one, and the result does not depend on how the prompt is chunked. These are the engine's contract, where 1.x buys repeatability with switches on vLLM ([differences from 1.x](#differences-from-1x)).
 - **Precision.** W4A16 for the routed experts and the dense MLP, BF16 elsewhere, FP8 KV; the published AXL weights, an option, also take the attention projections and the head to W4A16. NVIDIA's model card measured its checkpoint under another recipe on other hardware, so its accuracy table does not describe this serving; [validation](docs/validation.md) gives the numbers that do.
 - **Licensing.** Apache-2.0 code and engine, MIT weights that the operator downloads, nothing non-commercial in the serving path ([licensing at a glance](../README.md#licensing-at-a-glance)).
@@ -21,14 +21,14 @@
 
 - **Weights**: `nvidia/GLM-5.3-Flash-NVFP4` at revision `423acf37583782c51c142d145aef733d72943d93`, the same as 1.x, derived from [Z.ai's GLM-5.3-Flash](https://huggingface.co/zai-org/GLM-5.3-Flash). The routed experts and the dense MLP run as W4A16 from the checkpoint's NVFP4 blocks; attention, the shared experts and the head stay BF16. One exception, inside the engine: the MTP layer's routed experts are BF16 in the checkpoint and are quantized to NVFP4 for drafting only. Every drafted token is verified by the full model, so replies are unchanged. This checkpoint is the default. The option is the published AXL weights (NVFP4 BIZ AXL, the published option of [1.x](../v1/README.md)): `Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16` at revision `bbad98c8f380588c16a2326bf5a2ab7344190b07` ([`config/axl.lock.json`](config/axl.lock.json)), the attention projections and `lm_head` repacked to W4A16 NVFP4 and everything else as in the pinned checkpoint; the rank file's `CHECKPOINT` chooses it ([configuration](#configuration)).
 - **Engine**: the BIZ release of TensorFold, published as the branch `release/2.9.0` of [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold): TensorFold v0.6.5 with the GLM NVFP4 loader, which also loads W4A16 NVFP4 attention and head (the published AXL weights, by their tensors), FP8 latent KV, the TP=3 split, prefill work that leaves the bits unchanged (among it a prompt chunk's pool scores taking one row and 32 pool blocks a program, after MiaAI-Lab's patch 0086), a prefill that waits for heat between chunks, image input from upstream pull request #194, carried to three ranks, and decode work that leaves the tokens unchanged: copy drafts (no cut after a miss), KDA decode windows on the three-kernel chain, per-shape tiles for the BF16 decode matmuls, and no unread copy of the DSA key and value rows. From upstream and its recipes it carries pull requests #301 (a stopped request ends on every rank within a round), #421 (a new conversation no longer copies and drops the kept prompts first), #285 (a GLM tool call whose end token arrived before `</tool_call>` is sent when it parses whole) and #294 (the open-file limit raised at start), a quoted `<|image|>` kept as text beside a real picture (after MiaAI-Lab's patch 0080), OpenAI's `include` values accepted by `/v1/responses` (after its patch 0093), a guard that closes a think block collapsed into repeating itself, off by default (`TF_GLM_LOOP_GUARD`, from its patch 0091), a prompt whose client left stopped after the chunk being filled on every rank (after its patch 0109) and tokenizing with Python's GIL released (after its patch 0099); TR3's checkpoint is named as brandonmusic's ([decisions](docs/decisions.md)). The image pins one commit of it ([`TENSORFOLD_REF`](docker/Dockerfile)).
-- **Image**: [`docker/Dockerfile`](docker/Dockerfile), NVIDIA's PyTorch container 26.07 plus the measured package versions (transformers 5.18.0, xgrammar 0.2.8 for structured output, the Hugging Face hub client) and the engine.
+- **Image**: [`docker/Dockerfile`](docker/Dockerfile), NVIDIA's PyTorch container 26.09 plus the measured package versions (transformers 5.18.0, xgrammar 0.2.8 for structured output, the Hugging Face hub client, Triton 3.7.1 in place of the base's 3.8.0) and the engine.
 - **Launch**: shell scripts in [`scripts/`](scripts/) and one environment file per rank ([`examples/`](examples/) holds the reference hosts' files). [SETUP.md](SETUP.md) is the order.
 
 ## Requirements
 
 - **Hosts**: two or three DGX Spark or compatible GB10 systems (Linux ARM64, 128 GB unified memory each) with nothing else large on their GPUs. A 1.x server on the same hosts is stopped first.
 - **Fabric**: ConnectX-7 links with RoCE v2, a direct cable for the pair or a switchless ring for three hosts ([three hosts in a ring](../docs/qsfp-network.md#8-three-hosts-in-a-ring)). Both rails of each port are used.
-- **Host kernel**: as in 1.x; the default of current DGX OS updates can break multi-node RoCE ([host kernel and multi-node RoCE](../docs/hosts.md#host-kernel-and-multi-node-roce)).
+- **Host kernel**: as in 1.x; the kernel current DGX OS updates install can break multi-node RoCE by default, and the reference hosts boot it with `kho=off` ([host kernel and multi-node RoCE](../docs/hosts.md#host-kernel-and-multi-node-roce)).
 - **GPU clock** capped on every host, as in 1.x ([GPU clock cap](../docs/hosts.md#gpu-clock-cap)); [`host/`](../host/README.md) installs the cap and a telemetry logger. Every 2.x figure was measured under the cap.
 - **Docker** with NVIDIA's GPU runtime and the RDMA devices (`create_container.sh` refuses a host without `/dev/infiniband`, where NCCL would fall back to sockets).
 - **Disk**: the whole checkpoint on every host, as in 1.x ([what you deploy](../v1/README.md#what-you-deploy-and-supported-hardware)), plus the image; the published AXL weights too where they serve.
@@ -45,8 +45,8 @@ python -m glm53_tf download --background
 python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum --wait
 
 # Each host, from the checkout root (SETUP §3-§5); build once and `docker load` it elsewhere, then compare image IDs
-docker build -f v2/docker/Dockerfile -t glm53-tf:2.9.0 .
-v2/scripts/create_container.sh glm53-tf:2.9.0
+docker build -f v2/docker/Dockerfile -t glm53-tf:2.9.1 .
+v2/scripts/create_container.sh glm53-tf:2.9.1
 cp v2/examples/tp2-rank0.env ~/glm53-tf/rank.env      # tp2-rank1 on the other host; then put this host's values
 docker exec glm53-tf bash /opt/glm53-tf/build_ext.sh
 
@@ -147,6 +147,24 @@ The NLL check also uses **`/v1/models`** (the model it scores) and **`/v1/comple
 Why each 2.x setting was chosen, and what was tried and not adopted, is in [decisions](docs/decisions.md).
 
 ## Measured on the Release
+
+**2.9.1** (2026-10-15, engine `d2dd932`, image `glm53-tf:2.9.1`). NVIDIA's PyTorch container 26.09 with Triton kept at 3.7.1, on hosts updated to DGX OS 7.6.0 (kernel `7.0.0-1019-nvidia` with `kho=off`, driver 580.178.04); the engine is 2.9.0's ([decisions](docs/decisions.md)). On both weights at both TP sizes with image input on, the decode check gave 2.9.0's token ids and `bench --kinds edit` the reference reply; at TP=2 the NLL set and tool-eval-bench equalled 2.9.0's, and on the pinned weights at both TP sizes the image checks passed.
+
+| 2.9.1, image input on | Pinned, TP=2 | AXL, TP=2 | Pinned, TP=3 | AXL, TP=3 |
+|---|---|---|---|---|
+| Decode check count / prose / code (tok/s) | 43.94 / 27.53 / 36.05 | 57.83 / 37.85 / 45.32 | 59.23 / 38.19 / 48.84 | 73.32 / 49.97 / 60.87 |
+| MTP acceptance length, same tasks | 3.961 / 2.098 / 3.180 | 3.813 / 2.004 / 2.893 | 4.056 / 2.222 / 3.234 | 3.631 / 2.060 / 2.994 |
+| `bench --kinds decode`, 2.5.0's request (tok/s, median) | 43.03 | 57.79 | 57.17 | 78.01 |
+| `bench --kinds edit` (tok/s, median) | 58.23 | 75.04 | 77.00 | 98.24 |
+| A prompt cut 3 s into its prefill: the next request answered after (s), against the same prompt's uncut fill | 2.09 against 49.52 (66,846 tokens) | — | 1.08 against 43.31 (72,848 tokens) | — |
+| Prefill of 38,960 tokens (s, two prompts) | 28.93 / 67.03 (the second with heat waits, below) | — | 24.30 / 22.91 | — |
+| Rank 0's startup estimate (GiB) | 101.35 | 96.71 | 81.93 | 78.68 |
+| Teacher-forced NLL, ja / en / code / math | 2.5474 / 2.9257 / 1.3184 / 0.6250 | 2.5556 / 2.9438 / 1.3334 / 0.6474 | — | — |
+| tool-eval-bench, directly / through the tool-argument gate | 92 / 93 | 89 / 91 | — | — |
+
+- **Against 2.9.0.** The same token ids in the decode check, the same replies in `bench --kinds decode` and `bench --kinds edit`, at TP=2 the same NLL and the same tool-eval-bench scores and outcome, and `top_k` 0's tokens still the host rule (37.48 and 24.12 tok/s). The decode check, `bench --kinds decode` and edits within +0.8% to +3.7%. One launch each, after the hosts' update.
+- **Heat waits in the second prompt at TP=2.** It waited 19 times between chunks, 38 s in all, on `TF_GLM_HEAT_CEILING`: the room was warm, and the look-ahead counted the zone's climb back after a rest as a chunk's rise ([decisions](docs/decisions.md#heat)). The same image's earlier launch that day, without waits, took 30.24 / 28.92 s.
+- **Not measured on this release** (`—`): as on 2.9.0, whose results stand for this engine on the default path.
 
 **2.9.0** (2026-10-11, engine `d2dd932`, image `glm53-tf:2.9.0`). A prompt whose client left stops after the chunk being filled, on every rank, and the server tokenizes with Python's GIL released; the engine is otherwise 2.8.0's ([decisions](docs/decisions.md)). On both weights at both TP sizes with image input on, the decode check gave 2.8.0's token ids and `bench --kinds edit` the reference reply; at TP=2 the NLL set and tool-eval-bench equalled 2.8.0's, and on the pinned weights at both TP sizes the image checks passed.
 

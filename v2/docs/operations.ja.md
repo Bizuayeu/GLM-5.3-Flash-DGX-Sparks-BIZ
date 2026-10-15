@@ -53,7 +53,7 @@ rankどうしはTCPのsocketではなくRoCEで話す必要があります：
 
 ```sh
 docker rm -f glm53-tf                                  # containerは起動の合間は眠っているだけ
-v2/scripts/create_container.sh glm53-tf:2.9.0
+v2/scripts/create_container.sh glm53-tf:2.9.1
 docker exec glm53-tf bash /opt/glm53-tf/build_ext.sh
 ```
 

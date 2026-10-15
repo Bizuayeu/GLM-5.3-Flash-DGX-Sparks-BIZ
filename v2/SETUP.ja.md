@@ -44,16 +44,16 @@ python -m glm53_tf verify-download --checkpoint axl --hf .venv/bin/hf --output .
 GB10のホスト（linux/arm64）の一台で、checkoutのルートからbuildします。
 
 ```sh
-docker build -f v2/docker/Dockerfile -t glm53-tf:2.9.0 .
-docker image inspect --format '{{.Id}}' glm53-tf:2.9.0
+docker build -f v2/docker/Dockerfile -t glm53-tf:2.9.1 .
+docker image inspect --format '{{.Id}}' glm53-tf:2.9.1
 ```
 
-Dockerfileはエンジンを一つのcommit（`TENSORFOLD_REF`）に固定し、完全なSHAでなければbuildを拒みます。imageを他のホストへ写すか（リンク越しに `docker save glm53-tf:2.9.0 | ssh <host> docker load`）そこでbuildし、全ホストのimage IDを比べます。一致していなければなりません。base imageはdigestで固定しています：`nvcr.io/nvidia/pytorch@sha256:2140e699b3beaf7f96a0081fd9c9406bc3832b435cdb60dfa2d261f7d2f34a1c`（測定したときの `nvcr.io/nvidia/pytorch:26.07-py3`）。tagが動いても変わりません。imageのtagは、imageに写るファイル（Dockerfile・`serve.sh`・`build_ext.sh`・ライセンスのファイル）を最後に変えた版の名前です。文書やホスト側の道具だけを変える版では、tagはそのままです。
+Dockerfileはエンジンを一つのcommit（`TENSORFOLD_REF`）に固定し、完全なSHAでなければbuildを拒みます。imageを他のホストへ写すか（リンク越しに `docker save glm53-tf:2.9.1 | ssh <host> docker load`）そこでbuildし、全ホストのimage IDを比べます。一致していなければなりません。base imageはdigestで固定しています：`nvcr.io/nvidia/pytorch@sha256:6e8ccc607fc2a51e3741667b86316a0889418ba8b78ed0ba96e8d282b648a7a6`（測定したときの `nvcr.io/nvidia/pytorch:26.09-py3` のindex）。tagが動いても変わりません。Tritonはbaseの3.8.0ではなく3.7.1に固定しています。3.8.0ではエンジンの和が変わります。imageのtagは、imageに写るファイル（Dockerfile・`serve.sh`・`build_ext.sh`・ライセンスのファイル）を最後に変えた版の名前です。文書やホスト側の道具だけを変える版では、tagはそのままです。
 
 ## 4. 各ホストのcontainerとrankのファイル
 
 ```sh
-v2/scripts/create_container.sh glm53-tf:2.9.0        # container glm53-tf、~/glm53-tf を /work に
+v2/scripts/create_container.sh glm53-tf:2.9.1        # container glm53-tf、~/glm53-tf を /work に
 cp v2/examples/tp3-rank0.env ~/glm53-tf/rank.env      # このホストのrank：tp2-rank0/1 か tp3-rank0/1/2
 ```
 

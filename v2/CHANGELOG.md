@@ -4,6 +4,25 @@
 
 The 2.x line, served by TensorFold. A `v2.*` tag publishes its section from this file. The 1.x line's history is in [v1/CHANGELOG.md](../v1/CHANGELOG.md).
 
+## 2.9.1 — 2026-10-15
+
+### Changed
+
+- The image moves to NVIDIA's PyTorch container 26.09-py3, pinned by its index digest (`nvcr.io/nvidia/pytorch@sha256:6e8ccc607fc2a51e3741667b86316a0889418ba8b78ed0ba96e8d282b648a7a6`): PyTorch 2.14.0a0 and CUDA 13.4, where 26.07 had 2.13.0a0 and 13.3. Triton stays at 3.7.1, the version 2.0.0 to 2.9.0 ran, in place of the base's 3.8.0: with 3.8.0 the engine's sums change (the tiny model's bit checks gave other hashes for 26 of 48 states and one other token), and with 3.7.1 on the new base every hash is 2.9.0's ([decisions](docs/decisions.md)). The engine is 2.9.0's, `release/2.9.0` at `d2dd932a2da15478b85d4b0bd5f60a4bae61599c`.
+- The reference hosts run DGX OS 7.6.0: kernel `7.0.0-1019-nvidia` booted with `kho=off`, driver 580.178.04 ([host preparation](../docs/hosts.md)). 2.9.0 and earlier were measured on `6.17.0-1032-nvidia` with 580.173.02.
+
+The image is `glm53-tf:2.9.1` (linux/arm64 `sha256:b5ad2aff993b211edcb1792bd3a6579823819aab506e967ebad247551a58cc9f`).
+
+### Accepted
+
+On the reference hosts on 2026-10-15, on the new kernel and driver, with image input on, with the release candidate image (linux/arm64 `sha256:b5ad2aff993b211edcb1792bd3a6579823819aab506e967ebad247551a58cc9f`, the same on the three hosts), on the pinned weights and on AXL, at TP=2 and TP=3:
+
+- The decode check gave 2.9.0's token ids and acceptance lengths in all four launches; `bench --kinds decode` gave 2.9.0's replies and `bench --kinds edit` the reference reply (`ecd7a283a48a0cc4`).
+- The NLL set at TP=2 equalled 2.9.0's on both weights; tool-eval-bench at TP=2 gave pinned 92 / 93 and AXL 89 / 91, failing the Safety Gate directly on TC-43 and passing it through the gate, as on 2.9.0. Pinned, TP=2 and TP=3: the image checks passed. `top_k` 0 (pinned, TP=2): every reply's tokens equal the host rule.
+- A prompt cut by its client 3 s into its prefill: the next request was answered 2.09 s after the cut at TP=2 and 1.08 s at TP=3.
+- Not run in this window: as on 2.9.0.
+- Before the window, on 03, with the engine at `d2dd932`: the tiny model's bit checks gave 2.9.0's hashes in BF16 and FP8, and the brief set 1,544 passed (42 skipped).
+
 ## 2.9.0 — 2026-10-11
 
 ### Engine

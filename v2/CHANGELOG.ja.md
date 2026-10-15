@@ -6,6 +6,25 @@
 
 TensorFoldで配信する2.x系です。`v2.*` のタグはこのファイルの節を公開します。1.x系の履歴は[v1/CHANGELOG.ja.md](../v1/CHANGELOG.ja.md)にあります。
 
+## 2.9.1 — 2026-10-15
+
+### Changed
+
+- imageをNVIDIAのPyTorch container 26.09-py3に移し、indexのdigestで固定します（`nvcr.io/nvidia/pytorch@sha256:6e8ccc607fc2a51e3741667b86316a0889418ba8b78ed0ba96e8d282b648a7a6`）。PyTorch 2.14.0a0とCUDA 13.4です（26.07は2.13.0a0と13.3）。Tritonはbaseの3.8.0ではなく、2.0.0〜2.9.0と同じ3.7.1のままです。3.8.0ではエンジンの和が変わり（小さなモデルのビットの照合で48の状態のうち26が別のhash、tokenが1つ違う）、新しいbaseに3.7.1ではhashがすべて2.9.0と同じでした（[決定の記録](docs/decisions.ja.md)）。エンジンは2.9.0と同じ、`release/2.9.0` の `d2dd932a2da15478b85d4b0bd5f60a4bae61599c` です。
+- 参照機はDGX OS 7.6.0で動いています：カーネル `7.0.0-1019-nvidia` を `kho=off` で起動、ドライバー580.178.04（[ホストの準備](../docs/hosts.ja.md)）。2.9.0までは `6.17.0-1032-nvidia`・580.173.02で測りました。
+
+imageは `glm53-tf:2.9.1`（linux/arm64 `sha256:b5ad2aff993b211edcb1792bd3a6579823819aab506e967ebad247551a58cc9f`）です。
+
+### Accepted
+
+2026-10-15に参照機で、新しいカーネルとドライバーの上で、画像入力を有効にして、リリース候補のimage（linux/arm64 `sha256:b5ad2aff993b211edcb1792bd3a6579823819aab506e967ebad247551a58cc9f`、3台で同じ）で、固定の重みとAXLのそれぞれをTP=2とTP=3で：
+
+- decode検査は4回の起動すべてで2.9.0のtoken idと受理長を出し、`bench --kinds decode` は2.9.0の返答、`bench --kinds edit` は基準の返答（`ecd7a283a48a0cc4`）。
+- TP=2のNLLの組は両方の重みで2.9.0と同じ。TP=2のtool-eval-benchは固定の重みが92／93、AXLが89／91で、直ではTC-43でSafety Gateを通らず、ゲート越しでは通過（2.9.0と同じ）。固定の重み、TP=2とTP=3：画像の検査はすべて合格。`top_k` 0（固定の重み、TP=2）：どの返答のtokenもhostの規則と同じ。
+- prefillの3秒でclientが切ったprompt：次の要求は、切ってからTP=2で2.09秒、TP=3で1.08秒で返った。
+- この窓では回していないもの：2.9.0と同じ。
+- 窓の前に03で、`d2dd932` のエンジンで：小さなモデルのビットの照合はBF16とFP8とも2.9.0と同じhash、briefの一式は1,544 passed（42 skipped）。
+
 ## 2.9.0 — 2026-10-11
 
 ### Engine

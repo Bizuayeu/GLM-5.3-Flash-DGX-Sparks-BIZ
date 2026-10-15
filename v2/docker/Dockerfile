@@ -1,6 +1,6 @@
 # The 2.x serving image: TensorFold (the BIZ release of the engine, pinned by TENSORFOLD_REF) on NVIDIA's
 # PyTorch container. Build from the checkout root, where the licences are:
-#   docker build -f v2/docker/Dockerfile -t glm53-tf:2.9.0 .
+#   docker build -f v2/docker/Dockerfile -t glm53-tf:2.9.1 .
 # The engine compiles its CUDA extensions on the GPU host into TORCH_EXTENSIONS_DIR (scripts/build_ext.sh).
 # The base by digest, not by tag (a tag can move): NVIDIA's PyTorch container 26.09-py3 (its index digest).
 ARG BASE_IMAGE=nvcr.io/nvidia/pytorch@sha256:6e8ccc607fc2a51e3741667b86316a0889418ba8b78ed0ba96e8d282b648a7a6

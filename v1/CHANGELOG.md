@@ -2,6 +2,15 @@
 
 [日本語](CHANGELOG.ja.md) (this English file is canonical and the GitHub Release is made from it)
 
+## 1.31.1 — 2026-10-15
+
+### Documentation
+
+- [Host preparation](../docs/hosts.md): since 2026-10-14 the reference hosts run DGX OS 7.6.0, kernel `7.0.0-1019-nvidia` booted with `kho=off` (NVIDIA's `nvidia-spark-grub-kho` package) and driver 580.178.04, and the page no longer offers holding `6.17.0-1032-nvidia`. On the new state 1.x's vLLM at TP=2, with MTP, filled prompts of 1,024 to 32,768 tokens in 0.93 to 1.00 of the times on the earlier kernel, and decoded 0.5% to 2.3% faster, with and without MTP. The page also says what the reference hosts saw of the reported host freeze: none, and `_memdescAlloc` lines only under memory pressure. [Setup](SETUP.md)'s kernel note before step 5 follows it.
+- [README](README.md#other-glm-53-flash-recipes-for-dgx-spark-systems): the table of other recipes adds Enntity/sparkglm, on the same checkpoint and pair of Sparks with its own engine (Atlas, AGPL-3.0); no code is taken. Licenses read through 2026-10-11.
+
+No file of the reference image changes; it stays 1.31.0's.
+
 ## 1.31.0 — 2026-10-09
 
 ### Changed

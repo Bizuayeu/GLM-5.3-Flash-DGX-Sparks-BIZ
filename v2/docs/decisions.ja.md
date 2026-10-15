@@ -16,6 +16,8 @@
 | #294の時機に左右される試験をforkで直す | 2026-10-08 | 上流の試験は時機によって落ちることがあった：試験のserverが受けたsocketをworkerのthreadで閉じ、それが試験のsqueezeと次のacceptの間に入ることがあった。forkの試験はその場で閉じる | — |
 | loop guardを入れ、既定では無効にする（`TF_GLM_LOOP_GUARD`）：`1` にすると、rank 0は、16 token以下の完全な周期が256 token続くか、直近256 tokenの半分を一つのtokenが占めるかで潰れた思考のblockを、思考の予算が閉じるのと同じ形で閉じ、応答の `tensorfold` blockに `loop_guard` として数える。MiaAI-Labのpatch 0091を取り込み、試験は書き直した | 2026-10-09 | 無効ならgateは作られず、どの要求も変わらない。配信の負荷でまだ測っていないので無効のままにする | 配信の負荷で測る |
 | serverは、全文のあいだGILを握る `encode` の代わりに、PythonのGILを放すtokenizerのbatchの呼び出し（`encode_batch_fast`）でtokenizeする。MiaAI-Labのpatch 0099に倣う | 2026-10-11 | 長い要求のtokenizeが、取り消しのpollを含むserverの他のthreadを止めなくなる。GLMのtokenizerは1,106の文（最長2.1M token）で、special tokenの有無とも同じidを出した。画像のpromptは画像のprocessorでtokenizeするので変わらない | — |
+| imageをNVIDIAのPyTorch container 26.09-py3（PyTorch 2.14.0a0、CUDA 13.4）に載せ、Tritonは2.0.0〜2.9.0と同じ3.7.1に固定する | 2026-10-15 | 新しいbaseに3.7.1で、小さなmodelのbit検査（BF16とFP8 KV）は2.9.0の48のhashと同じ、briefの試験は1,544通過（42 skip）。PyTorch・CUDA・`nvcc`・baseの低精度の既定値はどのbitも変えなかった。続く受け入れの窓も2.9.0と同じ結果（[変更履歴](../CHANGELOG.ja.md)） | PyTorchかCUDAがbitを変えるbase |
+| 26.09-py3が入れるTriton 3.8.0 | 採らない 2026-10-15 | エンジンの和が変わる。2.9.0のimageでTritonだけを3.8.0にすると、bit検査は48の状態のうち26で別のhash（MTPの層の状態はほぼ全部の組、KVの1層目とindexのcacheは大半、一部のrecurrentとconvの状態）、tokenは1つ違った（FP8 KV・NVFP4のserialのgreedyの応答の8個目、102→324）。許容の幅で見るbriefの試験は通った。エンジンは3.8.0で挙動が変わったもの（`dot_scaled`・`fdiv`・block pointer・tensor descriptor）を使わず、`tl.dot` の累積はすべてfp32、`ptxas` も同じなので、違いはcompilerが出すPTXにある。どのkernelかは絞っていない | bitが変わる版として、NLLの組・tool-eval・速さを3.7.1と比べて採るとき |
 
 ## 精度とメモリ
 
@@ -80,6 +82,7 @@
 | prefillはchunkの合間に92 °Cで待ち、88 °Cまで、全rankそろって | 2026-10-04 | 待ちが無いと、TP=3の1M tokenのpromptは6分半で熱の見張りの94 °Cに達した。待ちがあるとpromptは最後まで走った（[熱](../README.ja.md#リリースでの測定値)）。chunkごとに最高温度を交換する費用は38,960 tokenのprefillの約0.2%。92 °Cは停止の2 °C下（頂上付近の上がり方は1分に0.5〜1 °C、chunkは数秒）。88 °Cはprefillが速くなる前の1Mのprefillが保った88.8〜89.6 °Cの下 | 上流のZig版のエンジンがGLMを配信する。上流はそこでissue #339の設計に倣うと返事した（[Next Action](../README.ja.md#next-action)）。帯はrankのファイルで変えられる |
 | 待ちは1 chunk先も見込む：chunkの前に、最高温度に直前のchunkの上がり幅を足した値を93 °C以内に保ち（`TF_GLM_HEAT_CEILING`）、待ちもその値に収まるまで解かない | 2026-10-07 | 1M tokenのpromptの終わり近くでは、chunkの合間の確認の後にchunk一つで約7 °C上がる：92 °Cでは1台が1回94.3 °Cを読んだ（2.2.0）。見込みありでは最も熱い機の最高が92.6 °C、TP=3のそのpromptの待ちは350.3 s（前は64.1 s）、待ちを除いたprefillは同じ。代わりに帯を86 °C／82 °Cに下げると最高93.0 °Cだが待ちは436.4 s、温まった機では38,960 tokenのpromptも待った | ホストが94 °Cを2回続けて読む、またはchunkの中での確認 |
 | 待ちの作り | 2026-10-04 | 各chunkの前に1語を単独でgatherする（既存の交換には相乗りしない。その結果はhostが読まない）。熱の見張りと冷却gateと同じくACPIのzoneだけを読む（どの記録でもGPUは約9 °C低い）。待ちに上限を置かない（熱い部屋は要求を止め、熱の見張りが最後の守りのまま）。両方の帯を設定しない限り切れている（上流の既定は変わらない） | — |
+| 1 chunk先の見込みは、休んだ後に区域の温度が戻る分をchunkの上昇と数える | 2026-10-15に判明 | 最高温度の区域は、GPUが休むと2秒で約15 °C下がり、負荷がかかると同じ速さで戻る。待ちの後や、promptの前の間の後に始まったchunkはその戻りの分も上がり、次のchunkの前の確かめはそれを負荷中の読みに足していた。暖かい午後、TP=2で38,960 tokenのpromptを2本続けると、2本目は最初のchunkの後のすべてのchunkの前で待った（19回、38秒）。続けて流したchunkの間の上昇は1 °C未満。2.9.1（2.9.0のエンジン）ではこのまま。直しは、続けて流したchunkの間の上昇でchunkを判断し、毎chunk待つべき所では待ちの長さを前と同じに保つ | 直しをエンジンのリリースに載せる前に測る：既定の帯で短い休みの後に流すprompt、1M tokenのprompt |
 
 ## decode
 

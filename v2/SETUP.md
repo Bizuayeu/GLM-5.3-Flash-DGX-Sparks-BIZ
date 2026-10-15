@@ -44,16 +44,16 @@ Before copying, check that the model's folder holds the files, for example by it
 Build on one of the GB10 hosts (linux/arm64), from the checkout root:
 
 ```sh
-docker build -f v2/docker/Dockerfile -t glm53-tf:2.9.0 .
-docker image inspect --format '{{.Id}}' glm53-tf:2.9.0
+docker build -f v2/docker/Dockerfile -t glm53-tf:2.9.1 .
+docker image inspect --format '{{.Id}}' glm53-tf:2.9.1
 ```
 
-The Dockerfile pins the engine by one commit (`TENSORFOLD_REF`) and refuses to build without a full SHA. Copy the image to the other hosts (`docker save glm53-tf:2.9.0 | ssh <host> docker load`, over the link) or build it there, then compare the image IDs of every host; they must be equal. The base image is pinned by digest, `nvcr.io/nvidia/pytorch@sha256:2140e699b3beaf7f96a0081fd9c9406bc3832b435cdb60dfa2d261f7d2f34a1c` (`nvcr.io/nvidia/pytorch:26.07-py3` when it was measured), so a moved tag cannot change it. The image's tag names the last version that changed a file the image copies (the Dockerfile, `serve.sh`, `build_ext.sh` and the licence files): a version that changes none of them, such as one for documents or the host-side tools, keeps that tag.
+The Dockerfile pins the engine by one commit (`TENSORFOLD_REF`) and refuses to build without a full SHA. Copy the image to the other hosts (`docker save glm53-tf:2.9.1 | ssh <host> docker load`, over the link) or build it there, then compare the image IDs of every host; they must be equal. The base image is pinned by digest, `nvcr.io/nvidia/pytorch@sha256:6e8ccc607fc2a51e3741667b86316a0889418ba8b78ed0ba96e8d282b648a7a6` (the index of `nvcr.io/nvidia/pytorch:26.09-py3` when it was measured), so a moved tag cannot change it. Triton is pinned at 3.7.1 over the base's 3.8.0, which changes the engine's sums. The image's tag names the last version that changed a file the image copies (the Dockerfile, `serve.sh`, `build_ext.sh` and the licence files): a version that changes none of them, such as one for documents or the host-side tools, keeps that tag.
 
 ## 4. Container and rank file on each host
 
 ```sh
-v2/scripts/create_container.sh glm53-tf:2.9.0        # container glm53-tf, ~/glm53-tf at /work
+v2/scripts/create_container.sh glm53-tf:2.9.1        # container glm53-tf, ~/glm53-tf at /work
 cp v2/examples/tp3-rank0.env ~/glm53-tf/rank.env      # this host's rank: tp2-rank0/1 or tp3-rank0/1/2
 ```
 
