@@ -6,6 +6,29 @@
 
 TensorFoldで配信する2.x系です。`v2.*` のタグはこのファイルの節を公開します。1.x系の履歴は[v1/CHANGELOG.ja.md](../v1/CHANGELOG.ja.md)にあります。
 
+## 2.9.2 — 2026-10-15
+
+### Engine
+
+- imageは [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold) のbranch `release/2.9.2` の `7bf0aa3e4ec2b8f7e774e1d3d7985336b41410dc` からTensorFoldを作ります（[`TENSORFOLD_REF`](docker/Dockerfile)）。2.9.1のエンジンに次の1つを足したものです：
+  - prefillの熱の待ちの見込み（`TF_GLM_HEAT_CEILING`）が、次のchunkを、続けて流したchunkの直前の上がり幅で判断します（待ちとpromptをまたいで持ち越し）。2.9.1は直前のchunkの上がり幅を使っていました。休み（待ち、またはpromptの前の間）の後に始まったchunkは数秒の冷えの分（約15 °C）も戻り、2.9.1はその戻りを数えたので、promptが一度待つと以後のchunkの前で毎回待ちました。待ちの終わりは今まで通り、2つの上がり幅の大きい方で天井以内に収まる所です。待ちはchunkを流す時刻だけを変え、ビットは変えません。リリースの前に、2.9.1のimageに変えた2つのファイルを入れ、2.9.1のエンジンと既定の帯で比べました：TP=2で6秒休んだ後の70,000 tokenのpromptは93.8秒→59.9秒、TP=3の1M tokenのpromptは初token 1,644.1秒→1,337.9秒で、返答は同じでした。そのpromptでは、確かめの時のエンジンの読みが最高93.7 °C（2.9.1のエンジンは92.7 °C）で、熱の見張りは94 °Cを一度も読みませんでした（[決定の記録](docs/decisions.ja.md#熱)）。
+
+imageは `glm53-tf:2.9.2`（linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`）です。
+
+### Documentation
+
+- 配信の既定、[運用](docs/operations.ja.md)、[検証](docs/validation.ja.md)、`serve.sh` のコメントが、見込みを「続けて流した直前のchunkの上がり幅」で説明し、それでもchunkが天井を越えうること（2.4.0の受け入れで1回、2.9.2の1M tokenの確かめで9回、最高93.7 °C）を書きます。
+- [ホストのツール](../host/README.ja.md#長い運転の間)：熱の見張りの記録が、電源断なしに終わった最高の読みを95.0 °C（2026-10-15、94 °C以上が2回、どれも続けてではない）とし、エンジンの熱の待ちはprefillだけで、decodeの熱は見張りに任されることを書きます。
+
+### Accepted
+
+2026-10-15に参照機で、画像入力を有効にして、リリース候補のimage（linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`、3台で同じ）で、固定の重みをTP=2とTP=3で：
+
+- decode検査は両方の起動で2.9.1のtoken idと受理長を出し、`bench --kinds decode` は2.9.1の返答、`bench --kinds edit` は基準の返答（`ecd7a283a48a0cc4`）。画像の検査はすべて合格。
+- 38,960 tokenのpromptを2本続けて、TP=2で30.47／28.93秒（起動の間に熱の待ちなし）、TP=3で23.81／22.95秒（熱の待ちなし）。
+- prefillの3秒でclientが切ったprompt：次の要求は、切ってからTP=2で2.06秒、TP=3で1.07秒で返った。
+- この窓では回していないもの（エンジンのビットが2.9.1と同じため。ここでのdecode検査のidと編集の返答、その前の1M tokenの返答が同じ）：AXL、NLLの組、tool-eval-bench。2.9.1の結果がそのまま当てはまります。
+
 ## 2.9.1 — 2026-10-15
 
 ### Changed

@@ -23,7 +23,8 @@ import time
 
 LOG_DIR = os.environ.get("GB10_TELEMETRY_DIR", "/var/log/gb10-telemetry")
 # The rule used on the reference hosts: two readings in a row at or above 94.0 C. In
-# their records 93.7 C is the highest reading that ended without a power-off.
+# their records 95.0 C (2026-10-15, never twice in a row) is the highest that ended
+# without a power-off.
 THRESHOLD_C = 94.0
 READINGS = 2
 

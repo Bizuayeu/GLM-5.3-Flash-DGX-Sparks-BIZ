@@ -11,7 +11,7 @@
 ## 要約
 
 - **何であるか。** 固定したcheckpointを、固定したTensorFoldのcommitで一つのOpenAI互換endpointとして配信するための、build手順・起動の台本・受け入れ検査です。2台なら直結のConnectX-7リンクでTP=2、3台ならswitchなしのリングでTP=3です。公開している測定値はMSI EdgeXpert（MS-C931）で取りました。
-- **状態。** 2.0.0は2026-10-04に参照機で、[検証](docs/validation.ja.md)の基準値に対して両TPで受け入れました（[リリースでの測定値](#リリースでの測定値)）。以後のimageは、それぞれ[変更履歴](CHANGELOG.ja.md)の節が挙げるTPと検査で、同じ基準値に対して受け入れました。今のimage（2.9.1）はTP=2とTP=3・画像入力の有効で、固定のcheckpointと公開したAXLの重みの両方で、DGX OS 7.6.0のホストで受け入れています（[リリースでの測定値](#リリースでの測定値)、[ホストの準備](../docs/hosts.ja.md)）。主張の範囲はそこまでです。他の機体は同じ検査を回して確かめます。
+- **状態。** 2.0.0は2026-10-04に参照機で、[検証](docs/validation.ja.md)の基準値に対して両TPで受け入れました（[リリースでの測定値](#リリースでの測定値)）。以後のimageは、それぞれ[変更履歴](CHANGELOG.ja.md)の節が挙げるTPと検査で、同じ基準値に対して受け入れました。今のimage（2.9.2）はTP=2とTP=3・画像入力の有効で、固定のcheckpointで、DGX OS 7.6.0のホストで受け入れています。エンジンのビットは2.9.1と同じなので、公開したAXLの重みでの2.9.1の受け入れがそのまま当てはまります（[リリースでの測定値](#リリースでの測定値)、[ホストの準備](../docs/hosts.ja.md)）。主張の範囲はそこまでです。他の機体は同じ検査を回して確かめます。
 - **反復性はエンジンの契約。** draftした応答はserialと同じ、再開したpromptは最初からと同じ、promptのchunkの切り方で結果が変わらない。これはエンジンの契約で、1.x系はvLLMの上でスイッチを入れて反復性を得ています（[1.x系との違い](#1x系との違い)）。
 - **精度。** routed expertとdense MLPはW4A16、他はBF16、KVはFP8です。任意で使う公開したAXLの重みは、attentionのprojectionとheadもW4A16にします。NVIDIAのmodel cardは別のレシピ・別の機材でcheckpointを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
 - **ライセンス。** コードとエンジンはApache-2.0、重みはMITで運用者がダウンロードします。配信の経路に非商用の条件はありません（[ライセンスの早見表](../README.ja.md#ライセンスの早見表)）。
@@ -83,7 +83,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | NCCL | 各リンク2本のrail・4 channel・IBのtransportを明示、rankごとのファイルから | 2本のrail・4 channel・IBのtransportを明示・subnet-aware routing |
 | 画像入力 | 有効：全rankのファイルの `VISION=1` で `--vision` が付く。rank 0が画像のtower（1.05 GiB）を持ち、他の会話の保持promptは3 GiBのうち2.4 GiBになる | 有効。保持promptは3 GiBのまま |
 | rank間のprefillの交換 | エンジンの既定 `split` | 同じ |
-| 熱によるprefillの休止 | chunkの合間に全rankそろって、どれかのrankのACPIの最高温度が92 °Cを超えたら、全rankが88 °C以下になるまで待つ（`TF_GLM_HEAT_HIGH`／`TF_GLM_HEAT_LOW`）。その温度に直前のchunkの上がり幅を足すと93 °Cを越えるときも、越えなくなるまで待つ（`TF_GLM_HEAT_CEILING`） | 同じ |
+| 熱によるprefillの休止 | chunkの合間に全rankそろって、どれかのrankのACPIの最高温度が92 °Cを超えたら、全rankが88 °C以下になるまで待つ（`TF_GLM_HEAT_HIGH`／`TF_GLM_HEAT_LOW`）。その温度に、続けて流した直前のchunkの上がり幅を足すと93 °Cを越えるときも、越えなくなるまで待つ（`TF_GLM_HEAT_CEILING`） | 同じ |
 | 他の会話の保持prompt | エンジンの既定：8本、3 GiB | 同じ |
 
 **effortをhighにする理由。** 固定のchat templateは、effortを指定しない要求を `max` として描きます。`max` では思考がほぼ際限なく続き、応答の上限の大半を使います。1.x系はそうした要求を `high` で処理しており（`api.default_reasoning_effort`）、2.7.0から2.x系も同じです。クライアント自身が指定した `low` や `max` はそのまま優先されます。
@@ -105,7 +105,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | | `REASONING_EFFORT` | `high` | effortを指定しない要求にrank 0が使うeffort（`low`・`medium`・`high`・`xhigh`。空：指定なし＝chat templateの `max`） |
 | | `CHECKPOINT` | `/hub` の下の固定snapshot | container内のcheckpointのdirectory。`/hub/models--Bizuayeu--GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16/snapshots/bbad98c8f380588c16a2326bf5a2ab7344190b07` で公開したAXLの重みを配信します（取得は[手順書 §2](SETUP.ja.md#2-checkoutとcheckpoint)）。全rankで同じ値にします（違えば起動を断ります） |
 | | `TF_GLM_HEAT_HIGH`・`TF_GLM_HEAT_LOW` | `92`・`88`（°C） | prefillの熱の待ち。全rankで同じ値、空にすると待たない |
-| | `TF_GLM_HEAT_CEILING` | `93`（°C） | 待ちの見込み：最高温度に直前のchunkの上がり幅を足した値をこの温度以内に保つ。帯が要る。全rankで同じ値、空にすると見込まない |
+| | `TF_GLM_HEAT_CEILING` | `93`（°C） | 待ちの見込み：最高温度に、続けて流した直前のchunkの上がり幅を足した値をこの温度以内に保つ。帯が要る。全rankで同じ値、空にすると見込まない |
 | | `TF_GLM_CACHE_GIB` | `3`（エンジンの既定） | 窓の残りのうち、他の会話の保持promptに使うrankごとのメモリの上限。全rankで同じ値 |
 | | `TF_GLM_CACHE_ENTRIES` | `8`（エンジンの既定） | 他の会話の保持promptの本数。別の値にしたらdecode検査にも同じ値を渡します（[decode検査](docs/validation.ja.md#decode検査)） |
 | | `TF_GLM_COPY_DRAFTS`、`TF_GLM_KDA_DECODE_WIDE`、`TF_GLM_B16_DECODE_TABLE` | `1`（エンジンの既定） | copy drafts、KDAのdecodeの経路、BF16のdecodeのタイル（[決定の記録](docs/decisions.ja.md)）。`0` でそれぞれを切ります。どちらでもtokenは同じです。全rankで同じ値にします（違えば起動を断ります） |
@@ -147,6 +147,22 @@ NLLの検査は **`/v1/models`**（採点するモデル）と **`/v1/completion
 2.x系の各設定を選んだ理由と、試して採らなかったものは[決定](docs/decisions.ja.md)にあります。
 
 ## リリースでの測定値
+
+**2.9.2**（2026-10-15、エンジン `7bf0aa3`、image `glm53-tf:2.9.2`）。prefillの熱の待ちの見込みが、休んだ後の戻りではなく、続けて流した直前のchunkの上がり幅でchunkを判断します。エンジンはほかは2.9.1と同じです（[決定の記録](docs/decisions.ja.md#熱)）。固定の重み・両TPで画像入力を有効にして、decode検査は2.9.1のtoken idを、`bench --kinds edit` は基準の返答を出し、画像の検査はすべて合格しました。
+
+| 2.9.2、画像入力の有効 | 固定、TP=2 | 固定、TP=3 |
+|---|---|---|
+| decode検査 count／prose／code（tok/s） | 44.04／27.58／36.10 | 59.52／38.34／48.97 |
+| MTPの受理長（同じタスク） | 3.961／2.098／3.180 | 4.056／2.222／3.234 |
+| `bench --kinds decode`、2.5.0の要求（tok/s、中央値） | 42.96 | 57.25 |
+| `bench --kinds edit`（tok/s、中央値） | 58.04 | 77.26 |
+| prefillの3秒で切ったprompt：次の要求が返るまで（s）、同じpromptを切らずに埋めた時間との比べ | 2.06、切らずに52.22（69,847 token） | 1.07、切らずに46.86（78,850 token） |
+| 38,960 tokenのprefill（s、2本） | 30.47／28.93 | 23.81／22.95 |
+| rank 0の起動の見積もり（GiB） | 101.35 | 81.93 |
+
+- **2.9.1との差。** decode検査のtoken id、`bench --kinds decode` と `bench --kinds edit` の返答は同じで、decode検査、`bench --kinds decode` と編集は−0.3〜+0.5%でした（各1回の起動）。TP=2の38,960 tokenのpromptは、1本目が30.47秒（2.9.1は28.93秒、2.9.0と2.9.1のほかの起動は29.99秒と30.24秒）、2本目が28.93秒（2.9.1は熱で19回待って67.03秒）でした。
+- **熱。** 起動の間に、TP=2で熱の待ちなし、TP=3で熱の待ちなし。リリースの前に2.9.1のimageで2.9.1のエンジンと比べると、休んだ後の70,000 tokenのpromptは93.8秒→59.9秒、1M tokenのpromptの初tokenは1,644.1秒→1,337.9秒で、そのときエンジンの読みは最高93.7 °C、熱の見張りは94 °Cを一度も読みませんでした（[決定の記録](docs/decisions.ja.md#熱)）。
+- **このリリースで測っていないもの：** AXL、NLLの組、tool-eval-bench。ビットが2.9.1と同じなので2.9.1の結果が、2.9.1が回していない経路は2.9.0の結果が当てはまります。
 
 **2.9.1**（2026-10-15、エンジン `d2dd932`、image `glm53-tf:2.9.1`）。NVIDIAのPyTorch container 26.09にTritonを3.7.1のまま載せ、ホストはDGX OS 7.6.0（カーネル `7.0.0-1019-nvidia` を `kho=off`、ドライバー580.178.04）へ更新しました。エンジンは2.9.0と同じです（[決定の記録](docs/decisions.ja.md)）。両方の重み・両TPで画像入力を有効にして、decode検査は2.9.0のtoken idを、`bench --kinds edit` は基準の返答を出し、TP=2のNLLの組とtool-eval-benchは2.9.0と同じでした。固定の重みでは両TPで画像の検査がすべて合格しました。
 

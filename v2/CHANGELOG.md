@@ -4,6 +4,29 @@
 
 The 2.x line, served by TensorFold. A `v2.*` tag publishes its section from this file. The 1.x line's history is in [v1/CHANGELOG.md](../v1/CHANGELOG.md).
 
+## 2.9.2 — 2026-10-15
+
+### Engine
+
+- The image builds TensorFold from the branch `release/2.9.2` of [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold) at `7bf0aa3e4ec2b8f7e774e1d3d7985336b41410dc` ([`TENSORFOLD_REF`](docker/Dockerfile)): 2.9.1's engine with one change:
+  - The prefill's heat look-ahead (`TF_GLM_HEAT_CEILING`) judges the next chunk by the last rise of a chunk run straight after another, kept across waits and prompts, where 2.9.1 took the last chunk's rise. A chunk begun after a rest (a wait, or the gap before a prompt) also climbs back the few seconds' cooling, about 15 °C, and 2.9.1 counted that climb: once a prompt waited, it waited before each later chunk. A wait still ends where the larger of the two rises stays within the ceiling; the wait changes when chunks run, never their bits. Measured before the release on 2.9.1's image with the two changed files, against 2.9.1's engine at the default bands: a 70,000-token prompt after a 6 s rest at TP=2 took 59.9 s against 93.8 s, and the 1M-token prompt at TP=3 gave its first token in 1,337.9 s against 1,644.1 s, with the same reply. In that prompt the engine read up to 93.7 °C at a check (2.9.1's engine: 92.7 °C) and the thermal watch never read 94 °C ([decisions](docs/decisions.md#heat)).
+
+The image is `glm53-tf:2.9.2` (linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`).
+
+### Documentation
+
+- The serving defaults, [operations](docs/operations.md), [validation](docs/validation.md) and `serve.sh`'s comments describe the look-ahead by the rise of the last chunk run straight after another, and say that a chunk can still pass the ceiling (once in 2.4.0's acceptance, nine times in 2.9.2's 1M-token check, up to 93.7 °C).
+- [Host tools](../host/README.md#during-long-runs): the thermal watch's record names 95.0 °C (2026-10-15, at or above 94 °C twice, never twice in a row) as the highest reading that ended without a power-off, and says the engine's heat wait covers prefill only, leaving decode's heat to the watch.
+
+### Accepted
+
+On the reference hosts on 2026-10-15 with image input on, with the release candidate image (linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`, the same on the three hosts), on the pinned weights at TP=2 and TP=3:
+
+- The decode check gave 2.9.1's token ids and acceptance lengths in both launches; `bench --kinds decode` gave 2.9.1's replies and `bench --kinds edit` the reference reply (`ecd7a283a48a0cc4`). The image checks passed.
+- Two 38,960-token prompts back to back took 30.47 / 28.93 s at TP=2 with no heat wait in the launch, and 23.81 / 22.95 s at TP=3 with no heat wait.
+- A prompt cut by its client 3 s into its prefill: the next request was answered 2.06 s after the cut at TP=2 and 1.07 s at TP=3.
+- Not run in this window, because the engine's bits are 2.9.1's (the same decode-check ids and edit reply here, the same 1M-token reply before it): AXL, the NLL set and tool-eval-bench. 2.9.1's results stand.
+
 ## 2.9.1 — 2026-10-15
 
 ### Changed

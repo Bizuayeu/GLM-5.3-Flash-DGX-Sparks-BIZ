@@ -96,4 +96,4 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 メモリの見張りのlog（`~/glm53-tf/logs/hostwatch-<label>.log`）に、実行中の各ホストの最低の `MemAvailable` が残ります。基準はTP=3の1Mの要求の最中でrank 0・1が29〜31 GiB、rank 2が35 GiB、TP=2はextensionを先にbuildしてrank 0で約9 GiBです。
 
-熱の待ちは、全rankが `[tensorfold] heat:` の行を出します（待ちの始まりと終わりに1行ずつ、続く間は1分に1行、全rankで同じ）。応答の `tensorfold` ブロックに `heat_wait_s` が載ります。長いpromptが、[熱の見張り](../../host/README.ja.md#長い運転の間)に止められずに（94 ℃以上が2回続かずに）終われば受け入れます。1M tokenのpromptの終わり近くでは、chunkの合間の確認の後にchunk一つで約7 ℃上がるので、待ちは直前のchunkの上がり幅で1 chunk先も見込みます。ほとんど上がらなかったchunkの次のchunkは見込みを越えることがあり（2.4.0の受け入れで1回）、そのときは次の確認で待ちに入ります（[リリースでの測定値](../README.ja.md#リリースでの測定値)）。
+熱の待ちは、全rankが `[tensorfold] heat:` の行を出します（待ちの始まりと終わりに1行ずつ、続く間は1分に1行、全rankで同じ）。応答の `tensorfold` ブロックに `heat_wait_s` が載ります。長いpromptが、[熱の見張り](../../host/README.ja.md#長い運転の間)に止められずに（94 ℃以上が2回続かずに）終われば受け入れます。1M tokenのpromptの終わり近くでは、chunkの合間の確認の後にchunk一つで約7 ℃上がるので、待ちは、続けて流した直前のchunkの上がり幅で1 chunk先も見込みます。chunkは見込みを越えることがあり（ほとんど上がらなかったchunkの次のchunkが2.4.0の受け入れで1回、待ちの2つ後のchunkが2.9.2の1M tokenの確かめで9回、最高93.7 ℃）、そのときは次の確認で待ちに入ります（[リリースでの測定値](../README.ja.md#リリースでの測定値)、[決定の記録](decisions.ja.md#熱)）。

@@ -11,7 +11,7 @@
 ## Summary
 
 - **What it is.** Build steps, launch scripts and acceptance checks that serve the pinned checkpoint through a pinned TensorFold commit as one OpenAI-compatible endpoint: two hosts at TP=2 over a direct ConnectX-7 link, or three at TP=3 in a switchless ring. The published measurements come from MSI EdgeXpert (MS-C931) systems.
-- **Status.** 2.0.0 was accepted on the reference hosts on 2026-10-04 against the reference values of [validation](docs/validation.md), at both TP sizes ([measured on the release](#measured-on-the-release)). Each later image was accepted against the same reference values, at the TP sizes and with the checks its [changelog](CHANGELOG.md) section names; the current one, 2.9.1's, at TP=2 and TP=3 with image input on, on the pinned checkpoint and on the published AXL weights, with the hosts on DGX OS 7.6.0 ([measured on the release](#measured-on-the-release), [host preparation](../docs/hosts.md)). That is the scope of the claim; other hosts are qualified by running the same checks.
+- **Status.** 2.0.0 was accepted on the reference hosts on 2026-10-04 against the reference values of [validation](docs/validation.md), at both TP sizes ([measured on the release](#measured-on-the-release)). Each later image was accepted against the same reference values, at the TP sizes and with the checks its [changelog](CHANGELOG.md) section names; the current one, 2.9.2's, at TP=2 and TP=3 with image input on, on the pinned checkpoint, with the hosts on DGX OS 7.6.0; its engine computes 2.9.1's bits, so 2.9.1's acceptance on the published AXL weights stands ([measured on the release](#measured-on-the-release), [host preparation](../docs/hosts.md)). That is the scope of the claim; other hosts are qualified by running the same checks.
 - **Repeatable by contract.** Drafted replies equal serial ones, a resumed prompt equals a fresh one, and the result does not depend on how the prompt is chunked. These are the engine's contract, where 1.x buys repeatability with switches on vLLM ([differences from 1.x](#differences-from-1x)).
 - **Precision.** W4A16 for the routed experts and the dense MLP, BF16 elsewhere, FP8 KV; the published AXL weights, an option, also take the attention projections and the head to W4A16. NVIDIA's model card measured its checkpoint under another recipe on other hardware, so its accuracy table does not describe this serving; [validation](docs/validation.md) gives the numbers that do.
 - **Licensing.** Apache-2.0 code and engine, MIT weights that the operator downloads, nothing non-commercial in the serving path ([licensing at a glance](../README.md#licensing-at-a-glance)).
@@ -83,7 +83,7 @@ The model thinks before it answers: the reasoning comes back in `reasoning_conte
 | NCCL | two rails per link, four channels, the IB transport named, from each rank's file | two rails, four channels, the IB transport named, subnet-aware routing |
 | Image input | on: `VISION=1` in every rank file adds `--vision`; rank 0 holds the image tower (1.05 GiB), and other conversations' kept prompts get 2.4 GiB of the 3 GiB | on; the kept prompts keep 3 GiB |
 | Prefill exchange between ranks | the engine's default, `split` | same |
-| Prefill pause for heat | between chunks, every rank together, while any rank's hottest ACPI zone is above 92 °C, until all are at or below 88 °C (`TF_GLM_HEAT_HIGH`/`TF_GLM_HEAT_LOW`); also while that zone plus the last chunk's rise would pass 93 °C, until it would not (`TF_GLM_HEAT_CEILING`) | same |
+| Prefill pause for heat | between chunks, every rank together, while any rank's hottest ACPI zone is above 92 °C, until all are at or below 88 °C (`TF_GLM_HEAT_HIGH`/`TF_GLM_HEAT_LOW`); also while that zone plus the rise of the last chunk run straight after another would pass 93 °C, until it would not (`TF_GLM_HEAT_CEILING`) | same |
 | Kept prompts of other conversations | the engine's defaults: 8 entries, 3 GiB | same |
 
 **Why effort high.** The pinned chat template renders a request that names no effort as `max`, where the thinking runs on almost without end and takes most of the reply limit; 1.x serves such a request at `high` (`api.default_reasoning_effort`), and from 2.7.0 2.x does too. A client's own effort, `low` or `max`, still wins.
@@ -105,7 +105,7 @@ Three places set a deployment. Copy the two files from [`examples/`](examples/),
 | | `REASONING_EFFORT` | `high` | rank 0's effort for a request that names none (`low`, `medium`, `high`, `xhigh`; empty: none, the chat template's `max`) |
 | | `CHECKPOINT` | the pinned snapshot under `/hub` | the checkpoint directory inside the container; `/hub/models--Bizuayeu--GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16/snapshots/bbad98c8f380588c16a2326bf5a2ab7344190b07` serves the published AXL weights ([setup §2](SETUP.md#2-checkout-and-checkpoint) downloads them); the same on every rank, or the start is refused |
 | | `TF_GLM_HEAT_HIGH`, `TF_GLM_HEAT_LOW` | `92`, `88` (°C) | the prefill heat wait; the same on every rank, empty for none |
-| | `TF_GLM_HEAT_CEILING` | `93` (°C) | the wait's look-ahead: the hottest zone plus the last chunk's rise stays within it; needs the bands, the same on every rank, empty for none |
+| | `TF_GLM_HEAT_CEILING` | `93` (°C) | the wait's look-ahead: the hottest zone plus the rise of the last chunk run straight after another stays within it; needs the bands, the same on every rank, empty for none |
 | | `TF_GLM_CACHE_GIB` | `3` (the engine's) | the most memory per rank for other conversations' kept prompts, out of what the window leaves; the same on every rank |
 | | `TF_GLM_CACHE_ENTRIES` | `8` (the engine's) | kept prompts of other conversations; the decode check must be told another value ([decode check](docs/validation.md#decode-check)) |
 | | `TF_GLM_COPY_DRAFTS`, `TF_GLM_KDA_DECODE_WIDE`, `TF_GLM_B16_DECODE_TABLE` | `1` (the engine's) | copy drafts, the KDA decode chain and the BF16 decode tiles ([decisions](docs/decisions.md)); `0` turns one off, with the same tokens either way; the same on every rank, or the start is refused |
@@ -147,6 +147,22 @@ The NLL check also uses **`/v1/models`** (the model it scores) and **`/v1/comple
 Why each 2.x setting was chosen, and what was tried and not adopted, is in [decisions](docs/decisions.md).
 
 ## Measured on the Release
+
+**2.9.2** (2026-10-15, engine `7bf0aa3`, image `glm53-tf:2.9.2`). The prefill's heat look-ahead judges a chunk by the rise of the last chunk run straight after another, not by the climb back after a rest; the engine is otherwise 2.9.1's ([decisions](docs/decisions.md#heat)). On the pinned weights at both TP sizes with image input on, the decode check gave 2.9.1's token ids, `bench --kinds edit` the reference reply and the image checks passed.
+
+| 2.9.2, image input on | Pinned, TP=2 | Pinned, TP=3 |
+|---|---|---|
+| Decode check count / prose / code (tok/s) | 44.04 / 27.58 / 36.10 | 59.52 / 38.34 / 48.97 |
+| MTP acceptance length, same tasks | 3.961 / 2.098 / 3.180 | 4.056 / 2.222 / 3.234 |
+| `bench --kinds decode`, 2.5.0's request (tok/s, median) | 42.96 | 57.25 |
+| `bench --kinds edit` (tok/s, median) | 58.04 | 77.26 |
+| A prompt cut 3 s into its prefill: the next request answered after (s), against the same prompt's uncut fill | 2.06 against 52.22 (69,847 tokens) | 1.07 against 46.86 (78,850 tokens) |
+| Prefill of 38,960 tokens (s, two prompts) | 30.47 / 28.93 | 23.81 / 22.95 |
+| Rank 0's startup estimate (GiB) | 101.35 | 81.93 |
+
+- **Against 2.9.1.** The same token ids in the decode check and the same replies in `bench --kinds decode` and `bench --kinds edit`; the decode check, `bench --kinds decode` and edits within −0.3% to +0.5%, one launch each. At TP=2 the first 38,960-token prompt took 30.47 s against 28.93 s (2.9.0's and 2.9.1's other launches: 29.99 and 30.24 s), and the second 28.93 s against 67.03 s, where 2.9.1 waited 19 times on heat.
+- **Heat.** In the launches, no heat wait at TP=2 and no heat wait at TP=3. Before the release, against 2.9.1's engine on its image: 59.9 s against 93.8 s for a 70,000-token prompt after a rest, and a first token in 1,337.9 s against 1,644.1 s for the 1M-token prompt, where the engine read up to 93.7 °C and the thermal watch never 94 °C ([decisions](docs/decisions.md#heat)).
+- **Not measured on this release:** AXL, the NLL set and tool-eval-bench, because the bits are 2.9.1's; 2.9.1's results stand, and 2.9.0's where 2.9.1 did not run.
 
 **2.9.1** (2026-10-15, engine `d2dd932`, image `glm53-tf:2.9.1`). NVIDIA's PyTorch container 26.09 with Triton kept at 3.7.1, on hosts updated to DGX OS 7.6.0 (kernel `7.0.0-1019-nvidia` with `kho=off`, driver 580.178.04); the engine is 2.9.0's ([decisions](docs/decisions.md)). On both weights at both TP sizes with image input on, the decode check gave 2.9.0's token ids and `bench --kinds edit` the reference reply; at TP=2 the NLL set and tool-eval-bench equalled 2.9.0's, and on the pinned weights at both TP sizes the image checks passed.
 
