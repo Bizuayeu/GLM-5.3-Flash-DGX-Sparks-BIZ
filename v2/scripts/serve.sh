@@ -4,7 +4,8 @@
 # when a request names no limit, and the window by TP: 300,000 tokens at TP=2, the largest that fits at TP=3
 # (--context 0; 1,048,576 on the reference ring). The prefill exchange takes the engine's default (split).
 # A prefill waits between chunks while any rank's hottest ACPI zone is above 92 C, or would pass 93 C if the next
-# chunk rose as much as the last one, until all are at or below 88 C and that rise would stay within 93 C
+# chunk rose as much as the last one run straight after another, until all are at or below 88 C and the larger
+# of that rise and the last chunk's own would stay within 93 C
 # (TF_GLM_HEAT_HIGH/LOW/CEILING; the rank file may set other values, the same on every rank, or empty ones for none).
 # A request that names no reasoning effort gets high (REASONING_EFFORT in rank 0's file).
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
@@ -32,7 +33,8 @@ set +a
 export TF_GLM_KV=fp8
 # 94 C is where the hosts' thermal watch stops the engine; 88 C sits below the 88.8-89.6 C a 1M prefill held
 # at TP=3 before the faster prefill work. Near the end of a 1M prefill one chunk adds about 7 C after the check
-# between chunks, so the wait also looks one chunk ahead, by the last chunk's rise (README.md).
+# between chunks, so the wait also looks one chunk ahead, by the rise of the last chunk run straight after
+# another (a chunk begun after a rest also climbs back the few seconds' cooling; README.md).
 export TF_GLM_HEAT_HIGH=${TF_GLM_HEAT_HIGH-92} TF_GLM_HEAT_LOW=${TF_GLM_HEAT_LOW-88}
 export TF_GLM_HEAT_CEILING=${TF_GLM_HEAT_CEILING-93}
 # The pinned checkpoint as the Hugging Face cache holds it, mounted read-only at /hub (create_container.sh)

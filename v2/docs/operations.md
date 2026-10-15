@@ -53,7 +53,7 @@ After `cluster.sh state/cluster.env stop`, on each host:
 
 ```sh
 docker rm -f glm53-tf                                  # the container only sleeps between starts
-v2/scripts/create_container.sh glm53-tf:2.9.1
+v2/scripts/create_container.sh glm53-tf:2.9.2
 docker exec glm53-tf bash /opt/glm53-tf/build_ext.sh
 ```
 
