@@ -16,6 +16,8 @@ RUN echo "$TENSORFOLD_REF" | grep -Eqx '[0-9a-f]{40}' \
 # all three hosts). xgrammar serves structured output: without it the server answered 400 to those requests.
 RUN pip install --no-cache-dir --no-deps transformers==5.18.0 xgrammar==0.2.8 huggingface_hub==1.33.0 \
     hf-xet==1.6.0 typer==0.27.2 shellingham==1.5.4 annotated-doc==0.0.5
+# Triton as 2.0.0 to 2.9.0 ran it: the base's 3.8.0 changes the engine's sums (2026-10-15), 3.7.1 keeps every bit.
+RUN pip install --no-cache-dir triton==3.7.1 && python3 -c "import triton; assert triton.__version__ == '3.7.1'"
 
 RUN git clone "$TENSORFOLD_REPO" /opt/tensorfold \
  && git -C /opt/tensorfold checkout --detach "$TENSORFOLD_REF" \
