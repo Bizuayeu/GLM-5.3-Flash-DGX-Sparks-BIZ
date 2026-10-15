@@ -32,16 +32,16 @@
 
 ## prefillとdecodeの速さ
 
-時間を測る前に、約3,000 tokenのprefillでpromptのkernelのcompileを済ませました。
+時間を測る前に、約3,000 tokenのprefillでpromptのkernelのcompileを済ませました。これでは38,960 tokenのpromptがcompileするkernelのすべてには届きません。2.9.3からの `bench` は、同じ長さの数えないpromptを先に1本流します（[検証](validation.ja.md#prefillとdecodeの速さ)）。
 
 **prefill。** 一つのuser message：`nonce <新しいUUID>` の1行、固定の3,200行（`measurement line <i> of the fixed prefill prompt.`）、`Reply ok.`。chat templateを含めて38,960 tokenです。`max_tokens` 1、temperature 0、effort low、`clear_thinking`。速さは、promptのtoken数をクライアントでの要求の経過時間で割ったものです。エンジンには保持promptを消すendpointが無いので、先頭の新しいnonceで保持promptが一致しないようにしました。どの応答も `cached` は0でした。値は3回の中央値です：
 
 - TP=2（`304109c`）：冷却gateを1回通した後に3つのpromptを続けて。互いの差は0.1%以内でした。
-- TP=3（`2d4fa9b`）：冷却gateの後に1つのpromptを、熱の待ちを入れて3回、続いて対照として待ちを切って3回。gateを挟まずに3つ続けると、1回ごとに遅くなりました。[検証](validation.ja.md#prefillとdecodeの速さ)の2つの速さだった可能性があります。
+- TP=3（`2d4fa9b`）：冷却gateの後に1つのpromptを、熱の待ちを入れて3回、続いて対照として待ちを切って3回。gateを挟まずに3つ続けると、1回ごとに遅くなりました。熱か、[検証](validation.ja.md#prefillとdecodeの速さ)が未解決とする一様な遅さかは分けていません。
 
 **短いpromptの後のdecode。** `Write the numbers from 1 to 1000, one per line, and nothing else.` をstreamで、`ignore_eos` なしで最大512 token、temperature 0、effort low。速さは、最初の後のcompletionのtoken数を、最初にstreamで届いたtokenの後の時間で割ったもので、3回の中央値です。返答は上限で切れるまで数える（`finish_reason` `length`）ので、測るtokenはどれも数えている文そのものです。promptは毎回同じなので、受理長が回の間で比べられます。他の `finish_reason` の行は途中で止まったもので、比べられません。行には `finish_reason` と、応答の `tensorfold` ブロックの `rounds`・`tokens_per_round`、返答の `sha256` が足されます。2.5.0より前の要求は `Count upward from one, one number per line.`（`ignore_eos` つき）でした。modelはその返答を約100 tokenで自分で終え、512の残りは自分の終わりの後に作った会話で、重みによって違ったので置き換えました。
 
-`python -m glm53_tf bench` が両方をそれぞれ3回ずつ走らせます。`--kinds prefill --runs 1` で1つのpromptを送り（冷却gateの後ごとに）、`--lines 250` で約3,000 tokenの慣らしになり、`--out` は要求ごとに1行を足します。行には応答の `prefill_s`・`heat_wait_s`・`cached` と、要求の開始と終了のepochが入ります。
+`python -m glm53_tf bench` が両方をそれぞれ3回ずつ走らせます。prefillは、同じ長さの数えないpromptを1本流した後です（`--warmup`、2.9.3から。その速さはsummaryの `warmup`）。`--kinds prefill --runs 1 --warmup 0` で1つのpromptを送り（冷却gateの後ごとに）、`--lines 250` で約3,000 tokenの慣らしになり、`--out` は要求ごとに1行を足します。行には応答の `prefill_s`・`heat_wait_s`・`cached` と、要求の開始と終了のepochが入ります。
 
 **編集のdecode（`--kinds edit`、頼んだときだけ）。** copy draftsのために足しました。copy draftsは文脈からdraftを作るので、返事が文脈を繰り返すところでしか効きません。promptは約6,000文字の決まったPythonのmoduleをcode blockに入れたものと、名前を挙げた1行の編集3つで、`Return the whole module with only these edits, in one code block` と頼みます。毎回同じです（nonceは無いので、2回目からは保持promptから再開することがありますが、decodeの速さには触れません）。streamで、temperature 0、effort low、最大4,096 tokenで、返事は自分で終わります。`finish_reason` が `length` なら返事が切れたということで、その行は編集を測っていません（2.6.0からsummaryの中央値はその行を外し、`cut` が数えます）。速さは上のdecodeと同じ取り方で、codeの前の推論のtokenも入ります。行には `prompt_tokens`・`finish_reason` と、応答の `rounds`・`drafted`・`accepted`・`copy_rounds`・`copy_drafted`・`copy_accepted`・`sha256`（token idのhash。回の間でも、copy draftsの有無でも変わりません）が足されます。
 

@@ -100,6 +100,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | | `NCCL_IB_HCA`・`NCCL_IB_GID_INDEX`・`NCCL_SOCKET_IFNAME` | 参照機の値 | リンクのRDMA device（両rail）、RoCE v2のGIDの番号、bootstrapのinterface |
 | | `NCCL_NET`・`NCCL_IB_DISABLE`・`NCCL_IB_ROCE_VERSION_NUM`・`NCCL_IB_ADDR_FAMILY`・`NCCL_SOCKET_FAMILY`・`NCCL_MIN_NCHANNELS`・`NCCL_MAX_NCHANNELS` | RoCE v2とIPv4の上のNCCLのIBのtransport、4 channel | NCCLが気づかれずにsocketへ落ちないように明示します。4 channelでTP=2のdecodeは+1%、起動時の余地も増えました（[採否](docs/decisions.ja.md#fabric)）。TP=3はsubnet-aware routingと、NCCL自身のIBのtransportを使う `NCCL_NET_PLUGIN=none` が加わります（[`tp3-rank0.env`](examples/tp3-rank0.env)） |
 | | `VISION` | 例のファイルは `1`（無ければ `0`） | 画像入力（`serve.sh` が `--vision` を足す）。`0` で無効。全rankで同じ値 |
+| | `TRITON_CACHE_DIR` | 例のファイルは `/work/triton-cache`（無ければcontainerの中） | Tritonがcompileしたkernelの置き場所。`/work` のmountに置くとcontainerより長く残り、kernelの変わらないimageからcontainerを作り直してもcompileしない。置かないと、起動と最初の長いpromptでcompileする（[検証](docs/validation.ja.md#prefillとdecodeの速さ)） |
 | | `NCCL_DEBUG`・`NCCL_DEBUG_SUBSYS` | `INFO`・`INIT,NET` | NCCLが起動時に各接続のtransportを一度だけ書き、[SETUP §6](SETUP.ja.md#6-起動)がそれを読みます |
 | | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け |
 | | `REASONING_EFFORT` | `high` | effortを指定しない要求にrank 0が使うeffort（`low`・`medium`・`high`・`xhigh`。空：指定なし＝chat templateの `max`） |

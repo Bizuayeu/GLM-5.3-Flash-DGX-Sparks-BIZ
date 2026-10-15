@@ -6,6 +6,19 @@
 
 TensorFoldで配信する2.x系です。`v2.*` のタグはこのファイルの節を公開します。1.x系の履歴は[v1/CHANGELOG.ja.md](../v1/CHANGELOG.ja.md)にあります。
 
+## 2.9.3 — 2026-10-16
+
+### Changed
+
+- `bench` は、数えるprefillの前に同じ長さの要求を `--warmup` 本（既定1）流し、その速さをsummaryの `warmup` に出します。中央値と `--out` には入れません。`--warmup 0` で流しません。containerが最初に受ける、chunkが多いpromptは、その途中でTritonのkernelをcompileします。2.2.0から2.9.2のリリースの窓では、数える2本のうち1本目が2本目よりTP=2で0.4〜1.8秒、TP=3で0.8〜1.6秒長くかかり（2回の起動を除く）、[検証](docs/validation.ja.md#prefillとdecodeの速さ)が書いていた2つの速さの遅い方になっていました。
+
+### Documentation
+
+- rankファイルの例が `TRITON_CACHE_DIR=/work/triton-cache` を置き、READMEの設定の表がそれを挙げます。Tritonがcompileしたkernelがcontainerより長く残り、kernelの変わらないimageからcontainerを作り直してもcompileしません（そのようなcontainerのTP=2で、起動と4本のpromptの間にcompileしたのは0個）。
+- [検証](docs/validation.ja.md#prefillとdecodeの速さ)のprefillの段落を、基準値・測り方・判定に絞りました。1本目が遅い原因をcompileとし（2026-10-16のTP=2で、kernelをcompile済みなら1本29.03〜29.04秒、無いと1本目が34.12秒）、prompt全体が遅くなるまれな遅さは未解決のままとします。[ベンチマーク](docs/benchmarks.ja.md#prefillとdecodeの速さ)は、約3,000 tokenの慣らしでは38,960 tokenのpromptがcompileするkernelのすべてには届かないと書きます。
+
+imageのファイルは変わらず、2.9.2のままです（linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`）。
+
 ## 2.9.2 — 2026-10-15
 
 ### Engine

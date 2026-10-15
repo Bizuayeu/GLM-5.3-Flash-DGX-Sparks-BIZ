@@ -5,6 +5,9 @@ prefill: one user message, a line `nonce <a fresh UUID>`, --lines fixed lines an
   max_tokens 1; the default 3,200 lines give 38,960 tokens with the chat template. The rate is the
   prompt tokens over the request's wall time at the client. The engine has no endpoint that drops its
   kept prompts, so the fresh nonce keeps any of them from matching; each row's `cached` shows it.
+  --warmup requests of the same length (default 1) run first and are not counted: the first prompt of
+  many chunks that a container serves compiles Triton kernels on its way (about 1.5 s at TP=2 on the
+  reference hosts, unless TRITON_CACHE_DIR keeps them on /work). Their rates are the summary's "warmup".
 decode: `Write the numbers from 1 to 1000, one per line, and nothing else.`, streamed, up to 512 tokens.
   The rate is the completion tokens after the first over the time after the first streamed token. The
   reply counts until the limit cuts it (`finish_reason` `length`, the count in the 200s), so every token
@@ -23,7 +26,7 @@ The prefill and decode rows also carry the reply's `tensorfold` fields prefill_s
 and every row the request's start and end epochs. One JSON line per request, then a summary with each
 kind's median; an edit reply cut at its limit is left out of the median and counted under "cut".
 
-    python -m glm53_tf bench --kinds prefill --runs 1 --lines 250    (warm-up, about 3,000 tokens)
+    python -m glm53_tf bench --kinds prefill --runs 1 --lines 250    (a short warm-up, about 3,000 tokens)
     python -m glm53_tf bench --out ../records/<run>/bench.jsonl
 
 Environment: BASE (default http://127.0.0.1:8095), MODEL (default glm-tf), TENSORFOLD_API_KEY (sent as
@@ -423,10 +426,18 @@ def main(argv=None):
     )
     parser.add_argument("--runs", type=int, default=3, help="requests of each kind")
     parser.add_argument("--lines", type=int, default=LINES, help="the prefill's lines")
+    parser.add_argument(
+        "--warmup",
+        type=int,
+        default=1,
+        help="prefill requests of the same length run first and not counted (default 1)",
+    )
     parser.add_argument("--out", help="a JSONL file that receives one row per request")
     args = parser.parse_args(argv)
-    speeds, kept, cut = {}, {}, {}
+    speeds, kept, cut, warm = {}, {}, {}, []
     for kind in args.kinds:
+        if kind == "prefill":
+            warm = [prefill(args)["tok_per_s"] for _ in range(args.warmup)]
         for _ in range(args.runs):
             row = RUN[kind](args)
             speeds.setdefault(kind, []).append(row["tok_per_s"])
@@ -443,6 +454,7 @@ def main(argv=None):
             {
                 "summary": {k: statistics.median(v) for k, v in kept.items()},
                 "all": speeds,
+                **({"warmup": warm} if warm else {}),
                 **({"cut": cut} if cut else {}),
                 "at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             }

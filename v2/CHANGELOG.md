@@ -4,6 +4,19 @@
 
 The 2.x line, served by TensorFold. A `v2.*` tag publishes its section from this file. The 1.x line's history is in [v1/CHANGELOG.md](../v1/CHANGELOG.md).
 
+## 2.9.3 — 2026-10-16
+
+### Changed
+
+- `bench` runs `--warmup` prefill requests of the prompt's length before the counted ones (default 1) and reports their rates as the summary's `warmup`, outside the median and `--out`; `--warmup 0` runs none. The first prompt of many chunks that a container serves compiles Triton kernels on its way: in the release windows from 2.2.0 to 2.9.2 the first of the two counted prompts took 0.4-1.8 s longer than the second at TP=2 and 0.8-1.6 s at TP=3 in all but two launches, the slower of the two speeds [validation](docs/validation.md#prefill-and-decode-speed) described.
+
+### Documentation
+
+- The rank file examples set `TRITON_CACHE_DIR=/work/triton-cache`, and the README's table of settings names it: Triton's compiled kernels then outlive the container, and a container made again from an image whose kernels did not change compiles none (none did in such a container at TP=2, at its start or in four prompts).
+- [Validation](docs/validation.md#prefill-and-decode-speed)'s prefill paragraph keeps the references, the measurement and the verdict: the first prompt's compiles as the cause of its slower speed, measured on 2026-10-16 at TP=2 (29.03-29.04 s a prompt with the kernels compiled, 34.12 s for the first without them), and the rarer slowdown of a whole prompt as open. [Benchmarks](docs/benchmarks.md#prefill-and-decode-speed) says the 3,000-token warm-up does not reach every kernel a 38,960-token prompt compiles.
+
+No file of the image changes; it stays 2.9.2's (linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`).
+
 ## 2.9.2 — 2026-10-15
 
 ### Engine

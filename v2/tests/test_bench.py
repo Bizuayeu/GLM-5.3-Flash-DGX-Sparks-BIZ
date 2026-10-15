@@ -141,7 +141,7 @@ class PromptTests(unittest.TestCase):
         sent = []
         run(["--kinds", "prefill", "--runs", "2"], sent=sent)
         first = [b["messages"][0]["content"].split("\n")[0] for b in sent]
-        self.assertEqual(len(set(first)), 2)
+        self.assertEqual(len(set(first)), 3)  # the warm-up's and the two counted
         self.assertTrue(all(line.startswith("nonce ") for line in first))
 
     def test_the_decode_prompt_is_the_documented_one(self):
@@ -309,9 +309,38 @@ class RunTests(unittest.TestCase):
     def test_lines_reach_the_prefill_and_leave_the_other_kinds(self):
         sent = []
         run(["--kinds", "prefill,decode,edit", "--runs", "1", "--lines", "250"], sent)
-        prefill, decode, edit = sent
-        self.assertEqual(len(prefill["messages"][0]["content"].split("\n")), 252)
+        warm, prefill, decode, edit = sent
+        for body in (warm, prefill):
+            self.assertEqual(len(body["messages"][0]["content"].split("\n")), 252)
         self.assertEqual((decode, edit), (bench.decode_body(), bench.edit_body()))
+
+    def test_a_warm_up_prefill_runs_first_and_is_not_counted(self):
+        sent = []
+        with tempfile.TemporaryDirectory() as d:
+            path = Path(d, "bench.jsonl")
+            lines = run(
+                ["--kinds", "prefill,decode", "--runs", "2", "--out", str(path)], sent
+            )
+            rows = path.read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(sent), 5)
+        self.assertEqual(sent[0], {**sent[1], "messages": sent[0]["messages"]})
+        self.assertEqual(len(sent[0]["messages"][0]["content"].split("\n")), 3202)
+        self.assertEqual(
+            [r["kind"] for r in lines[:-1]], ["prefill"] * 2 + ["decode"] * 2
+        )
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(lines[-1]["warmup"], [38960.0])
+        self.assertEqual(lines[-1]["all"]["prefill"], [38960.0] * 2)
+
+    def test_warmup_zero_runs_none_and_other_kinds_never_warm_up(self):
+        sent = []
+        lines = run(["--kinds", "prefill", "--runs", "1", "--warmup", "0"], sent)
+        self.assertEqual(len(sent), 1)
+        self.assertNotIn("warmup", lines[-1])
+        sent = []
+        lines = run(["--kinds", "decode", "--runs", "1"], sent)
+        self.assertEqual(sent, [bench.decode_body()])
+        self.assertNotIn("warmup", lines[-1])
 
     def test_an_unknown_kind_is_a_usage_error(self):
         with (
@@ -327,14 +356,15 @@ class ApiKeyTests(unittest.TestCase):
         auth = []
         with patch.dict(os.environ, {"TENSORFOLD_API_KEY": "k1"}):
             run(["--runs", "1"], auth=auth)
-        self.assertEqual(auth, ["Bearer k1"] * 2)
+        # the warm-up, the prefill, the decode
+        self.assertEqual(auth, ["Bearer k1"] * 3)
 
     def test_without_a_key_no_request_carries_one(self):
         auth = []
         with patch.dict(os.environ):
             os.environ.pop("TENSORFOLD_API_KEY", None)
             run(["--runs", "1"], auth=auth)
-        self.assertEqual(auth, [None] * 2)
+        self.assertEqual(auth, [None] * 3)
 
 
 if __name__ == "__main__":
