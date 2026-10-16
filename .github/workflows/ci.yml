@@ -17,7 +17,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     defaults:
       run:
-        # The 1.x line; the 2.x steps below name v2/.
+        # The 1.x line; the 2.x and 3.x steps below name v2/ and v3/.
         working-directory: v1
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -45,6 +45,12 @@ jobs:
         working-directory: v2
       - run: ruff format --check glm53_tf tests
         working-directory: v2
+      - run: python -m unittest discover -s tests -t . -v
+        working-directory: v3
+      - run: ruff check glm53_tf tests
+        working-directory: v3
+      - run: ruff format --check glm53_tf tests
+        working-directory: v3
 
   cpu-torch:
     # Optional: 1.x's tests that need torch but no GPU, with torch built for CPU. It does not

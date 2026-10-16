@@ -58,8 +58,9 @@ class SharedCheckpointTests(unittest.TestCase):
 
 
 class CopiedModuleTests(unittest.TestCase):
-    """2.x carries its own copies of 1.x modules (each line stands alone). These are
-    unchanged but for the package name; one that has to differ leaves this list."""
+    """2.x and 3.x carry their own copies of 1.x modules (each line stands alone).
+    These are unchanged but for the package name; one that has to differ leaves
+    this list."""
 
     # download.py and verify_download.py left it in 2.4.0: 2.x also fetches AXL.
     SAME = (
@@ -71,10 +72,11 @@ class CopiedModuleTests(unittest.TestCase):
 
     def test_the_copies_differ_only_in_the_package_name(self):
         for name in self.SAME:
-            with self.subTest(name=name):
-                v1 = (REPO / "v1/glm53_setup" / name).read_text(encoding="utf-8")
-                v2 = (REPO / "v2/glm53_tf" / name).read_text(encoding="utf-8")
-                self.assertEqual(v1.replace("glm53_setup", "glm53_tf"), v2)
+            v1 = (REPO / "v1/glm53_setup" / name).read_text(encoding="utf-8")
+            for line in ("v2", "v3"):
+                with self.subTest(name=name, line=line):
+                    copy = (REPO / line / "glm53_tf" / name).read_text("utf-8")
+                    self.assertEqual(v1.replace("glm53_setup", "glm53_tf"), copy)
 
 
 if __name__ == "__main__":
