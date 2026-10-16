@@ -31,6 +31,14 @@ class LineTests(unittest.TestCase):
                 japanese = (line / "CHANGELOG.ja.md").read_text(encoding="utf-8")
                 self.assertTrue(section(japanese, v).strip())
 
+    def test_the_released_lines_can_publish_their_version(self):
+        # What a tag reads: the version's heading carries its release date. 3.x joins
+        # this list with 3.0.0, when its heading gets the date.
+        for name in ("v1", "v2"):
+            with self.subTest(line=name):
+                v = version(REPO / name)
+                self.assertTrue(notes(REPO, v, match_project=True).strip())
+
 
 class SharedCheckpointTests(unittest.TestCase):
     """Every line serves one pinned checkpoint; each keeps its own copy of what it reads."""
