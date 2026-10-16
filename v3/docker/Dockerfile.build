@@ -1,0 +1,24 @@
+# The 3.x build image: the runtime image's contents on CUDA's devel image, where TensorFold's native engine is built
+# (`zig build -Dnvcc=/usr/local/cuda/bin/nvcc -Dsm=121`) and its GPU tests run. Zig itself is not in the image: the
+# build uses the toolchain in the mounted work tree, as on the reference hosts. Build from the checkout root:
+#   docker build -f v3/docker/Dockerfile.build -t tf3-build:20261014 .
+# The base by digest: CUDA 13.3.1 (nvcc 13.3.73, the compiler the 3.x kernels were measured with) on Ubuntu 24.04.
+ARG BASE_IMAGE=nvidia/cuda:13.3.1-devel-ubuntu24.04@sha256:4ff859525f99de5782aa73607ce24219b07dddd48d12b97c1c301d7e1cfb0a87
+FROM ${BASE_IMAGE}
+
+# As Dockerfile.runtime, plus git and xz for the work trees and Nsight Compute (the version the kernels were
+# profiled with) for kernel timings.
+ARG NCCL_VERSION=2.30.7-1+cuda13.3
+ARG TOKENIZERS_VERSION=0.23.1
+ARG NCU_PACKAGE=nsight-compute-2026.2.1=2026.2.1.5-1
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends --allow-downgrades --allow-change-held-packages \
+      "libnccl2=${NCCL_VERSION}" libibverbs1 ibverbs-providers rdma-core ibverbs-utils \
+      python3 python3-pip curl procps util-linux ca-certificates git xz-utils "${NCU_PACKAGE}" \
+ && apt-mark hold libnccl2 \
+ && ln -sf "$(ls -d /opt/nvidia/nsight-compute/2026.2.1*/ncu | head -1)" /usr/local/bin/ncu \
+ && pip3 install --no-cache-dir --break-system-packages "tokenizers==${TOKENIZERS_VERSION}" \
+ && rm -rf /var/lib/apt/lists/*
+
+COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/doc/tf3/
+WORKDIR /work

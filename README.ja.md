@@ -10,8 +10,9 @@
 |---|---|---|---|
 | 1.x | vLLM | [v1/](v1/README.ja.md) | [v1/CHANGELOG.ja.md](v1/CHANGELOG.ja.md) |
 | 2.x | TensorFold | [v2/](v2/README.ja.md)：TP=2とTP=3、FP8 KV、テキスト・tool呼び出し・画像（[手順書](v2/SETUP.ja.md)） | [v2/CHANGELOG.ja.md](v2/CHANGELOG.ja.md) |
+| 3.x | TensorFold（ネイティブエンジン） | [v3/](v3/README.ja.md)：3.0.0に向けて準備中 | [v3/CHANGELOG.ja.md](v3/CHANGELOG.ja.md) |
 
-系列ごとにREADME・版・変更履歴を持ちます。リリースのtag `v1.*`・`v2.*` は、その系列の変更履歴の節を公開します。各系列は自分のエンジンに固有のものを持ちます。1.x系のコマンドは `v1/` で、2.x系の道具は `v2/` で、2.x系のimageのbuildと台本はcheckoutのルートで実行します（[手順書](v2/SETUP.ja.md)）。checkoutのルートには全系に共通のものを置きます。ホストとfabricの文書とリポジトリの文書一覧は[`docs/`](docs/README.ja.md)、ホストのツールは[`host/`](host/README.ja.md)、それにライセンスと、`tools/` のリポジトリの公開の監査とリリースノートの道具です。`state/` と `records/` は追跡対象外で、checkoutのルートに置きます。
+系列ごとにREADME・版・変更履歴を持ちます。リリースのtag `v1.*`・`v2.*`・`v3.*` は、その系列の変更履歴の節を公開します。各系列は自分のエンジンに固有のものを持ちます。1.x系のコマンドは `v1/` で、2.x系の道具は `v2/` で、2.x系のimageのbuildと台本はcheckoutのルートで実行します（[手順書](v2/SETUP.ja.md)）。checkoutのルートには全系に共通のものを置きます。ホストとfabricの文書とリポジトリの文書一覧は[`docs/`](docs/README.ja.md)、ホストのツールは[`host/`](host/README.ja.md)、それにライセンスと、`tools/` のリポジトリの公開の監査とリリースノートの道具です。`state/` と `records/` は追跡対象外で、checkoutのルートに置きます。
 
 ## BIZ
 

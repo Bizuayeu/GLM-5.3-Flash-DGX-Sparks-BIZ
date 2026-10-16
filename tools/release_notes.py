@@ -1,6 +1,6 @@
 """Print one version's CHANGELOG section; the release workflow publishes it.
 
-The version's major number names its line: 1.x reads v1/, 2.x reads v2/.
+The version's major number names its line: N.x reads vN/ (1.x v1/, 2.x v2/, 3.x v3/).
 """
 
 import argparse
@@ -26,7 +26,7 @@ def section(changelog, version):
 
 
 def project_dir(repo, version):
-    """The line directory of ``version``: v1/ for 1.x, v2/ for 2.x."""
+    """The line directory of ``version``: vN/ for N.x."""
     if not re.fullmatch(VERSION, version):
         raise ValueError(f"not a release version: {version!r}")
     directory = repo / f"v{version.split('.')[0]}"
@@ -38,6 +38,7 @@ def project_dir(repo, version):
 def notes(repo, version, match_project=False):
     """The section ``version`` publishes, from its line's CHANGELOG.md."""
     directory = project_dir(repo, version)
+    changelog = (directory / "CHANGELOG.md").read_text(encoding="utf-8")
     if match_project:
         project = tomllib.loads(
             (directory / "pyproject.toml").read_text(encoding="utf-8")
@@ -46,7 +47,15 @@ def notes(repo, version, match_project=False):
             raise ValueError(
                 f"tag and {directory.name}/pyproject.toml disagree on the version"
             )
-    return section((directory / "CHANGELOG.md").read_text(encoding="utf-8"), version)
+        # A tag publishes a released section only: a line in preparation keeps its
+        # version's heading without a date until the release.
+        if not re.search(
+            rf"(?m)^## {re.escape(version)} — \d{{4}}-\d{{2}}-\d{{2}}$", changelog
+        ):
+            raise ValueError(
+                f"{directory.name}/CHANGELOG.md: the {version} heading has no release date"
+            )
+    return section(changelog, version)
 
 
 def main():

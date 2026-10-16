@@ -4,7 +4,7 @@
 
 本プロジェクトは実測した範囲を明記するエンジニアリング作業です。主張は、実際に試験したハードウェア、イメージ、重み、精度、負荷の範囲に限定してください。
 
-Python 3.11以降を使います。1.x系（vLLM）は `v1/`、2.x系（TensorFold）は `v2/` にあり、各系列は自分のエンジンに固有のものを持ち、checkoutのルートには系列が共有するもの（`docs/` のホストとfabricの文書、`host/` のホストのツール、リポジトリの道具である公開監査とリリースノート）を置きます。固定した検査の道具と1.x系のテストの依存を一度入れ（`python -m pip install -r requirements/dev.lock.txt -r v1/requirements/test.lock.txt`：全系のRuff、1.x系の一部のテストが使うNumPy、両系のダウンロードのロックのテストが使うfilelock）、それぞれの場所の検査を、[CI](.github/workflows/ci.yml)と同じく実行します。
+Python 3.11以降を使います。1.x系（vLLM）は `v1/`、2.x系（TensorFold）は `v2/`、3.x系（TensorFoldのネイティブエンジン、準備中）は `v3/` にあり、各系列は自分のエンジンに固有のものを持ち、checkoutのルートには系列が共有するもの（`docs/` のホストとfabricの文書、`host/` のホストのツール、リポジトリの道具である公開監査とリリースノート）を置きます。固定した検査の道具と1.x系のテストの依存を一度入れ（`python -m pip install -r requirements/dev.lock.txt -r v1/requirements/test.lock.txt`：全系のRuff、1.x系の一部のテストが使うNumPy、全系のダウンロードのロックのテストが使うfilelock）、それぞれの場所の検査を、[CI](.github/workflows/ci.yml)と同じく実行します。
 
 ```sh
 # v1/ で
@@ -22,7 +22,7 @@ ruff format --check tools tests host/nccl_probe.py host/gb10-telemetry host/cool
 python tools/check_publication.py
 ```
 
-公開監査は系列ごとの規則を両方の系列に当てます（版、ライセンス、モデルの固定、版の変更履歴の節。1.x系はさらに文書一覧・構成の頁・READMEの引用）。`python tools/check_publication.py --duplicates` は、同じ系列の複数の頁に出てくる実測値らしい数も挙げます。数値の持ち主は一つの頁ですが意図して引用することもあるので、文書を直す人への警告で、失敗にはしません。
+公開監査は系列ごとの規則を全ての系列に当てます（版、ライセンス、モデルの固定、版の変更履歴の節。1.x系はさらに文書一覧・構成の頁・READMEの引用）。`python tools/check_publication.py --duplicates` は、同じ系列の複数の頁に出てくる実測値らしい数も挙げます。数値の持ち主は一つの頁ですが意図して引用することもあるので、文書を直す人への警告で、失敗にはしません。
 
 CIの任意のjobは、CPU向けのtorch（`v1/requirements/cpu-torch.lock.txt`、1.x系のtest lockの後に入れる）で1.x系のテストも回し、torchは要るがGPUは要らないテストを走らせます。CUDAや固定版vLLMのimageを要するテストはそこでもskipし、GPUのホストでだけ走ります。GPUの検査はCPUテストとは別です。固定版イメージを使い、実効引数、出力の完全性、数値差、失敗を記録します。検証手順は系列ごとにあります：[1.x系](v1/docs/validation.ja.md)、[2.x系](v2/docs/validation.ja.md)。
 

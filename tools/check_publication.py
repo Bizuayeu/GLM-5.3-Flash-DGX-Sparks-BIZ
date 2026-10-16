@@ -11,7 +11,7 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
-# The repository root: the 1.x line lives in v1/, the 2.x line in v2/.
+# The repository root: the 1.x line lives in v1/, the 2.x line in v2/, the 3.x line in v3/.
 ROOT = Path(__file__).resolve().parents[1]
 REQUIRED = {
     "README.md",
@@ -429,9 +429,10 @@ def project_problems(root, files):
     return problems
 
 
-# The 2.x checks: the files a line needs, its version, license and model pin.
-LINE2 = "v2"
-LINE2_REQUIRED = {
+# The TensorFold lines' checks (2.x, 3.x): the files a line needs, its version, license
+# and model pin. 1.x has its own, above.
+TENSORFOLD_LINES = ("v2", "v3")
+LINE_REQUIRED = {
     "README.md",
     "README.ja.md",
     "SETUP.md",
@@ -443,33 +444,33 @@ LINE2_REQUIRED = {
 }
 
 
-def line2_problems(root, files):
-    """The 2.x checks, on ``files`` named relative to the line directory ``root``."""
+def line_problems(line, root, files):
+    """A TensorFold line's checks, on ``files`` named relative to its directory ``root``."""
     problems = [
-        f"missing required file: {LINE2}/{name}"
-        for name in sorted(LINE2_REQUIRED - files)
+        f"missing required file: {line}/{name}"
+        for name in sorted(LINE_REQUIRED - files)
     ]
     if "config/model.lock.json" in files:
         lock = json.loads((root / "config/model.lock.json").read_text(encoding="utf-8"))
         if not lock.get("model") or not re.fullmatch(
             r"[0-9a-f]{40}", str(lock.get("revision", ""))
         ):
-            problems.append(f"{LINE2}: model and revision must be pinned")
+            problems.append(f"{line}: model and revision must be pinned")
     if "pyproject.toml" in files:
         project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))[
             "project"
         ]
         version = project.get("version", "")
         if not re.fullmatch(r"\d+\.\d+\.\d+", version):
-            problems.append(f"{LINE2}: expected release version")
+            problems.append(f"{line}: expected release version")
         if project.get("license") != "Apache-2.0":
-            problems.append(f"{LINE2}: unexpected project license")
+            problems.append(f"{line}: unexpected project license")
         for name in ("CHANGELOG.md", "CHANGELOG.ja.md"):
             if name in files and not re.search(
                 rf"(?m)^## {re.escape(version)} ",
                 (root / name).read_text(encoding="utf-8"),
             ):
-                problems.append(f"{LINE2}: {name} has no section for {version}")
+                problems.append(f"{line}: {name} has no section for {version}")
     return problems
 
 
@@ -496,7 +497,7 @@ def duplicate_numbers(root, files):
             or path.name.startswith("CHANGELOG")
         ):
             continue
-        line = path.parts[0] if path.parts[0] in (PROJECT, LINE2) else ""
+        line = path.parts[0] if path.parts[0] in (PROJECT, *TENSORFOLD_LINES) else ""
         text = re.sub(
             r"`[^`\n]*`", "", prose((root / name).read_text(encoding="utf-8"))
         )
@@ -512,6 +513,7 @@ RECORD_PATH = re.compile(r"records/\d{8}-")
 RECORD_PATHS_ALLOWED = {
     "v1/config/nll_set.json": 4,  # provenance of each measured set
     "v2/config/nll_set.json": 4,  # 1.x's set, byte for byte
+    "v3/config/nll_set.json": 4,  # the same set
     "v1/config/freedombench-ja.lock.json": 1,  # provenance
 }
 
@@ -559,12 +561,13 @@ def problems(root, files, plans=False):
         root / PROJECT,
         {name.removeprefix(prefix) for name in files if name.startswith(prefix)},
     )
-    prefix = LINE2 + "/"
-    line2_files = {
-        name.removeprefix(prefix) for name in files if name.startswith(prefix)
-    }
-    if line2_files:
-        found += line2_problems(root / LINE2, line2_files)
+    for line in TENSORFOLD_LINES:
+        prefix = line + "/"
+        line_files = {
+            name.removeprefix(prefix) for name in files if name.startswith(prefix)
+        }
+        if line_files:
+            found += line_problems(line, root / line, line_files)
     return found
 
 

@@ -1,4 +1,4 @@
-"""What the serving lines must agree on, checked where both are visible."""
+"""What the serving lines must agree on, checked where all of them are visible."""
 
 import hashlib
 import json
@@ -18,28 +18,35 @@ def version(line):
 
 
 class LineTests(unittest.TestCase):
-    def test_both_lines_are_found(self):
-        self.assertEqual([line.name for line in LINES], ["v1", "v2"])
+    def test_every_line_is_found(self):
+        self.assertEqual([line.name for line in LINES], ["v1", "v2", "v3"])
 
     def test_each_lines_version_has_notes_in_both_languages(self):
-        # A v* tag publishes the English section; the Japanese changelog is its pair.
+        # A v* tag publishes the English section once its heading carries the release
+        # date (tools/release_notes.py); the Japanese changelog is its pair.
         for line in LINES:
             with self.subTest(line=line.name):
                 v = version(line)
-                self.assertTrue(notes(REPO, v, match_project=True).strip())
+                self.assertTrue(notes(REPO, v).strip())
                 japanese = (line / "CHANGELOG.ja.md").read_text(encoding="utf-8")
                 self.assertTrue(section(japanese, v).strip())
 
 
 class SharedCheckpointTests(unittest.TestCase):
-    """Both lines serve one pinned checkpoint; each keeps its own copy of what it reads."""
+    """Every line serves one pinned checkpoint; each keeps its own copy of what it reads."""
 
     def test_the_lines_pin_the_same_model_and_revision(self):
         v1 = json.loads((REPO / "v1/config/runtime.lock.json").read_text("utf-8"))
-        v2 = json.loads((REPO / "v2/config/model.lock.json").read_text("utf-8"))
-        self.assertEqual((v1["model"], v1["revision"]), (v2["model"], v2["revision"]))
+        for name in ("v2", "v3"):
+            with self.subTest(line=name):
+                lock = json.loads(
+                    (REPO / name / "config/model.lock.json").read_text("utf-8")
+                )
+                self.assertEqual(
+                    (v1["model"], v1["revision"]), (lock["model"], lock["revision"])
+                )
 
-    def test_the_copies_both_lines_read_are_byte_identical(self):
+    def test_the_copies_the_lines_read_are_byte_identical(self):
         # The NLL set makes the lines' figures comparable; the lock installs one client.
         for name in ("config/nll_set.json", "requirements/huggingface.lock.txt"):
             with self.subTest(name=name):

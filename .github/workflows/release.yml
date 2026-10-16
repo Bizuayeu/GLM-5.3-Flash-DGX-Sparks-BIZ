@@ -15,15 +15,15 @@ jobs:
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.11'
-      # v1.* tags read v1/pyproject.toml and v1/CHANGELOG.md, v2.* tags v2/.
+      # A vN.* tag reads vN/pyproject.toml and vN/CHANGELOG.md.
       - name: Publish the CHANGELOG section of this tag
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
           python tools/release_notes.py "${TAG#v}" --match-project > notes.md
-          # The newest line keeps "Latest": a 1.x patch released after 2.x must not take it.
-          case "$TAG" in v1.*) latest=--latest=false ;; *) latest=--latest ;; esac
+          # The newest line keeps "Latest": a 1.x or 2.x patch released after 3.x must not take it.
+          case "$TAG" in v1.*|v2.*) latest=--latest=false ;; *) latest=--latest ;; esac
           if gh release view "$TAG" > /dev/null 2>&1; then
             gh release edit "$TAG" --title "${TAG#v}" --notes-file notes.md
           else

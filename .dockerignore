@@ -6,6 +6,7 @@
 !v1/pyproject.toml
 !v2/docker/
 !v2/scripts/
+!v3/docker/
 !LICENSE
 !NOTICE
 !THIRD_PARTY_NOTICES.md

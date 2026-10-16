@@ -12,7 +12,7 @@ from tools.check_publication import (
     duplicate_numbers,
     heading_anchors,
     headline_problems,
-    line2_problems,
+    line_problems,
     map_problems,
     pair_problems,
     plan_link_problems,
@@ -465,14 +465,14 @@ LINE2 = {
 
 
 class Line2Tests(unittest.TestCase):
-    """The 2.x line gets the checks that fit it: files, version, license, pin."""
+    """The TensorFold lines get the checks that fit them: files, version, license, pin."""
 
     def check(self, **changes):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             files = dict(LINE2, **changes)
             names = write(root, {k: v for k, v in files.items() if v is not None})
-            return line2_problems(root, names)
+            return line_problems("v2", root, names)
 
     def test_a_complete_line_passes(self):
         self.assertEqual(self.check(), [])
@@ -498,12 +498,13 @@ class Line2Tests(unittest.TestCase):
             "v2: expected release version", self.check(**{"pyproject.toml": project})
         )
 
-    def test_the_audit_runs_the_line2_checks(self):
+    def test_the_audit_runs_the_line_checks_on_each_tensorfold_line(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            names = write(root, {"v2/README.md": "x"})
+            names = write(root, {"v2/README.md": "x", "v3/README.md": "x"})
             found = problems(root, names)
         self.assertIn("missing required file: v2/SETUP.md", found)
+        self.assertIn("missing required file: v3/SETUP.md", found)
 
 
 class DuplicateNumberTests(unittest.TestCase):

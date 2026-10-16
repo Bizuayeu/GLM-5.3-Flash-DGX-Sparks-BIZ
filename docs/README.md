@@ -4,7 +4,7 @@
 
 Every document has one role; other documents link to it instead of repeating its content. Every user-facing page comes as an English/Japanese pair (`name.md` / `name.ja.md`); only the agent instructions, the license/notice texts and 1.x's overlay manifest (a provenance record whose hashes have one owner) are English-only by design. Each line's changelog is a pair too: the English file is canonical and the GitHub Release is made from it. Update both when user-visible instructions change ([Contributing](../CONTRIBUTING.md)).
 
-This map lists the repository's own pages, the pages every serving line shares and the 2.x pages. The 1.x pages are listed by [1.x's document map](../v1/docs/README.md), with the owner of each 1.x fact.
+This map lists the repository's own pages, the pages every serving line shares and the 2.x and 3.x pages. The 1.x pages are listed by [1.x's document map](../v1/docs/README.md), with the owner of each 1.x fact.
 
 ## Repository
 
@@ -37,10 +37,13 @@ This map lists the repository's own pages, the pages every serving line shares a
 | 2.x decisions | What was tried for 2.x, adopted or rejected, with dates, measured effects and what would reopen each; 1.x measures not yet evaluated on 2.x | [EN](../v2/docs/decisions.md) | [JA](../v2/docs/decisions.ja.md) |
 | 2.x benchmark method | How the release figures and the reference values were taken: hosts, cooling, prompts, engine commits | [EN](../v2/docs/benchmarks.md) | [JA](../v2/docs/benchmarks.ja.md) |
 | 2.x changelog | 2.x releases; the English file is canonical | [EN](../v2/CHANGELOG.md) | [JA](../v2/CHANGELOG.ja.md) |
+| 3.x README | The 3.x line while it is prepared for 3.0.0: what it will serve and with which engine | [EN](../v3/README.md) | [JA](../v3/README.ja.md) |
+| 3.x setup runbook | Written with 3.0.0; until then it points to 2.x's | [EN](../v3/SETUP.md) | [JA](../v3/SETUP.ja.md) |
+| 3.x changelog | 3.x releases; the English file is canonical | [EN](../v3/CHANGELOG.md) | [JA](../v3/CHANGELOG.ja.md) |
 
 ## Conventions
 
-- Each line owns its version (`pyproject.toml`) and its changelog. Pushing a `vX.Y.Z` tag publishes the GitHub Release: `.github/workflows/release.yml` reads `v1/` for a `v1.*` tag and `v2/` for a `v2.*` tag, takes that version's section (`python tools/release_notes.py X.Y.Z`) and refuses a tag that disagrees with `pyproject.toml` or has no section.
+- Each line owns its version (`pyproject.toml`) and its changelog. Pushing a `vX.Y.Z` tag publishes the GitHub Release: `.github/workflows/release.yml` reads `vN/` for a `vN.*` tag, takes that version's section (`python tools/release_notes.py X.Y.Z`) and refuses a tag that disagrees with `pyproject.toml`, has no section or whose section heading has no release date.
 - `python tools/check_publication.py` audits the whole repository: links and anchors, private paths and sensitive text, each line's required files and lock, that each Japanese page has its English page's headings, table rows and code blocks, and that every `docs/*.md` here is a link target of this map (Japanese pages of the Japanese map).
 - The GitHub repository description and topics restate the README summary with the short name and without any measured number or version, because `tools/check_publication.py` cannot see them; when the summary changes, edit them with `gh repo edit`.
 - Private implementation plans live in `docs/plans/`, untracked and excluded from publication; `docs/plans/README.md` indexes them locally and each plan's own leading status line owns its state. Raw records stay in `records/<run-id>/` and site configuration in `state/`, both untracked.

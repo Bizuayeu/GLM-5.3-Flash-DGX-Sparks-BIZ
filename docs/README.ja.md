@@ -4,7 +4,7 @@
 
 文書ごとに役割を一つ決め、他の文書は内容を複製せずリンクで参照します。利用者向けの文書はすべて英日の対（`name.md`／`name.ja.md`）です。エージェント向け指示・ライセンスと通知の本文・1.x系のoverlayの台帳（hashの所有者を一つにする出所記録）だけは意図して英語のみとします。各系のChangelogも英日の対です。正典は英語版で、GitHub Releaseは英語版から作られます。利用者に見える手順を変える際は両方を更新します（[Contributing](../CONTRIBUTING.ja.md)）。
 
-本書は、リポジトリそのものの文書、どの配信系にも共通の文書、2.x系の文書を並べます。1.x系の文書は、事実ごとの正典とともに[1.x系の文書一覧](../v1/docs/README.ja.md)が並べます。
+本書は、リポジトリそのものの文書、どの配信系にも共通の文書、2.x系と3.x系の文書を並べます。1.x系の文書は、事実ごとの正典とともに[1.x系の文書一覧](../v1/docs/README.ja.md)が並べます。
 
 ## リポジトリ
 
@@ -37,10 +37,13 @@
 | 2.xの決定 | 2.xで試し、採った・採らなかったものと、その日付・測った効果・開き直す条件。2.xで未評価の1.xの施策 | [EN](../v2/docs/decisions.md) | [JA](../v2/docs/decisions.ja.md) |
 | 2.xのベンチマークの方法 | リリースの値と基準値の取り方：ホスト、冷却、prompt、エンジンのcommit | [EN](../v2/docs/benchmarks.md) | [JA](../v2/docs/benchmarks.ja.md) |
 | 2.xの変更履歴 | 2.xのリリース。英語版が正典 | [EN](../v2/CHANGELOG.md) | [JA](../v2/CHANGELOG.ja.md) |
+| 3.xのREADME | 3.0.0に向けて準備中の3.x系：何をどのエンジンで配信するか | [EN](../v3/README.md) | [JA](../v3/README.ja.md) |
+| 3.xのセットアップ手順書 | 3.0.0で書く。それまでは2.xの手順書を指す | [EN](../v3/SETUP.md) | [JA](../v3/SETUP.ja.md) |
+| 3.xの変更履歴 | 3.xのリリース。英語版が正典 | [EN](../v3/CHANGELOG.md) | [JA](../v3/CHANGELOG.ja.md) |
 
 ## 約束事
 
-- 版数（`pyproject.toml`）とChangelogは系ごとに持つ。`vX.Y.Z` のタグをpushするとGitHub Releaseが公開される。`.github/workflows/release.yml` は `v1.*` のタグなら `v1/`、`v2.*` なら `v2/` を読み、その版の節（`python tools/release_notes.py X.Y.Z`）を本文にし、`pyproject.toml` と食い違うタグや節の無い版は拒否する。
+- 版数（`pyproject.toml`）とChangelogは系ごとに持つ。`vX.Y.Z` のタグをpushするとGitHub Releaseが公開される。`.github/workflows/release.yml` は `vN.*` のタグなら `vN/` を読み、その版の節（`python tools/release_notes.py X.Y.Z`）を本文にし、`pyproject.toml` と食い違うタグ、節の無い版、節の見出しにリリースの日付が無い版は拒否する。
 - `python tools/check_publication.py` はリポジトリ全体を監査する：リンクとアンカー、非公開のパスと秘匿の候補、系ごとの必須ファイルとlock、日本語の頁が英語の頁と同じ見出し・表の行・コードブロックを持つこと、ここの `docs/*.md` がすべて本書のリンク先であること（日本語の頁は日本語の本書）。
 - GitHubのリポジトリdescriptionとtopicsは、READMEの要約を略称つき・実測値と版数なしで言い直したもの。`tools/check_publication.py` の目が届かないので、要約を変えたら `gh repo edit` で揃える。
 - 非公開の実装計画は `docs/plans/` に置く。Git追跡外・公開対象外で、`docs/plans/README.md` がローカルの索引、状態は各計画の先頭の状態行が正典。生の記録は `records/<run-id>/`、サイト設定は `state/` に置き、どちらもGit追跡外。

@@ -77,6 +77,14 @@ class LineTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "v1/pyproject.toml"):
             notes(self.repo, "1.1.0", match_project=True)
 
+    def test_a_tag_publishes_only_a_dated_section(self):
+        # A line in preparation carries its version and a section the checks read,
+        # but its heading has no date until the release, so a tag cannot publish it.
+        line(self.repo, "v3", "3.0.0", "## 3.0.0 — in preparation\n\n- soon\n")
+        self.assertEqual(notes(self.repo, "3.0.0"), "- soon\n")
+        with self.assertRaisesRegex(ValueError, "v3/CHANGELOG.md: the 3.0.0 heading"):
+            notes(self.repo, "3.0.0", match_project=True)
+
 
 if __name__ == "__main__":
     unittest.main()

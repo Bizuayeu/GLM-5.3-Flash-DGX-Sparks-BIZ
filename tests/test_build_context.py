@@ -1,4 +1,4 @@
-"""Both lines' images build from the checkout root through its one .dockerignore."""
+"""Every line's images build from the checkout root through its one .dockerignore."""
 
 import re
 import unittest
@@ -46,9 +46,14 @@ class BuildContextTests(unittest.TestCase):
         self.assertFalse(admitted("v2/scripts/__pycache__/x.pyc", patterns))
 
     def test_every_image_copies_only_what_the_context_admits(self):
-        # Both lines build from the checkout root through its one .dockerignore.
+        # Every line builds from the checkout root through its one .dockerignore.
         patterns = ignore_patterns()
-        for dockerfile in ("v1/docker/Dockerfile.reference", "v2/docker/Dockerfile"):
+        for dockerfile in (
+            "v1/docker/Dockerfile.reference",
+            "v2/docker/Dockerfile",
+            "v3/docker/Dockerfile.runtime",
+            "v3/docker/Dockerfile.build",
+        ):
             text = (CHECKOUT / dockerfile).read_text(encoding="utf-8")
             self.assertTrue(admitted(dockerfile, patterns), dockerfile)
             for line in text.splitlines():

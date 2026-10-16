@@ -10,8 +10,9 @@
 |---|---|---|---|
 | 1.x | vLLM | [v1/](v1/README.md) | [v1/CHANGELOG.md](v1/CHANGELOG.md) |
 | 2.x | TensorFold | [v2/](v2/README.md): TP=2 and TP=3, FP8 KV, text, tool calls and images ([setup](v2/SETUP.md)) | [v2/CHANGELOG.md](v2/CHANGELOG.md) |
+| 3.x | TensorFold, native engine | [v3/](v3/README.md): in preparation for 3.0.0 | [v3/CHANGELOG.md](v3/CHANGELOG.md) |
 
-Each line has its own README, version and changelog; a release tag `v1.*` or `v2.*` publishes the section of that line's changelog. Each line holds what is specific to its engine: 1.x's commands run from `v1/`, 2.x's tools from `v2/` and its image build and scripts from the checkout root ([setup](v2/SETUP.md)). The checkout root holds what every line shares: the host and fabric pages and the repository's document map in [`docs/`](docs/README.md), the host tools in [`host/`](host/README.md), licensing, and in `tools/` the repository's publication audit and release notes. `state/` and `records/` are untracked and stay at the checkout root.
+Each line has its own README, version and changelog; a release tag `v1.*`, `v2.*` or `v3.*` publishes the section of that line's changelog. Each line holds what is specific to its engine: 1.x's commands run from `v1/`, 2.x's tools from `v2/` and its image build and scripts from the checkout root ([setup](v2/SETUP.md)). The checkout root holds what every line shares: the host and fabric pages and the repository's document map in [`docs/`](docs/README.md), the host tools in [`host/`](host/README.md), licensing, and in `tools/` the repository's publication audit and release notes. `state/` and `records/` are untracked and stay at the checkout root.
 
 ## BIZ
 
