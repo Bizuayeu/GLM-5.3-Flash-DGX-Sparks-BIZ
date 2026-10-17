@@ -1,0 +1,16 @@
+{
+  "repo": "https://github.com/Bizuayeu/TensorFold.git",
+  "branch": "release/3.x",
+  "ref": "4457aea54e69000203dc40d69cadd21717809129",
+  "upstream": {
+    "repo": "https://github.com/ashhart/TensorFold.git",
+    "version": "1.0.12",
+    "ref": "46a08c18608153bfc566703a88acc883bc6140f4"
+  },
+  "zig": {
+    "version": "0.17.0",
+    "url": "https://ziglang.org/download/0.17.0/zig-aarch64-linux-0.17.0.tar.xz",
+    "sha256": "9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8"
+  },
+  "build": ["-Dnvcc=/usr/local/cuda/bin/nvcc", "-Dsm=121"]
+}

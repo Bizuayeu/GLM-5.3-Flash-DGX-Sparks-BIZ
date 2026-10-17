@@ -51,14 +51,14 @@ class BuildContextTests(unittest.TestCase):
         for dockerfile in (
             "v1/docker/Dockerfile.reference",
             "v2/docker/Dockerfile",
-            "v3/docker/Dockerfile.runtime",
+            "v3/docker/Dockerfile",
             "v3/docker/Dockerfile.build",
         ):
             text = (CHECKOUT / dockerfile).read_text(encoding="utf-8")
             self.assertTrue(admitted(dockerfile, patterns), dockerfile)
             for line in text.splitlines():
-                if not line.startswith("COPY "):
-                    continue
+                if not line.startswith("COPY ") or line.startswith("COPY --from="):
+                    continue  # a stage's files come from that stage, not from the context
                 for source in line.split()[1:-1]:
                     path = CHECKOUT / source
                     files = [path] if path.is_file() else sorted(path.rglob("*"))

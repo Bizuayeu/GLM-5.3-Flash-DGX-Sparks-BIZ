@@ -1,0 +1,51 @@
+import json
+import re
+import unittest
+from pathlib import Path
+
+LINE = Path(__file__).resolve().parents[1]
+HEX40 = re.compile(r"[0-9a-f]{40}")
+
+
+def lock():
+    return json.loads((LINE / "config/engine.lock.json").read_text(encoding="utf-8"))
+
+
+def dockerfile_args():
+    """The image's ARG defaults, quotes removed."""
+    text = (LINE / "docker/Dockerfile").read_text(encoding="utf-8")
+    return {
+        m.group(1): m.group(2).strip('"')
+        for m in re.finditer(r"^ARG (\w+)=(.*)$", text, re.MULTILINE)
+    }
+
+
+class EngineLockTests(unittest.TestCase):
+    def test_the_engine_and_its_base_are_full_commits(self):
+        pinned = lock()
+        self.assertRegex(pinned["ref"], HEX40)
+        self.assertRegex(pinned["upstream"]["ref"], HEX40)
+        self.assertTrue(pinned["branch"].startswith("release/3."))
+
+    def test_the_compiler_is_one_version_with_its_checksum(self):
+        zig = lock()["zig"]
+        self.assertIn(f"/{zig['version']}/", zig["url"])
+        self.assertTrue(zig["url"].endswith(f"-{zig['version']}.tar.xz"))
+        self.assertRegex(zig["sha256"], r"^[0-9a-f]{64}$")
+
+    def test_the_image_builds_what_the_lock_pins(self):
+        pinned, args = lock(), dockerfile_args()
+        self.assertEqual(args["ENGINE_REPO"], pinned["repo"])
+        self.assertEqual(args["ENGINE_REF"], pinned["ref"])
+        self.assertEqual(args["ZIG_URL"], pinned["zig"]["url"])
+        self.assertEqual(args["ZIG_SHA256"], pinned["zig"]["sha256"])
+        self.assertEqual(args["BUILD_FLAGS"], " ".join(pinned["build"]))
+
+    def test_the_bases_are_pinned_by_digest(self):
+        args = dockerfile_args()
+        for name in ("BUILD_IMAGE", "RUNTIME_IMAGE"):
+            self.assertRegex(args[name], r"@sha256:[0-9a-f]{64}$", name)
+
+
+if __name__ == "__main__":
+    unittest.main()
