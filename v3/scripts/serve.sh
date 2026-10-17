@@ -1,9 +1,9 @@
 #!/bin/bash
 # Inside the container, on every rank: serve.sh TP RANK RANK_ENV [more `tensorfold-native serve` arguments]
 # The 3.x serving defaults: the MTP head's drafts (the engine's default), replies of up to 32,768 tokens when a request
-# names no limit, high reasoning effort, and the window by TP: 245,760 tokens at TP=2 (two streams at once and a 0.3 GiB
-# prompt cache; 131,072 leaves three and 1.9 GiB), 1,048,576 at TP=3 (one stream, about 0.1 GiB a rank left). CONTEXT in
-# the rank file sets another, every rank the same.
+# names no limit, high reasoning effort, and the window by TP: 245,760 tokens at TP=2 and 1,048,576 at TP=3, about the
+# largest one stream fits (measured). With PARALLEL unset the engine sizes the streams and the prompt cache from the
+# memory free at start, so they can differ between starts. CONTEXT in the rank file sets another, every rank the same.
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
 # between the hosts. TP=2 meets at MASTER:NCCL_PORT (NCCL_COMM_ID). TP=3's hosts are linked point to point with /32
 # addresses, where NCCL_COMM_ID cannot bootstrap, so rank 0 writes its NCCL id to ID_FILE and the other ranks read it
