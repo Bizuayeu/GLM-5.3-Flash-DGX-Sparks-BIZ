@@ -141,7 +141,10 @@ class MainTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(out["model"], "glm-tf")
         self.assertEqual(posts[0][1], "/v1/models")
-        _, path, body = posts[1]
+        self.assertEqual(
+            posts[1][2]["prompt"], tokenize("ok")
+        )  # the prompt_logprobs probe
+        _, path, body = posts[2]
         self.assertEqual(path, "/v1/completions")
         self.assertEqual(
             {k: v for k, v in body.items() if k != "prompt_logprobs"},
@@ -153,6 +156,47 @@ class MainTests(unittest.TestCase):
                 "seed": 42,
             },
         )
+
+    def test_a_server_that_refuses_prompt_logprobs_stops_it_with_3(self):
+        """The native engine's GLM refuses prompt_logprobs with 400 (10-17's probe): one short request
+        says so before any text is scored."""
+        tokenizer = SimpleNamespace(
+            encode=lambda text, add_special_tokens: SimpleNamespace(ids=tokenize(text))
+        )
+        tokenizers = SimpleNamespace(
+            Tokenizer=SimpleNamespace(from_file=lambda path: tokenizer)
+        )
+        refusal = b'{"error": {"message": "prompt_logprobs are not supported by this model or backend"}}'
+        posts = []
+
+        def post(url, path, body=None, timeout=900.0):
+            posts.append(path)
+            if path == "/v1/models":
+                return {"data": [{"id": "glm-tf"}]}
+            raise score_nll.urllib.error.HTTPError(
+                url + path, 400, "Bad Request", {}, io.BytesIO(refusal)
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            (tmp / "set.json").write_text(json.dumps(small_set()), encoding="utf-8")
+            (tmp / "tok.json").write_text("tok", encoding="utf-8")
+            argv = ["--url", "http://h:1", "--set", str(tmp / "set.json")]
+            argv += ["--tokenizer", str(tmp / "tok.json"), "--out", str(tmp / "o.json")]
+            err = io.StringIO()
+            with (
+                patch.dict(sys.modules, {"tokenizers": tokenizers}),
+                patch.object(score_nll, "post", post),
+                patch.object(score_nll.sys, "stderr", err),
+                redirect_stdout(io.StringIO()),
+            ):
+                code = score_nll.main(argv)
+            wrote = (tmp / "o.json").exists()
+        self.assertEqual(code, 3)
+        self.assertEqual(posts, ["/v1/models", "/v1/completions"])
+        self.assertIn("refuses prompt_logprobs", err.getvalue())
+        self.assertIn("not supported", err.getvalue())
+        self.assertFalse(wrote)
 
 
 class ApiKeyTests(unittest.TestCase):

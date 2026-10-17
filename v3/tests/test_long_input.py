@@ -9,8 +9,21 @@ from unittest.mock import patch
 
 from glm53_tf import long_input
 
-BLOCK = {"prefill_s": 140.5, "heat_wait_s": 2.0, "cached": 0, "rounds": 3}
-BLOCK_KEPT = {"prefill_s": 140.5, "heat_wait_s": 2.0, "cached": 0}
+# The native server's block (10-17's probe): the prompt pass, the first token and the ids' SHA-256 are kept.
+SHA = "6cfce86a7e1b71d88b66e40ac527671dae0d9bf02bc9db06d46d9b03cf5c7a53"
+BLOCK = {
+    "prefill_seconds": 140.5,
+    "time_to_first_token": 140.6,
+    "token_sha256": SHA,
+    "token_sha": SHA[:12],
+    "engine": "lanes",
+    "drafts": True,
+}
+BLOCK_KEPT = {
+    "prefill_seconds": 140.5,
+    "time_to_first_token": 140.6,
+    "token_sha256": SHA,
+}
 USAGE = {
     "prompt_tokens": 199652,
     "completion_tokens": 9,
@@ -32,7 +45,7 @@ def answer(content):
     reply = {
         "choices": [{"message": {"content": content}, "finish_reason": "stop"}],
         "usage": USAGE,
-        "tensorfold": dict(BLOCK, token_ids=[1, 2]),
+        "tensorfold": BLOCK,
     }
     return [json.dumps(reply).encode()]
 
@@ -43,7 +56,7 @@ def streamed(content):
     chunks += [
         {
             "choices": [{"delta": {}, "finish_reason": "stop"}],
-            "tensorfold": dict(BLOCK, token_ids=[1, 2]),
+            "tensorfold": BLOCK,
         },
         {"choices": [], "usage": USAGE},
     ]
@@ -180,15 +193,15 @@ class CorrectnessTests(unittest.TestCase):
 
 
 class RunTests(unittest.TestCase):
-    def test_one_passphrase_not_streamed_after_a_short_request(self):
+    def test_one_passphrase_not_streamed_and_alone(self):
         sent = []
         status, row = run(
             ["--passphrases", "1", "--lines", "8806"], "AMBER-FALCON-4817", sent
         )
         self.assertEqual(status, 0)
-        (url0, evict), (url1, body) = sent
-        self.assertTrue(url0.endswith("/v1/chat/completions"))
-        self.assertTrue(evict["messages"][0]["content"].startswith("Say ok."))
+        # no request before it: the row's cached tells a resumed prompt
+        ((url, body),) = sent
+        self.assertTrue(url.endswith("/v1/chat/completions"))
         self.assertEqual(body["messages"], long_input.one_messages(8806))
         self.assertEqual(
             {k: body[k] for k in ("stream", "temperature", "max_tokens")},
@@ -222,8 +235,8 @@ class RunTests(unittest.TestCase):
         status, row = run(["--passphrases", "3", "--tokens", "5000"], pieces, sent)
         self.assertEqual(status, 0)
         urls = [url.rsplit("/", 1)[1] for url, _ in sent]
-        self.assertEqual(urls[-2:], ["completions", "completions"])
-        self.assertTrue(all(u == "tokenize" for u in urls[:-2]))
+        self.assertEqual(urls[-1], "completions")
+        self.assertTrue(all(u == "tokenize" for u in urls[:-1]))
         body = sent[-1][1]
         self.assertEqual(
             {k: body[k] for k in ("stream", "temperature", "max_tokens")},

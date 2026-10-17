@@ -8,12 +8,12 @@ from pathlib import Path
 from glm53_tf import decode_divergence
 
 
-def sample(ids, text=None):
-    return {"token_ids": ids, "text": "".join(map(str, ids)) if text is None else text}
+def sample(text):
+    return {"text": text}
 
 
 def compare(a, b):
-    """Run the tool on two token records; return its exit code and printed lines."""
+    """Run the tool on two text records; return its exit code and printed lines."""
     with tempfile.TemporaryDirectory() as tmp:
         paths = []
         for name, samples in (("a", a), ("b", b)):
@@ -32,39 +32,32 @@ def compare(a, b):
 
 class DecodeDivergenceTests(unittest.TestCase):
     def test_identical_runs_report_each_sample_identical(self):
-        samples = [sample([1, 2, 3]), sample([4, 5])]
+        samples = [sample("abc"), sample("de")]
         code, lines = compare(samples, samples)
         self.assertIn(code, (0, None))
         self.assertEqual(
             lines,
-            ["sample 0: identical (3 tokens)", "sample 1: identical (2 tokens)"],
+            [
+                "sample 0: identical (3 characters)",
+                "sample 1: identical (2 characters)",
+            ],
         )
 
-    def test_the_first_differing_token_and_text_are_reported(self):
-        _, lines = compare(
-            [sample([1, 2, 3, 4], "abcd")], [sample([1, 2, 9, 4], "abXd")]
-        )
-        self.assertEqual(
-            lines[0],
-            "sample 0: first differing token 2/4 (ids [3, 4] vs [9, 4]), char 2",
-        )
+    def test_the_first_differing_character_and_text_are_reported(self):
+        _, lines = compare([sample("abcd")], [sample("abXd")])
+        self.assertEqual(lines[0], "sample 0: first differing character 2/4")
         self.assertEqual(lines[1:], ["   A: 'abcd'", "   B: 'abXd'"])
 
     def test_a_shorter_first_run_differs_where_it_ends(self):
-        _, lines = compare([sample([1, 2])], [sample([1, 2, 3])])
-        self.assertEqual(
-            lines[0], "sample 0: first differing token 2/2 (ids [] vs [3]), char 2"
-        )
+        _, lines = compare([sample("ab")], [sample("abc")])
+        self.assertEqual(lines[0], "sample 0: first differing character 2/2")
 
     def test_a_shorter_second_run_differs_where_it_ends(self):
-        _, lines = compare([sample([1, 2, 3])], [sample([1, 2])])
-        self.assertTrue(
-            lines[0].startswith("sample 0: first differing token 2/3 (ids [3] vs [])"),
-            lines[0],
-        )
+        _, lines = compare([sample("abc")], [sample("ab")])
+        self.assertEqual(lines[0], "sample 0: first differing character 2/3")
 
     def test_differing_sample_counts_are_not_reported_as_matching(self):
-        _, lines = compare([sample([1]), sample([2])], [sample([1])])
+        _, lines = compare([sample("a"), sample("b")], [sample("a")])
         self.assertEqual(lines[-1], "samples: A has 2, B has 1")
 
 

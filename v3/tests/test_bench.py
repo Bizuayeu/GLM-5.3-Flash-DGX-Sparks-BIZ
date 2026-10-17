@@ -9,36 +9,28 @@ from unittest.mock import patch
 
 from glm53_tf import bench
 
-# The reply's block on TensorFold: prefill and decode keep prefill_s, heat_wait_s and
-# cached; edit keeps cached and the draft counts.
+# The native server's two blocks (10-17's probe): `tensorfold` with the prompt pass and the ids'
+# hash, `speculative` with the draft counts. Prefill keeps the times, decode adds the rounds and the
+# hash, edit the draft counts and the hash.
+SHA = "6cfce86a7e1b71d88b66e40ac527671dae0d9bf02bc9db06d46d9b03cf5c7a53"
 BLOCK = {
-    "prefill_s": 30.25,
-    "heat_wait_s": 1.5,
-    "cached": 0,
+    "prefill_seconds": 30.25,
+    "time_to_first_token": 30.3,
+    "token_sha256": SHA,
+    "token_sha": SHA[:12],
+    "engine": "lanes",
+    "drafts": True,
+}
+SPECULATIVE = {
     "rounds": 1,
     "drafted": 5,
     "accepted": 3,
-    "copy_rounds": 1,
-    "copy_drafted": 5,
-    "copy_accepted": 3,
-    "sha256": "0123456789abcdef",
+    "acceptance_rate": 0.6,
     "tokens_per_round": 3.5,
-    "stages_ms": {"draft": 1.0},
 }
-BLOCK_KEPT = {"prefill_s": 30.25, "heat_wait_s": 1.5, "cached": 0}
-DECODE_KEPT = dict(
-    BLOCK_KEPT, rounds=1, tokens_per_round=3.5, sha256="0123456789abcdef"
-)
-EDIT_KEPT = {
-    "cached": 0,
-    "rounds": 1,
-    "drafted": 5,
-    "accepted": 3,
-    "copy_rounds": 1,
-    "copy_drafted": 5,
-    "copy_accepted": 3,
-    "sha256": "0123456789abcdef",
-}
+BLOCK_KEPT = {"prefill_seconds": 30.25, "time_to_first_token": 30.3}
+DECODE_KEPT = dict(BLOCK_KEPT, rounds=1, tokens_per_round=3.5, token_sha256=SHA)
+EDIT_KEPT = {"rounds": 1, "drafted": 5, "accepted": 3, "token_sha256": SHA}
 
 
 def prefill_reply(prompt_tokens=38960, cached=0):
@@ -49,7 +41,8 @@ def prefill_reply(prompt_tokens=38960, cached=0):
             "completion_tokens": 1,
             "prompt_tokens_details": {"cached_tokens": cached},
         },
-        "tensorfold": dict(BLOCK, token_ids=[7]),
+        "tensorfold": BLOCK,
+        "speculative": SPECULATIVE,
     }
     return [json.dumps(reply).encode()]
 
@@ -61,7 +54,8 @@ def decode_reply(n=4, finish="length"):
     chunks += [
         {
             "choices": [{"delta": {}, "finish_reason": finish}],
-            "tensorfold": dict(BLOCK, token_ids=list(range(n))),
+            "tensorfold": BLOCK,
+            "speculative": SPECULATIVE,
         },
         {"choices": [], "usage": {"prompt_tokens": 17, "completion_tokens": n}},
     ]
@@ -250,6 +244,7 @@ class RowTests(unittest.TestCase):
             {
                 "kind": "edit",
                 "prompt_tokens": 17,
+                "cached": 0,
                 "completion_tokens": 4,
                 "finish_reason": "stop",
                 "ttft": 1.0,

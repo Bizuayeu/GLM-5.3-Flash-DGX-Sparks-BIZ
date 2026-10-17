@@ -5,12 +5,13 @@ Run on rank 0 against the loopback API. The prompt is a ledger of numbered lines
 the middle (--passphrases 1: not streamed, up to 512 tokens) or three at one twentieth from the start, the
 middle and one twentieth from the end (--passphrases 3: streamed, up to 256 tokens). --lines gives the
 ledger's line count; --tokens fits it to that many prompt tokens or fewer with the engine's /tokenize.
-The engine has no endpoint that drops its kept prompts, so a short unrelated request goes first and the
-row's `cached` shows whether the long prompt resumed one. Correct when the reply contains every
-passphrase. The row carries the time to the first streamed token (`ttft`, streamed only; when not
-streamed it is the `ttft` of rank 0's `[tensorfold] done` line), the request's time at the client, the
-prompt and cached tokens, the reply's `tensorfold` fields prefill_s, heat_wait_s and cached, and the
-start and end epochs. Exit 0 when correct, 1 when not.
+The engine keeps prompts in a cache sized in GiB and has no endpoint that drops them, so the row's
+`cached` says whether the long prompt resumed a kept one (the same ledger sent before can; a fresh
+server gives a cold one). Correct when the reply contains every passphrase. The row carries the time to
+the first streamed token (`ttft`, streamed only), the request's time at the client, the prompt and cached
+tokens, the reply's `tensorfold` fields prefill_seconds, time_to_first_token and token_sha256, and the
+start and end epochs. The prompt's heat waits are in rank 0's log (`heat_wait_s` lines), not in the
+reply. Exit 0 when correct, 1 when not.
 
     python -m glm53_tf long-input --passphrases 1 --lines 8806          (199,652 tokens, 1.x's text)
     python -m glm53_tf long-input --passphrases 3 --tokens 500000 --out ../records/<run>/long.jsonl
@@ -36,7 +37,7 @@ THREE = {
     "middle": "COBALT-HERON-2093",
     "end": "SAFFRON-LYNX-7731",
 }
-KEPT = ("prefill_s", "heat_wait_s", "cached")
+KEPT = ("prefill_seconds", "time_to_first_token", "token_sha256")
 
 
 def auth():
@@ -106,19 +107,6 @@ def found(content, passphrases):
 def kept(block):
     """The fields of the reply's `tensorfold` block the row keeps."""
     return {k: v for k, v in (block or {}).items() if k in KEPT}
-
-
-def evict():
-    """A short unrelated request, so that the long prompt cannot resume a kept one."""
-    body = {
-        "model": MODEL,
-        "messages": [{"role": "user", "content": f"Say ok. {time.time()}"}],
-        "max_tokens": 4,
-        "temperature": 0,
-        "reasoning_effort": "low",
-    }
-    with post("/v1/chat/completions", body, 300) as r:
-        r.read()
 
 
 def whole(messages):
@@ -212,7 +200,6 @@ def main(argv=None):
     lines, tokens = args.lines, None
     if args.tokens is not None:
         lines, tokens = fit(args.tokens, build, tokenize)
-    evict()
     start_epoch = time.time()
     reply = request(build(lines))
     usage = reply["usage"]

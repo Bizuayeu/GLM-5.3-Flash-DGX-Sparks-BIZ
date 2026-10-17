@@ -5,9 +5,8 @@ prefill: one user message, a line `nonce <a fresh UUID>`, --lines fixed lines an
   max_tokens 1; the default 3,200 lines give 38,960 tokens with the chat template. The rate is the
   prompt tokens over the request's wall time at the client. The engine has no endpoint that drops its
   kept prompts, so the fresh nonce keeps any of them from matching; each row's `cached` shows it.
-  --warmup requests of the same length (default 1) run first and are not counted: the first prompt of
-  many chunks that a container serves compiles Triton kernels on its way (about 1.5 s at TP=2 on the
-  reference hosts, unless TRITON_CACHE_DIR keeps them on /work). Their rates are the summary's "warmup".
+  --warmup requests of the same length (default 1) run first and are not counted; their rates are the
+  summary's "warmup".
 decode: `Write the numbers from 1 to 1000, one per line, and nothing else.`, streamed, up to 512 tokens.
   The rate is the completion tokens after the first over the time after the first streamed token. The
   reply counts until the limit cuts it (`finish_reason` `length`, the count in the 200s), so every token
@@ -15,15 +14,16 @@ decode: `Write the numbers from 1 to 1000, one per line, and nothing else.`, str
   a row with another `finish_reason` stopped early and does not compare. Before 2.5.0 the request was
   `Count upward from one, one number per line.` with ignore_eos: the model stops by itself after about
   100 tokens, and the rest of the 512 was a conversation the model made up past its end, different per
-  weights and TP. The row adds `finish_reason` and the reply's rounds, tokens_per_round and sha256.
+  weights and TP. The row adds `finish_reason` and the reply's rounds, tokens_per_round and token_sha256.
 edit (only when asked for): a fixed Python module of about 6,000 characters and three named one-line
   edits, `Return the whole module with only these edits, in one code block:`, streamed, temperature 0,
   up to 4,096 tokens and ending on its own (a `finish_reason` of `length` means the reply was cut).
   Rated as decode is; most of the reply copies the prompt, the load copy drafts are for. Its row adds
-  `prompt_tokens`, `finish_reason` and the reply's cached, rounds, drafted, accepted, copy_rounds,
-  copy_drafted, copy_accepted and sha256 (the token ids' hash: the same every run at temperature 0).
-The prefill and decode rows also carry the reply's `tensorfold` fields prefill_s, heat_wait_s and cached,
-and every row the request's start and end epochs. One JSON line per request, then a summary with each
+  `prompt_tokens`, `cached`, `finish_reason` and the reply's rounds, drafted, accepted and token_sha256
+  (the token ids' hash: the same every run at temperature 0).
+The prefill and decode rows also carry the reply's prefill_seconds and time_to_first_token (the reply's
+`tensorfold` and `speculative` blocks, kept under `tensorfold`; a prompt's heat waits are in rank 0's
+log), and every row the request's start and end epochs. One JSON line per request, then a summary with each
 kind's median; an edit reply cut at its limit is left out of the median and counted under "cut".
 
     python -m glm53_tf bench --kinds prefill --runs 1 --lines 250    (a short warm-up, about 3,000 tokens)
@@ -48,20 +48,11 @@ LINES = 3200
 KINDS = ("prefill", "decode")
 OPTIONAL = ("edit",)  # run only when --kinds names them
 TEMPLATE = {"reasoning_effort": "low", "clear_thinking": True}
-KEPT = ("prefill_s", "heat_wait_s", "cached")
-DECODE_KEPT = KEPT + ("rounds", "tokens_per_round", "sha256")
+KEPT = ("prefill_seconds", "time_to_first_token")
+DECODE_KEPT = KEPT + ("rounds", "tokens_per_round", "token_sha256")
 DECODE_PROMPT = "Write the numbers from 1 to 1000, one per line, and nothing else."
 DECODE_TOKENS = 512  # the count reaches the 200s: the limit ends the reply
-EDIT_KEPT = (
-    "cached",
-    "rounds",
-    "drafted",
-    "accepted",
-    "copy_rounds",
-    "copy_drafted",
-    "copy_accepted",
-    "sha256",
-)
+EDIT_KEPT = ("rounds", "drafted", "accepted", "token_sha256")
 EDIT_TOKENS = 4096  # the passage is about 2,000 tokens; the rest is room to end
 PASSAGE = r'''"""A small ledger: accounts, postings read from text lines, balances and reports."""
 
@@ -308,8 +299,13 @@ def edit_body():
     }
 
 
+def engine_fields(reply):
+    """A reply's `tensorfold` and `speculative` blocks as one (the server sends the draft counts apart)."""
+    return {**(reply.get("tensorfold") or {}), **(reply.get("speculative") or {})}
+
+
 def kept(block, fields=KEPT):
-    """The fields of the reply's `tensorfold` block a row keeps."""
+    """The fields of the reply's engine blocks a row keeps."""
     return {k: v for k, v in (block or {}).items() if k in fields}
 
 
@@ -326,7 +322,7 @@ def prefill(args):
         "cached": (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0,
         "seconds": round(seconds, 3),
         "tok_per_s": round(usage["prompt_tokens"] / seconds, 1),
-        "tensorfold": kept(reply.get("tensorfold")),
+        "tensorfold": kept(engine_fields(reply)),
         "start_epoch": round(start_epoch, 1),
         "end_epoch": round(time.time(), 1),
     }
@@ -338,7 +334,7 @@ def streamed(body):
     start = time.monotonic()
     first = None
     usage = None
-    block = None
+    block = {}
     finish = None
     with post("/v1/chat/completions", body) as r:
         for raw in r:
@@ -348,8 +344,9 @@ def streamed(body):
             chunk = json.loads(line[6:])
             if chunk.get("usage"):
                 usage = chunk["usage"]
-            if chunk.get("tensorfold"):
-                block = chunk["tensorfold"]
+            block.update(
+                engine_fields(chunk)
+            )  # on the chunk that ends the reply, before usage
             choice = (chunk.get("choices") or [{}])[0]
             finish = choice.get("finish_reason") or finish
             delta = choice.get("delta") or {}
@@ -384,6 +381,7 @@ def edit(_args):
     return {
         "kind": "edit",
         "prompt_tokens": usage["prompt_tokens"],
+        "cached": (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0,
         "completion_tokens": tokens,
         "finish_reason": finish,
         "ttft": round(first - start, 3),

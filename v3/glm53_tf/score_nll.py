@@ -4,7 +4,8 @@ Both engines get the same token ids (the checkpoint's tokenizer.json, special to
 /v1/completions with prompt_logprobs, read by glm53_tf.agreement with each text twice, so the
 self-agreement shows how far the server moves by itself. Prints the NLL of each domain, weighted by
 its positions, and writes the full result. Exit status 2 when the tokenizer or a text is not the
-one the set was built with, 1 when a request failed.
+one the set was built with, 3 when the server refuses prompt_logprobs (the native engine's GLM does not
+return them yet), 1 when a request failed.
 
     python -m glm53_tf score-nll --url http://127.0.0.1:8095 \\
         --tokenizer <checkpoint snapshot>/tokenizer.json --out ../records/<run>/nll.json
@@ -18,6 +19,7 @@ import hashlib
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -116,6 +118,15 @@ def main(argv=None):
         body = {"model": model, "prompt": token_ids, "max_tokens": 1}
         body.update(temperature=0, seed=args.seed, prompt_logprobs=top_k)
         return post(args.url, "/v1/completions", body)
+
+    try:  # one short request first: a server without prompt_logprobs refuses every text alike
+        complete(tokenize("ok"), 1)
+    except urllib.error.HTTPError as error:
+        if error.code != 400:
+            raise
+        reason = error.read().decode("utf-8", "replace")[:300]
+        print(f"the server refuses prompt_logprobs: {reason}", file=sys.stderr)
+        return 3
 
     summary, result = score(data, tokenize, complete)
     for row in result["texts"]:
