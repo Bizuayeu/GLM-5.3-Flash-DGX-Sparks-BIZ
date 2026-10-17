@@ -55,4 +55,6 @@ RUN apt-get update \
 COPY --from=build /out/tensorfold-native /out/tf-cuda-test /usr/local/bin/
 COPY --from=build /out/ENGINE /usr/share/doc/tf3/ENGINE
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/doc/tf3/
+# The rank's start (cluster.sh runs it in the container on every host)
+COPY v3/scripts/serve.sh /opt/glm53-tf3/serve.sh
 WORKDIR /work

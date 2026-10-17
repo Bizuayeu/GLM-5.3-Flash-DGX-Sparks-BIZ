@@ -1,4 +1,5 @@
 import json
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -74,8 +75,15 @@ class CheckpointTests(unittest.TestCase):
             config.checkpoint("other", Path("state"))
 
 
-# cc-defer: 2.x's check that serve.sh serves the locked checkpoint comes back with
-# v3/scripts/serve.sh, which 3.0.0 writes for the native engine.
+class ServeScriptTests(unittest.TestCase):
+    def test_serve_sh_serves_the_locked_checkpoint(self):
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        pattern = r"/hub/models--([\w.-]+)--([\w.-]+)/snapshots/([0-9a-f]{40})"
+        match = re.search(pattern, serve)
+        self.assertIsNotNone(match)
+        lock = config.load_lock()
+        self.assertEqual(f"{match[1]}/{match[2]}", lock["model"])
+        self.assertEqual(match[3], lock["revision"])
 
 
 if __name__ == "__main__":

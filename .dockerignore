@@ -7,6 +7,7 @@
 !v2/docker/
 !v2/scripts/
 !v3/docker/
+!v3/scripts/
 !LICENSE
 !NOTICE
 !THIRD_PARTY_NOTICES.md
