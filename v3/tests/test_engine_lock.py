@@ -40,6 +40,15 @@ class EngineLockTests(unittest.TestCase):
         self.assertEqual(args["ZIG_URL"], pinned["zig"]["url"])
         self.assertEqual(args["ZIG_SHA256"], pinned["zig"]["sha256"])
         self.assertEqual(args["BUILD_FLAGS"], " ".join(pinned["build"]))
+        grammar = pinned["xgrammar"]
+        self.assertEqual(args["XGRAMMAR_REPO"], grammar["repo"])
+        self.assertEqual(args["XGRAMMAR_TAG"], grammar["version"])
+        self.assertEqual(args["XGRAMMAR_REF"], grammar["ref"])
+
+    def test_the_grammar_library_is_a_release_at_a_full_commit(self):
+        grammar = lock()["xgrammar"]
+        self.assertRegex(grammar["ref"], HEX40)
+        self.assertRegex(grammar["version"], r"^v\d+\.\d+\.\d+$")
 
     def test_the_bases_are_pinned_by_digest(self):
         args = dockerfile_args()

@@ -1,7 +1,7 @@
 {
   "repo": "https://github.com/Bizuayeu/TensorFold.git",
   "branch": "release/3.x",
-  "ref": "4457aea54e69000203dc40d69cadd21717809129",
+  "ref": "3d3d61d5937fea3bac68e13d75d5d2c7585ce3df",
   "upstream": {
     "repo": "https://github.com/ashhart/TensorFold.git",
     "version": "1.0.12",
@@ -11,6 +11,11 @@
     "version": "0.17.0",
     "url": "https://ziglang.org/download/0.17.0/zig-aarch64-linux-0.17.0.tar.xz",
     "sha256": "9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8"
+  },
+  "xgrammar": {
+    "repo": "https://github.com/mlc-ai/xgrammar.git",
+    "version": "v0.2.8",
+    "ref": "97787376faee5ed8466cfad57c99855e4ce2f6aa"
   },
   "build": ["-Dnvcc=/usr/local/cuda/bin/nvcc", "-Dsm=121"]
 }

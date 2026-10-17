@@ -9,10 +9,15 @@ ARG BUILD_IMAGE=nvidia/cuda:13.3.1-devel-ubuntu24.04@sha256:4ff859525f99de5782aa
 ARG RUNTIME_IMAGE=nvidia/cuda:13.3.1-runtime-ubuntu24.04@sha256:63da350831208559df18c7b8f3e0d5d1c984eaa815cdde690aacd6606cd0cb11
 # The engine and its compiler as v3/config/engine.lock.json pins them (v3/tests/test_engine_lock.py keeps them equal).
 ARG ENGINE_REPO=https://github.com/Bizuayeu/TensorFold.git
-ARG ENGINE_REF=4457aea54e69000203dc40d69cadd21717809129
+ARG ENGINE_REF=3d3d61d5937fea3bac68e13d75d5d2c7585ce3df
 ARG ZIG_URL=https://ziglang.org/download/0.17.0/zig-aarch64-linux-0.17.0.tar.xz
 ARG ZIG_SHA256=9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8
 ARG BUILD_FLAGS="-Dnvcc=/usr/local/cuda/bin/nvcc -Dsm=121"
+# Structured output's library (libtfgrammar: the engine's C ABI over xgrammar's C++), from the xgrammar release the
+# engine pins, checked by commit
+ARG XGRAMMAR_REPO=https://github.com/mlc-ai/xgrammar.git
+ARG XGRAMMAR_TAG=v0.2.8
+ARG XGRAMMAR_REF=97787376faee5ed8466cfad57c99855e4ce2f6aa
 
 FROM ${BUILD_IMAGE} AS build
 ARG ENGINE_REPO
@@ -36,6 +41,20 @@ RUN /opt/zig/zig build $BUILD_FLAGS \
  && mkdir /out && cp zig-out/native/bin/tensorfold-native zig-out/bin/tf-cuda-test /out/ \
  && cd /out && printf "engine %s\nref %s\nzig %s\nflags %s\n" "$ENGINE_REPO" "$ENGINE_REF" "$ZIG_URL" "$BUILD_FLAGS" > ENGINE \
  && sha256sum tensorfold-native tf-cuda-test >> ENGINE
+ARG XGRAMMAR_REPO
+ARG XGRAMMAR_TAG
+ARG XGRAMMAR_REF
+# `zig build grammar` puts libtfgrammar.so in zig-out/lib; xgrammar's and dlpack's notices go with it
+RUN git clone --branch "$XGRAMMAR_TAG" --recurse-submodules "$XGRAMMAR_REPO" /xgrammar \
+ && test "$(git -C /xgrammar rev-parse HEAD)" = "$XGRAMMAR_REF" \
+ && /opt/zig/zig build grammar -Dxgrammar=/xgrammar $BUILD_FLAGS \
+ && cp zig-out/lib/libtfgrammar.so /out/ \
+ && mkdir /out/LICENSES \
+ && cp /xgrammar/LICENSE /out/LICENSES/xgrammar-Apache-2.0.txt \
+ && cp /xgrammar/NOTICE /out/LICENSES/xgrammar-NOTICE.txt \
+ && cp /xgrammar/3rdparty/dlpack/LICENSE /out/LICENSES/dlpack-Apache-2.0.txt \
+ && cd /out && printf "xgrammar %s %s %s\n" "$XGRAMMAR_REPO" "$XGRAMMAR_TAG" "$XGRAMMAR_REF" >> ENGINE \
+ && sha256sum libtfgrammar.so >> ENGINE
 
 FROM ${RUNTIME_IMAGE}
 ARG ENGINE_REF
@@ -54,6 +73,9 @@ RUN apt-get update \
 
 COPY --from=build /out/tensorfold-native /out/tf-cuda-test /usr/local/bin/
 COPY --from=build /out/ENGINE /usr/share/doc/tf3/ENGINE
+# the server looks in ../lib beside its binary for the grammar library
+COPY --from=build /out/libtfgrammar.so /usr/local/lib/
+COPY --from=build /out/LICENSES/ /usr/share/doc/tf3/LICENSES/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/doc/tf3/
 # The rank's start (cluster.sh runs it in the container on every host)
 COPY v3/scripts/serve.sh /opt/glm53-tf3/serve.sh
