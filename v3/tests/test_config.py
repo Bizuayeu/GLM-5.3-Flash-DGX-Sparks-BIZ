@@ -85,6 +85,13 @@ class ServeScriptTests(unittest.TestCase):
         self.assertEqual(f"{match[1]}/{match[2]}", lock["model"])
         self.assertEqual(match[3], lock["revision"])
 
+    def test_serve_sh_serves_one_stream_unless_the_rank_file_says_otherwise(self):
+        # Unset: 1. Empty: no --parallel, the engine's auto (from the memory free at start).
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn("parallel=${PARALLEL-1}\n", serve)
+        self.assertIn('[ -n "$parallel" ] && args+=(--parallel "$parallel")', serve)
+        self.assertEqual(serve.count("--parallel"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

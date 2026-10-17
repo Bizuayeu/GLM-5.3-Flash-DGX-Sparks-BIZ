@@ -2,8 +2,9 @@
 # Inside the container, on every rank: serve.sh TP RANK RANK_ENV [more `tensorfold-native serve` arguments]
 # The 3.x serving defaults: the MTP head's drafts (the engine's default), replies of up to 32,768 tokens when a request
 # names no limit, high reasoning effort, and the window by TP: 245,760 tokens at TP=2 and 1,048,576 at TP=3, about the
-# largest one stream fits (measured). With PARALLEL unset the engine sizes the streams and the prompt cache from the
-# memory free at start, so they can differ between starts. CONTEXT in the rank file sets another, every rank the same.
+# largest one stream fits (measured), one stream (PARALLEL=1). An empty PARALLEL leaves it to the engine, which sizes
+# the streams and the prompt cache from the memory free at start, so they can differ between starts. CONTEXT in the
+# rank file sets another window, every rank the same.
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
 # between the hosts. TP=2 meets at MASTER:NCCL_PORT (NCCL_COMM_ID). TP=3's hosts are linked point to point with /32
 # addresses, where NCCL_COMM_ID cannot bootstrap, so rank 0 writes its NCCL id to ID_FILE and the other ranks read it
@@ -55,14 +56,15 @@ done
 CHECKPOINT=${CHECKPOINT:-/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93}
 # Every rank takes the same arguments (the ranks compare their settings at start); only rank 0 serves HTTP.
 # REASONING_EFFORT: what a request that names none gets (default high; empty: the chat template's own).
-# PARALLEL: how many requests share the rounds (default: the engine's auto). API_KEY_FILE: serving beyond loopback,
-# requests without the key are refused.
+# PARALLEL: how many requests share the rounds (default 1; empty: the engine's auto). API_KEY_FILE: serving beyond
+# loopback, requests without the key are refused.
 args=(--name "${MODEL_NAME:-glm-tf}" --host "${HOST:-127.0.0.1}" --port "${PORT:-8095}")
 args+=(--context "$context" --max-tokens 32768 --no-update-check)
 [ -n "${REASONING_EFFORT-high}" ] && args+=(--reasoning-effort "${REASONING_EFFORT-high}")
-[ -n "${PARALLEL:-}" ] && args+=(--parallel "$PARALLEL")
+parallel=${PARALLEL-1}
+[ -n "$parallel" ] && args+=(--parallel "$parallel")
 [ -n "${API_KEY_FILE:-}" ] && args+=(--api-key-file "$API_KEY_FILE")
-echo "[serve.sh] $(date -Is) TP=$tp rank $rank master $MASTER context $context" \
+echo "[serve.sh] $(date -Is) TP=$tp rank $rank master $MASTER context $context parallel ${parallel:-auto}" \
   "heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}/${TF_HEAT_CEILING:-unset}" \
   "engine $(sed -n 's/^ref //p' /usr/share/doc/tf3/ENGINE 2>/dev/null || echo '?')"
 exec tensorfold-native serve "$CHECKPOINT" "${args[@]}" "$@"
