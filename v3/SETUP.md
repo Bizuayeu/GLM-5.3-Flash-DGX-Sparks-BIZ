@@ -63,7 +63,7 @@ Read each rank's startup lines:
 - each rank's NCCL lines (`via NET/IB`, logged once at start by the rank file's `NCCL_DEBUG` lines) name `NET/IB` for every connection, none over sockets
 - the `serving` line: the model name (`glm-tf` unless `MODEL_NAME` is set in the rank file), `127.0.0.1:8095` unless `HOST` and `PORT` are, and the window
 
-Rank 0 serves the OpenAI-compatible API on loopback. A start took about 200 s at TP=3 and about 235 s at TP=2 on the reference hosts.
+Rank 0 serves the OpenAI-compatible API on loopback. A start took 235 s at TP=3 and 268 to 281 s at TP=2 on the reference hosts, in 3.0.0's acceptance.
 
 ## 6. Tool-argument gate (optional)
 

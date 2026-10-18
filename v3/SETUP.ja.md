@@ -63,7 +63,7 @@ TP=2では大きいrankから起動し、rank 0を最後にします。TP=3で�
 - 各rankのNCCLの行（`via NET/IB`、rankのファイルの `NCCL_DEBUG` の行で起動時に一度だけ出る）：全接続が `NET/IB` で、socketは無い
 - `serving` の行：modelの名前（rankのファイルで `MODEL_NAME` を設定しなければ `glm-tf`）、`HOST` と `PORT` を設定しなければ `127.0.0.1:8095`、窓
 
-rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では起動にTP=3で約200秒、TP=2で約235秒かかりました。
+rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、3.0.0の受け入れで起動にTP=3で235秒、TP=2で268〜281秒かかりました。
 
 ## 6. tool引数ゲート（任意）
 

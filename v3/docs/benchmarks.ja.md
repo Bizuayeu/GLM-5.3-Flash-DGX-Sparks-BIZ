@@ -8,7 +8,7 @@
 
 - **ホスト。** 参照機のMSI EdgeXpert（GB10）。TP=2は直結の対、TP=3はリングの3台で、GPUには他に何も載せていません（2.x系のcontainerは停止）。
 - **GPUクロック**は[ホストのツール](../../host/README.ja.md)の起動時のunitで2,200 MHzを上限にしました（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）。
-- **エンジンとimage。** リリースのimage、エンジン `3d3d61d5` を `serve.sh` の既定で：1本のstream、TP=2で245,760 token・TP=3で1,048,576 tokenの窓、92 °C／88 °Cの熱の待ちと93 °Cへの見込み。1回の起動は空の `PARALLEL=`（エンジン自身によるstreamの選択）で走らせ、そのことを書いています。
+- **エンジンとimage。** 窓が動かしたimage `glm53-tf3:3x-bc82bc4`（エンジン `3d3d61d5`。リリースのimageはbinaryが同じ）を `serve.sh` の既定で：1本のstream、TP=2で245,760 token・TP=3で1,048,576 tokenの窓、92 °C／88 °Cの熱の待ちと93 °Cへの見込み。1回の起動は空の `PARALLEL=`（エンジン自身によるstreamの選択）で走らせ、そのことを書いています。
 - **core。** 全containerを効率coreの0-4と10-14に。`create_container.sh` が作るとおりです。
 - **見張り。** メモリの見張りを全ホストで、熱の見張りを起動の全ホストで動かしました。
 - **クライアント。** 要求はすべてrank 0からloopbackのエンジンへ一つずつ、検査が別に言わない限りtemperature 0、推論のeffortはlowです。道具はcontainerの中でcheckoutの `v3/` から動かしました。
