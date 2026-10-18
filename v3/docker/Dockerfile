@@ -55,6 +55,9 @@ RUN git clone --branch "$XGRAMMAR_TAG" --recurse-submodules "$XGRAMMAR_REPO" /xg
  && cp /xgrammar/3rdparty/dlpack/LICENSE /out/LICENSES/dlpack-Apache-2.0.txt \
  && cd /out && printf "xgrammar %s %s %s\n" "$XGRAMMAR_REPO" "$XGRAMMAR_TAG" "$XGRAMMAR_REF" >> ENGINE \
  && sha256sum libtfgrammar.so >> ENGINE
+# The engine's own notices, which its binaries carry (a step of its own, after the builds)
+RUN mkdir /out/engine \
+ && cp -r /src/LICENSE /src/NOTICE /src/THIRD_PARTY_NOTICES.md /src/LICENSES /out/engine/
 
 FROM ${RUNTIME_IMAGE}
 ARG ENGINE_REF
@@ -76,6 +79,7 @@ COPY --from=build /out/ENGINE /usr/share/doc/tf3/ENGINE
 # the server looks in ../lib beside its binary for the grammar library
 COPY --from=build /out/libtfgrammar.so /usr/local/lib/
 COPY --from=build /out/LICENSES/ /usr/share/doc/tf3/LICENSES/
+COPY --from=build /out/engine/ /usr/share/doc/tf3/engine/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/doc/tf3/
 # The rank's start (cluster.sh runs it in the container on every host)
 COPY v3/scripts/serve.sh /opt/glm53-tf3/serve.sh
