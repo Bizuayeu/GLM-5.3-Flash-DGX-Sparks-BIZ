@@ -128,7 +128,7 @@ def decode(prompt):
 
 def acceptance(blocks):
     """The acceptance length and the keys it adds to the summary: the sum of the replies'
-    `speculative` blocks, exact per request (the engine's `/metrics` has no draft rounds).
+    `speculative` blocks, exact per request (the engine's `/metrics` counts rounds server-wide only).
     Without drafts, or with a reply that has no block, it is null with the reason."""
     extra = {"acceptance_from": "speculative reply blocks"}
     if not all(b and "rounds" in b and "accepted" in b for b in blocks):

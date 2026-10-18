@@ -4,8 +4,8 @@ Both engines get the same token ids (the checkpoint's tokenizer.json, special to
 /v1/completions with prompt_logprobs, read by glm53_tf.agreement with each text twice, so the
 self-agreement shows how far the server moves by itself. Prints the NLL of each domain, weighted by
 its positions, and writes the full result. Exit status 2 when the tokenizer or a text is not the
-one the set was built with, 3 when the server refuses prompt_logprobs (the native engine's GLM does not
-return them yet), 1 when a request failed.
+one the set was built with, 3 when the server refuses prompt_logprobs (an engine built without them),
+1 when a request failed.
 
     python -m glm53_tf score-nll --url http://127.0.0.1:8095 \\
         --tokenizer <checkpoint snapshot>/tokenizer.json --out ../records/<run>/nll.json
