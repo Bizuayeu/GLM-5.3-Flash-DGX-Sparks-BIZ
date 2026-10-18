@@ -4,7 +4,7 @@
 
 This is an engineering project with a measured scope. Keep claims limited to the exact hardware, image, weights, precision and workload tested.
 
-Use Python 3.11 or newer. The 1.x line (vLLM) lives in `v1/`, the 2.x line (TensorFold) in `v2/` and the 3.x line (TensorFold's native engine, in preparation) in `v3/`; each line holds what is specific to its engine, and the checkout root holds what the lines share: the host and fabric pages in `docs/`, the host tools in `host/` and the repository tools (the publication audit and the release notes). Install the pinned check tools and 1.x's test dependencies once (`python -m pip install -r requirements/dev.lock.txt -r v1/requirements/test.lock.txt`: Ruff for every line, NumPy, which some 1.x tests need, and filelock, which the download lock test of every line needs), then run the checks of each place, as [CI](.github/workflows/ci.yml) does:
+Use Python 3.11 or newer. The 1.x line (vLLM) lives in `v1/`, the 2.x line (TensorFold) in `v2/` and the 3.x line (TensorFold's native engine) in `v3/`; each line holds what is specific to its engine, and the checkout root holds what the lines share: the host and fabric pages in `docs/`, the host tools in `host/` and the repository tools (the publication audit and the release notes). Install the pinned check tools and 1.x's test dependencies once (`python -m pip install -r requirements/dev.lock.txt -r v1/requirements/test.lock.txt`: Ruff for every line, NumPy, which some 1.x tests need, and filelock, which the download lock test of every line needs), then run the checks of each place, as [CI](.github/workflows/ci.yml) does:
 
 ```sh
 # in v1/
@@ -28,7 +28,7 @@ python tools/check_publication.py
 
 The audit applies its line rules to every line (version, license, model pin, a changelog section for the version; 1.x also its document map, architecture page and README citations). `python tools/check_publication.py --duplicates` also lists measured-looking numbers found on more than one page of a line; it is a warning for whoever edits the documents, since a number has one owner page but may be cited deliberately.
 
-An optional CI job also runs 1.x's tests with torch built for CPU (`v1/requirements/cpu-torch.lock.txt`, installed after 1.x's test lock), so the tests that need torch but no GPU run too; those that need CUDA or the pinned vLLM image still skip there and run on the GPU hosts only. GPU checks are separate from CPU tests. Use the pinned image and record effective arguments, output completeness, numerical differences and failures. The validation procedures are each line's: [1.x](v1/docs/validation.md) and [2.x](v2/docs/validation.md).
+An optional CI job also runs 1.x's tests with torch built for CPU (`v1/requirements/cpu-torch.lock.txt`, installed after 1.x's test lock), so the tests that need torch but no GPU run too; those that need CUDA or the pinned vLLM image still skip there and run on the GPU hosts only. GPU checks are separate from CPU tests. Use the pinned image and record effective arguments, output completeness, numerical differences and failures. The validation procedures are each line's: [1.x](v1/docs/validation.md), [2.x](v2/docs/validation.md) and [3.x](v3/docs/validation.md).
 
 - Do not commit credentials, local site configuration, model weights, raw logs or private experiment records.
 - Keep model/cache artifacts read-only during inference and preserve failed runs.

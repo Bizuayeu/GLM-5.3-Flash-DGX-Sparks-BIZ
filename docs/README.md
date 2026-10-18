@@ -37,8 +37,11 @@ This map lists the repository's own pages, the pages every serving line shares a
 | 2.x decisions | What was tried for 2.x, adopted or rejected, with dates, measured effects and what would reopen each; 1.x measures not yet evaluated on 2.x | [EN](../v2/docs/decisions.md) | [JA](../v2/docs/decisions.ja.md) |
 | 2.x benchmark method | How the release figures and the reference values were taken: hosts, cooling, prompts, engine commits | [EN](../v2/docs/benchmarks.md) | [JA](../v2/docs/benchmarks.ja.md) |
 | 2.x changelog | 2.x releases; the English file is canonical | [EN](../v2/CHANGELOG.md) | [JA](../v2/CHANGELOG.ja.md) |
-| 3.x README | The 3.x line while it is prepared for 3.0.0: what it will serve and with which engine | [EN](../v3/README.md) | [JA](../v3/README.ja.md) |
-| 3.x setup runbook | Written with 3.0.0; until then it points to 2.x's | [EN](../v3/SETUP.md) | [JA](../v3/SETUP.ja.md) |
+| 3.x README | The 3.x line's overview: what it serves on TensorFold's native engine, how to start it, its defaults and measurements, its limits and what would change it | [EN](../v3/README.md) | [JA](../v3/README.ja.md) |
+| 3.x setup runbook | Ordered steps from hosts to acceptance and stop | [EN](../v3/SETUP.md) | [JA](../v3/SETUP.ja.md) |
+| 3.x validation | The reference values a 3.x launch is accepted against | [EN](../v3/docs/validation.md) | [JA](../v3/docs/validation.ja.md) |
+| 3.x operations | Start outcomes, a rank that stops, a stop that leaves an engine, NCCL over sockets, a new container or image, a host that powered off, handing the hosts to 2.x | [EN](../v3/docs/operations.md) | [JA](../v3/docs/operations.ja.md) |
+| 3.x benchmark method | How the release figures and the reference values were taken: hosts, cores, cooling, prompts | [EN](../v3/docs/benchmarks.md) | [JA](../v3/docs/benchmarks.ja.md) |
 | 3.x changelog | 3.x releases; the English file is canonical | [EN](../v3/CHANGELOG.md) | [JA](../v3/CHANGELOG.ja.md) |
 
 ## Conventions

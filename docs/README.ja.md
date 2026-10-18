@@ -37,8 +37,11 @@
 | 2.xの決定 | 2.xで試し、採った・採らなかったものと、その日付・測った効果・開き直す条件。2.xで未評価の1.xの施策 | [EN](../v2/docs/decisions.md) | [JA](../v2/docs/decisions.ja.md) |
 | 2.xのベンチマークの方法 | リリースの値と基準値の取り方：ホスト、冷却、prompt、エンジンのcommit | [EN](../v2/docs/benchmarks.md) | [JA](../v2/docs/benchmarks.ja.md) |
 | 2.xの変更履歴 | 2.xのリリース。英語版が正典 | [EN](../v2/CHANGELOG.md) | [JA](../v2/CHANGELOG.ja.md) |
-| 3.xのREADME | 3.0.0に向けて準備中の3.x系：何をどのエンジンで配信するか | [EN](../v3/README.md) | [JA](../v3/README.ja.md) |
-| 3.xのセットアップ手順書 | 3.0.0で書く。それまでは2.xの手順書を指す | [EN](../v3/SETUP.md) | [JA](../v3/SETUP.ja.md) |
+| 3.xのREADME | 3.x系の概要：TensorFoldのネイティブエンジンで何を配信するか、どう始めるか、既定値と測定値、制約と、何が変われば見直すか | [EN](../v3/README.md) | [JA](../v3/README.ja.md) |
+| 3.xのセットアップ手順書 | ホストから受け入れ・停止までの順序 | [EN](../v3/SETUP.md) | [JA](../v3/SETUP.ja.md) |
+| 3.xの検証 | 3.xの起動を受け入れる基準値 | [EN](../v3/docs/validation.md) | [JA](../v3/docs/validation.ja.md) |
+| 3.xの運用 | 起動の結果、止まったrank、エンジンが残る停止、socketに落ちたNCCL、新しいcontainerやimage、電源が落ちたホスト、ホストを2.x系へ渡す | [EN](../v3/docs/operations.md) | [JA](../v3/docs/operations.ja.md) |
+| 3.xのベンチマークの方法 | リリースの値と基準値の取り方：ホスト、core、冷却、prompt | [EN](../v3/docs/benchmarks.md) | [JA](../v3/docs/benchmarks.ja.md) |
 | 3.xの変更履歴 | 3.xのリリース。英語版が正典 | [EN](../v3/CHANGELOG.md) | [JA](../v3/CHANGELOG.ja.md) |
 
 ## 約束事
