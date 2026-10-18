@@ -4,7 +4,7 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
-## 3.0.0 — in preparation
+## 3.0.0 — 2026-10-18
 
 The first release of the 3.x line. It serves the same pinned checkpoint as 1.x and 2.x, `nvidia/GLM-5.3-Flash-NVFP4` at `423acf37583782c51c142d145aef733d72943d93`, with TensorFold's native engine, the Zig and CUDA engine that took the place of the Python engine 2.x runs, on two hosts at TP=2 or three hosts at TP=3. The 2.x line continues in [`v2/`](../v2/README.md).
 
