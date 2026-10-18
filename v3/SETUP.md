@@ -40,6 +40,8 @@ v3/scripts/create_container.sh glm53-tf3:3.0.0 ~/glm53-tf3   # container glm53-t
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # this host's rank: tp2-rank0/1 or tp3-rank0/1/2
 ```
 
+`create_container.sh` prints the cores it gives the container: unless `CPUSET` is set, the cores with the lowest maximum frequency, `cpuset 0-4,10-14` on a GB10, whose efficiency cores keep the CPU cooler while the engine's threads spin ([serving defaults](README.md#serving-defaults)). `CPUSET=` before it gives every core, and `CPUSET=<list>` the cores listed.
+
 Edit `~/glm53-tf3/rank.env` with this host's values: `MASTER` (rank 0's address on the link, the same on every rank), `NCCL_IB_HCA` (the RDMA devices on the links, both rails), `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`; at TP=2 also `NCCL_PORT` if 29583 is taken. The examples are the reference hosts' files and say what each line was measured as. The file is sourced by `bash`, not passed to `docker --env-file`. Lines the examples leave commented out change a default for every rank alike: `PARALLEL`, `CONTEXT`, the heat bands and `API_KEY_FILE` ([configuration](README.md#configuration)).
 
 The engine needs no build step on the host: its kernels are in the binary.

@@ -28,6 +28,8 @@ Neither stopped an engine in the 3.0.0 acceptance. Under 2.x the other ranks did
 
 The engine's heat wait holds a prompt pass between chunks while any rank's hottest zone is above 92 °C, or would pass 93 °C if the next chunk rose as much as the last one run straight after another, until every rank is at or below 88 °C ([serving defaults](../README.md#serving-defaults)). A wait has no time limit; rank 0's log gives each wait's seconds in a `heat_wait_s` line.
 
+The thermal watch reads every ACPI zone, and five of a GB10's seven are the CPU's. The engine's spinning threads heat them through long runs of replies, which the heat wait does not hold; the container's default cores keep them lower ([why the efficiency cores](../README.md#serving-defaults)). A container created with every core moves to them with `docker update` ([recreate the container](#recreate-the-container)).
+
 ## A stop that leaves an engine
 
 `cluster.sh state/cluster.env stop` sends `pkill -TERM -f 'tensorfold-native serve'` inside rank 0's container (the other ranks leave when rank 0 does), waits up to 60 s for each rank's engine to end and sends the same to a rank still running, then prints each host's engine-process count and `MemAvailable`. A count above 0 means that rank still runs: `docker exec glm53-tf3 pkill -9 -f 'tensorfold-native serve'`, or `docker stop glm53-tf3`, which ends every process in the container, then `status` again. Every stop in the 3.0.0 acceptance ended with 0 on every rank.
@@ -52,6 +54,8 @@ v3/scripts/create_container.sh glm53-tf3:3.0.0 ~/glm53-tf3
 ```
 
 `create_container.sh` names the container, so the old one must go first (or be renamed: `docker rename glm53-tf3 glm53-tf3-old`, then `docker stop`). The host directory stays: the rank file and the logs. Nothing is built in the container.
+
+It prints the container's cores ([setup §4](../SETUP.md#4-container-and-rank-file-on-each-host)); `docker inspect -f '{{.HostConfig.CpusetCpus}}' glm53-tf3` shows them later, empty for every core. Other cores need no new container: `docker update --cpuset-cpus 0-4,10-14 glm53-tf3` moves it, before the next start.
 
 ## Move to a new image
 

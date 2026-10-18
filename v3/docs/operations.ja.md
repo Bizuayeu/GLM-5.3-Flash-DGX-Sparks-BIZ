@@ -28,6 +28,8 @@
 
 エンジンの熱の待ちは、どれかのrankの最も熱いzoneが92 °Cを超えているか、次のchunkが続けて流した直前のchunkと同じだけ上がれば93 °Cを超えるとき、chunkの合間でpromptの処理を止め、全rankが88 °C以下になるまで待ちます（[配信の既定](../README.ja.md#配信の既定)）。待ちに時間の上限はありません。待つごとの秒数は、rank 0のlogの `heat_wait_s` の行に出ます。
 
+熱の見張りは全てのACPIのzoneを読み、GB10の7つのzoneのうち5つはCPUのものです。エンジンの空回りするthreadは返答の長い連続の間これを温め、熱の待ちはそれを止めません。containerの既定のcoreがこれを低く保ちます（[効率coreにする理由](../README.ja.md#配信の既定)）。全coreで作ったcontainerは `docker update` で移せます（[containerを作り直す](#containerを作り直す)）。
+
 ## エンジンが残る停止
 
 `cluster.sh state/cluster.env stop` はrank 0のcontainerの中で `pkill -TERM -f 'tensorfold-native serve'` を送り（他のrankはrank 0が終わると抜けます）、rankごとにエンジンが終わるのを最大60秒待ち、まだ動いているrankに同じものを送ってから、各ホストのエンジンのプロセス数と `MemAvailable` を表示します。数が0より大きいrankはまだ動いています：`docker exec glm53-tf3 pkill -9 -f 'tensorfold-native serve'` か、containerの中の全プロセスを終わらせる `docker stop glm53-tf3` の後、もう一度 `status` を実行します。3.0.0の受け入れでは、どの停止も全rankで0で終わりました。
@@ -52,6 +54,8 @@ v3/scripts/create_container.sh glm53-tf3:3.0.0 ~/glm53-tf3
 ```
 
 `create_container.sh` はcontainerに名前を付けるので、古いものを先に消します（または改名します：`docker rename glm53-tf3 glm53-tf3-old` の後に `docker stop`）。ホストのディレクトリは残ります：rankのファイルとlogです。containerの中では何もbuildしません。
+
+作るときにcontainerのcoreを出します（[手順書§4](../SETUP.ja.md#4-各ホストのcontainerとrankのファイル)）。後からは `docker inspect -f '{{.HostConfig.CpusetCpus}}' glm53-tf3` で見られ、全coreなら空です。別のcoreに移すのに新しいcontainerは要りません：次の起動の前に `docker update --cpuset-cpus 0-4,10-14 glm53-tf3` で移します。
 
 ## 新しいimageへ移る
 
