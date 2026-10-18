@@ -50,7 +50,7 @@ The NLL set and the scorer as [validation](validation.md#teacher-forced-nll) des
 
 - **Drafted equals serial**: prose, code and counting prompts, up to 256 tokens, with and without `"draft": false`, compared as whole texts. In the same run, a request with a 1×1 PNG image part, refused with 400.
 - **Prompt scores and structured output**: the checks [validation](validation.md#prompt-scores-and-structured-output) lists, each request sent on its own.
-- **Stopping a reply**: thinking off. A request to write the numbers from 1 to 1,000, one per line, up to 4,000 tokens, streamed and closed by the client after 5 s; `/health` is read every second for 15 s until its `live` block has no connection, then a short request is timed. The same request with the stop string `"\n300\n"`, not streamed. A ledger of 6,000 lines (93,178 tokens) streamed and closed after 3 s, a short request timed right after, and the same ledger again in full for its time to the first token.
+- **Stopping a reply**: thinking off. A request to write the numbers from 1 to 1,000, one per line, up to 4,000 tokens, streamed and closed by the client after 5 s; `/health` is read every second for 15 s until its `live` block has no connection, then a short request is timed. The same request with the stop string `"\n300\n"`, not streamed. A ledger of 6,000 lines (about 93,000 tokens) streamed and closed after 3 s, a short request timed right after, and the same ledger again in full for its time to the first token.
 
 ## Tools through the gate
 

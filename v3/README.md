@@ -230,7 +230,7 @@ v3/
 
 Each item is a trigger and what this line then does.
 
-- Upstream releases pull requests #1016, #1017 and #1018, taken for its 1.1.1 with changes → move the release branch onto that release, follow the merged form and accept it again; the NLL and decode checks tell whether the bits moved. Upstream's 1.1.0 already carries its own GLM CUDA work, with a two-rank NVFP4 qualification it lists as open.
+- Upstream releases pull requests #1016, #1017 and #1018, which it has taken for 1.1.1 with changes of its own → move the release branch onto that release, follow the merged form and accept it again; the NLL and decode checks tell whether the bits moved. Upstream's 1.1.0 already carries its own GLM CUDA work, with a two-rank NVFP4 qualification it lists as open.
 - Upstream's TP bootstrap (pull request #636) lands → start TP=3 on it and drop the NCCL id file from the release branch.
 - The engine's spinning threads (above) → give upstream the measurements of each remedy (the container's cores, a context that sleeps, lower heat bands) and follow the one it chooses in a 3.x release.
 - `chat_template_kwargs.clear_thinking` → pass it to the chat template as 2.x does, and offer it upstream.

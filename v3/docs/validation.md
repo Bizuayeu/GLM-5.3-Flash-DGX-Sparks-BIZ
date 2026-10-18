@@ -84,7 +84,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-The targets fit 199,307, 499,254 and 1,035,295 tokens. Reference: the passphrase found at 199,307 tokens in 152.7 s at TP=2 and 150.2 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 425.4 s and 3 of 3 at 1,035,295 after 1,082.9 s. None resumed a kept prompt (`cached` 0) or waited for heat. The 1,036,859-token target is TP=3's alone; TP=2's window is 245,760 tokens.
+Fitted to the targets, the prompts came to 199,307, 499,254 and 1,035,295 tokens. Reference: the passphrase found at 199,307 tokens in 152.7 s at TP=2 and 150.2 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 425.4 s and 3 of 3 at 1,035,295 after 1,082.9 s. None resumed a kept prompt (`cached` 0) or waited for heat. The 1,036,859-token target is TP=3's alone; TP=2's window is 245,760 tokens.
 
 ## Tools through the tool-argument gate
 

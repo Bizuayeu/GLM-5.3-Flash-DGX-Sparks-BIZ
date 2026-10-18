@@ -8,14 +8,13 @@
 
 ## 要約
 
-<!-- S6: the status line and the acceptance date from the window (records/20261018-s6) -->
-
+- **状況。** 3.0.0は2026-10-18に参照機で、そこで測った[検証](docs/validation.ja.md)の基準値に照らし、固定したcheckpointでTP=2とTP=3で、containerを効率coreにして受け入れました（[リリースでの測定値](#リリースでの測定値)）。リリースのimageは受け入れの窓のimageにエンジンの表示を足したもので、binaryは同じ、TP=2の起動でdecode検査のcountと編集の返答も同じでした。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
 - **何であるか。** 固定したcheckpointを、TensorFoldのネイティブエンジンの固定したcommitで一つのOpenAI互換endpointとして配信するための、build手順・起動の台本・受け入れ検査です。2台なら直結のConnectX-7リンクでTP=2、3台ならswitchなしのリングでTP=3です。公開している測定値はMSI EdgeXpert（MS-C931）で取りました。
 - **反復性。** draftした応答はserialと同じで、起動は同じTPの前の起動のtoken idを出します。ネイティブエンジンのtokenはそれ自身のもので、2.x系のものではありません：kernelとBF16のKV cacheの丸めが違うので、二つの系列はtokenごとではなくteacher-forced NLLで比べます（[2.x系との違い](#2x系との違い)）。
 - **構造化出力とpromptのscore。** JSON schemaつきの `response_format`、`required` か名指しの関数の `tool_choice`（GLM自身のtoolのmarkupで書く）、`/v1/completions` の `prompt_logprobs` は、この系列のエンジンのリリースでネイティブエンジンに来ました（[API](#api)）。
 - **精度。** routed expertとdense MLPはW4A16、他はBF16、KVはBF16です（2.x系はFP8のKV cacheを持ちます）。NVIDIAのmodel cardは別のレシピ・別の機材でcheckpointを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
 - **ライセンス。** コードとエンジンはApache-2.0、重みはMITで運用者がダウンロードし、構造化出力のためにimageにxgrammar（Apache-2.0）が入ります。配信の経路に非商用の条件はありません（[ライセンスの早見表](../README.ja.md#ライセンスの早見表)）。
-- **未検証。** 画像入力（ネイティブエンジンはCUDAではそれを断ります）、公開したAXLの重み、[回した検査](#リリースでの測定値)を超える同時に2つ以上の要求、ハーネス連携（ZCode・Claude Code）、他のrank数と機材、アプリケーション全体の品質と本番の信頼性（[制限](#制限)）。
+- **未検証。** 画像入力（ネイティブエンジンはCUDAではそれを断ります）、公開したAXLの重み、同時に2つ以上の要求（受け入れは一度に一つずつ送りました）、ハーネス連携（ZCode・Claude Code）、他のrank数と機材、アプリケーション全体の品質と本番の信頼性（[制限](#制限)）。
 
 ## 何であるか
 
@@ -74,15 +73,13 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 
 [`scripts/serve.sh`](scripts/serve.sh) が持ち、全rankで同じです。
 
-<!-- S6: TP=3's prompt cache from s6-p3's load line -->
-
 | 設定 | TP=2（2台） | TP=3（3台） |
 |---|---|---|
 | KV cache | latentとindexのkeyをBF16（エンジンが持つ唯一の形） | 同じ |
 | draft | checkpointのMTP head（エンジンの既定） | 同じ |
 | 窓（`--context`） | 245,760 token：各rankでモデルの隣に1本のstreamが収まるほぼ最大 | 1,048,576 token（モデルの上限） |
 | 同時にdecodeする要求（`--parallel`） | 1（`PARALLEL=1`）。空の `PARALLEL=` ではエンジンに任せ、エンジンは起動時の空きメモリからstreamとprompt cacheの大きさを決める | 同じ |
-| prompt cache（保持するpromptの状態、2,048 tokenのchunkの始まりごと） | 窓の残り：参照対で4.4 GiB（rank 0のloadの行） | |
+| prompt cache（保持するpromptの状態、2,048 tokenのchunkの始まりごと） | 窓の残り：参照対で4.4〜4.5 GiB（rank 0のloadの行） | 参照リングで16.0 GiB |
 | 要求が指定しないときの応答の上限 | 32,768 token（`--max-tokens`） | 同じ |
 | 要求が指定しないときの推論のeffort | `high`（`--reasoning-effort`） | 同じ |
 | NCCL | 各リンク2本のrail・4 channel・IBのtransportを明示、rankごとのファイルから。rank 0のアドレスとportを `NCCL_COMM_ID` に | 2本のrail・4 channel・IBのtransportを明示・subnet-aware routing。rank 0のNCCLのidをファイルで渡す |
@@ -94,7 +91,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 
 **TP=2を245,760にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取るので、対が持てる窓は2.x系の300,000 tokenより短くなります。245,760は、参照対で1本のstreamが収まるほぼ最大です。全rankのファイルの `CONTEXT` で別の値を選びます。
 
-**効率coreにする理由。** エンジンは全rankで2本のCPUのthreadを空回りさせ続けます。rank 0ではdecodeの間、他のrankでは待つ間です：一つはGPUを待ち、もう一つはそのkernel時間から見てNCCLのものである見込みが高いthreadです。全coreでは、これらがCPUのthermal zone（GB10の7つのzoneのうち5つ）を温めました：約6,000 tokenのpromptの後の1,024 tokenの返答を40本続けると、TP=2でrank 0の最も熱いzoneが94.7 °Cに達し、熱の見張りが7本目でエンジンを止めました。熱の待ちはprompt chunkの合間に働くので、これを抑えられません。効率coreでは40本の返答がそのzone 85.1 °Cで終わり、rank 1のホストは約70 °Cではなく57〜63 °Cで待ちました。その代わりdecodeは1.1%、prefillは2.7%、200,000 tokenのpromptは2.5%遅く、起動は25秒長くなりました。熱の帯を下げる（86/82/87）と、待ったpromptが26〜89%遅くなり、1,048,576 tokenのpromptの最高温度は下がりませんでした。空回りせずに眠るCUDAのcontextはdecodeが12%遅く、もう一つのthreadは空回りしたままでした。`CPUSET=` でcontainerに全coreを与えます。
+**効率coreにする理由。** エンジンは全rankで2本のCPUのthreadを空回りさせ続けます。rank 0ではdecodeの間、他のrankでは待つ間です：一つはGPUを待ち、もう一つはそのkernel時間から見てNCCLのものである見込みが高いthreadです。全coreでは、これらがCPUのthermal zone（GB10の7つのzoneのうち5つ）を温めました：約6,000 tokenのpromptの後の1,024 tokenの返答を40本続けると、TP=2でrank 0の最も熱いzoneが94.7 °Cに達し、熱の見張りが7本目でエンジンを止めました。熱の待ちはprompt chunkの合間に働くので、これを抑えられません。効率coreでは40本の返答がそのzone 85.1 °Cで終わり、rank 1のホストは約70 °Cではなく57〜63 °Cで待ちました。その代わり速さの1〜3%を失い、起動は約25秒長くなりました（[リリースでの測定値](#リリースでの測定値)）。熱の帯を下げる（86/82/87）と、待ったpromptが26〜89%遅くなり、1,048,576 tokenのpromptの最高温度は下がりませんでした。空回りせずに眠るCUDAのcontextはdecodeが12%遅く、もう一つのthreadは空回りしたままでした。`CPUSET=` でcontainerに全coreを与えます。
 
 ## 設定
 
@@ -146,7 +143,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 | 出力の反復性 | エンジンの契約として、draftした応答はserialと同じ、再開したpromptは最初からと同じ、chunkの切り方で結果が変わらない | draftした応答はserialと同じで、起動はtoken idを繰り返す。tokenは2.x系のものと違う（別のkernel、BF16 KV）ので、系列の間はNLLで比べる |
 | KVと窓 | latentとindexのkeyをFP8。TP=2で300,000 token、TP=3で1,048,576 | BF16。TP=2で245,760 token、TP=3で1,048,576 |
 | 同時の要求 | 1 | 既定で1。`PARALLEL` で、窓が残すメモリの中で、エンジンがdecodeのroundをより多くの要求に分ける |
-| prompt cache | 8本、3 GiB（`TF_GLM_CACHE_*`） | 窓の残りに、chunkの始まりの状態を保つ（TP=2で4.4 GiB）。本数の上限は無い |
+| prompt cache | 8本、3 GiB（`TF_GLM_CACHE_*`） | 窓の残りに、chunkの始まりの状態を保つ（TP=2で4.4〜4.5 GiB、TP=3で16.0 GiB）。本数の上限は無い |
 | 画像入力 | 受ける（`VISION=1`） | 断る |
 | 公開したAXLの重み | 任意で使える | 未検証 |
 | 構造化出力、必須のtool呼び出し | 受ける。imageにxgrammar | 受ける。imageにxgrammarの `libtfgrammar`。必須のtool呼び出しはGLMのmarkupで |
@@ -162,7 +159,28 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 ## リリースでの測定値
 
-<!-- S6: the 3.0.0 table and notes from the window (records/20261018-s6) -->
+**3.0.0**（2026-10-18、エンジン `3d3d61d5`、image `glm53-tf3:3.0.0`）。固定したcheckpointで一つの受け入れの窓に5回の起動：各TPで2回と、TP=2で `PARALLEL=` を空にした1回。全containerを効率coreに置き、`serve.sh` の既定で、止まった起動はありません。受け入れの窓はimage `glm53-tf3:3x-bc82bc4` で回しました。リリースのimageはそれにエンジンの表示を足したもので、binaryは同じ（`/usr/share/doc/tf3/ENGINE`）、TP=2の起動でcountのhashと編集の返答も同じでした。
+
+| 3.0.0 | TP=2 | TP=3 |
+|---|---|---|
+| 起動の時間（s、2回の起動） | 281／268 | 235／235 |
+| decode検査 count／prose／code（tok/s） | 38.68／26.25／32.91 | 47.87／33.17／44.59 |
+| MTPの受理長（同じタスク） | 3.34／1.879／2.747 | 3.048／1.787／2.839 |
+| `bench --kinds decode`（tok/s、中央値） | 42.01 | 55.61 |
+| `bench --kinds edit`（tok/s、中央値） | 45.40 | 60.69 |
+| 38,960 tokenのprefill（tok/s、3回の中央値） | 1,433.5 | 1,454.9 |
+| 199,307 tokenのprompt（s） | 152.7 | 150.2 |
+| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken（s） | — | 425.4／1,082.9 |
+| 約93,000 tokenのpromptを3秒で切る：次の要求が答えるまで（s）、切らないpromptの最初のtokenとの比べ | 0.32、切らずに67.8 | 1.49、切らずに66.6 |
+| teacher-forced NLL、ja／en／code／math | 2.5293／2.9109／1.3138／0.6272 | 2.5246／2.9206／1.3147／0.6241 |
+| tool引数ゲート越しのtool-eval-bench | 93 | 93 |
+| 6,000 tokenのpromptの後に最大1,024 tokenの返答を40本（s、最も熱いzone） | 1,599、82.6 °C | 1,245、79.7 °C |
+| 起動の中の最も熱いzone、rankごと（°C） | 89.0／83.0 | 89.0／88.8／83.3 |
+| 最低の `MemAvailable`、rankごと（GiB） | 16／16 | 30／30／36 |
+
+- **反復性。** 各TPの2回の起動はdecode検査で同じhashを出し、`PARALLEL=` を空にした起動もcountで同じhashを出しました（エンジンはTP=2で1本のstreamを選びました）。draftした応答はserialと同じで、`bench --kinds edit` は両TPで同じ返答を出しました（[検証](docs/validation.ja.md)）。
+- **熱。** 熱で待った要求は無く、92 °Cを読んだzoneも無く、GPUは熱で遅くなりませんでした。1M tokenのpromptも含みます。containerを全coreに置くと、同じimageの先の受け入れの窓は、tool-eval-benchの間にrank 0のCPUのzoneが96.1 °Cに達して止まり、40本の返答は7本目、94.7 °Cで止まりました。TP=2で全coreと比べると、decodeは1.0%、prefillは3.2%、200K tokenのpromptは2.7%遅くなりました（[効率coreにする理由](#配信の既定)）。
+- **2.x系との差（参考）。** tokenはネイティブエンジン自身のものです。NLLは2.x系の基準値と領域ごとに最大0.021違います。2.9.2の `bench --kinds decode` はTP=2で42.96 tok/s、TP=3で57.25 tok/sでした。
 
 ## 制限
 
@@ -212,9 +230,7 @@ v3/
 
 各項目は、きっかけと、そのときこの系列がすることです。
 
-<!-- S6: check each against the window -->
-
-- 上流がpull request #1016・#1017・#1018をmergeするか、変更を求める → 3.x系のリリースでmergeされた形に従う。NLLとdecodeの検査が、ビットが動いたかを示す。
+- 上流が、自身の変更を加えて1.1.1に取り込むとしたpull request #1016・#1017・#1018をリリースする → リリースのbranchをそのリリースへ移し、mergeされた形に従って受け入れ直す。NLLとdecodeの検査が、ビットが動いたかを示す。上流の1.1.0はすでに自身のGLMのCUDAの作業を載せており、2 rankのNVFP4の検定を未了として挙げている。
 - 上流のTPのbootstrap（pull request #636）が入る → TP=3をその上で起動し、リリースのbranchからNCCLのidのファイルを外す。
 - エンジンの空回りするthread（上記） → 各対策（containerのcore、眠るcontext、低い熱の帯）の測定値を上流に渡し、上流が選んだものに3.x系のリリースで従う。
 - `chat_template_kwargs.clear_thinking` → 2.x系と同じくchat templateに渡し、上流にも出す。

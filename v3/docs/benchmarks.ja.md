@@ -35,9 +35,7 @@
 
 ## 長い入力
 
-長いpromptはどれも番号付きの行の台帳で（`Ledger <i>: the river barge delivered sacks of barley to the northern granary at dusk.`）、system messageは `You are a careful archivist. Read the ledger.`、temperature 0、effort lowで、行数はエンジンの `/tokenize` で目標に合わせます。各行の `cached` は、promptがprompt cacheから再開したtoken数を示します。
-
-<!-- S6: whether the TP=3 ledgers resumed each other's opening lines (cached) -->
+長いpromptはどれも番号付きの行の台帳で（`Ledger <i>: the river barge delivered sacks of barley to the northern granary at dusk.`）、system messageは `You are a careful archivist. Read the ledger.`、temperature 0、effort lowで、行数はエンジンの `/tokenize` で目標に合わせます。各行の `cached` は、promptがprompt cacheから再開したtoken数を示します。受け入れでは、TP=3で3本続けたものも含め、どの長いpromptも全体を読みました（`cached` 0）。
 
 - **199,652 tokenに合言葉一つ**、真ん中に。streamなし、最大512 token。応答に合言葉があれば正答です。両TPで。
 - **499,622 tokenと1,036,859 tokenに合言葉三つ**（先頭から20分の1、真ん中、末尾から20分の1）、TP=3。streamで最大256 token、最初にstreamで届いたtokenまでをクライアントが測ります。応答が三つとも挙げれば正答です。
@@ -52,7 +50,7 @@ NLL採点セットと採点は[検証](validation.ja.md#teacher-forced-nll)の�
 
 - **draftした応答とserialの一致**：prose、code、countのpromptで最大256 token、`"draft": false` の有りと無しを、文章全体で比べます。同じ実行の中で、1×1のPNGの画像のpartを持つ要求を送り、400で断られます。
 - **promptのscoreと構造化出力**：[検証](validation.ja.md#promptのscoreと構造化出力)が挙げる検査を、要求を一つずつ送って。
-- **応答を止める**：思考を切って。1から1,000までの数を1行ずつ書かせる要求を、最大4,000 token、streamで送り、5秒後にクライアントが閉じます。`live` blockに接続が無くなるまで15秒の間、毎秒 `/health` を読み、その後短い要求の時間を測ります。同じ要求にstop文字列 `"\n300\n"` を付けて、streamなしで。6,000行（93,178 token）の台帳をstreamで送って3秒後に閉じ、直後に短い要求の時間を測り、同じ台帳をもう一度全部流して最初のtokenまでの時間を測ります。
+- **応答を止める**：思考を切って。1から1,000までの数を1行ずつ書かせる要求を、最大4,000 token、streamで送り、5秒後にクライアントが閉じます。`live` blockに接続が無くなるまで15秒の間、毎秒 `/health` を読み、その後短い要求の時間を測ります。同じ要求にstop文字列 `"\n300\n"` を付けて、streamなしで。6,000行（約93,000 token）の台帳をstreamで送って3秒後に閉じ、直後に短い要求の時間を測り、同じ台帳をもう一度全部流して最初のtokenまでの時間を測ります。
 
 ## ゲート越しのtool
 

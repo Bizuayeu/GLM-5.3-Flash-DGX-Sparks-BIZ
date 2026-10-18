@@ -21,15 +21,13 @@ done
 
 **合格の条件**：各タスクが起動の中で一つのcompletion（`distinct_completions` が1）で、そのhashがそのTPの基準と同じこと：
 
-<!-- S6: the TP=2 and TP=3 hashes from s6-p2 and s6-p3, equal in s6-p2b and s6-p3b -->
-
 | タスク | TP=2 `completion_sha256` | TP=2 `token_sha256` | TP=3 `completion_sha256` | TP=3 `token_sha256` |
 |---|---|---|---|---|
-| count | | | | |
-| prose | | | | |
-| code | | | | |
+| count | `3c8dee2084715576` | `bbf97d42e5d45bd3` | `1cf31fa39a420336` | `6835af3a11c0b3e6` |
+| prose | `f1d18bd46cdc4a6e` | `da21339524bf4382` | `72c9b1e2cf183215` | `d22f429e247f196f` |
+| code | `74c0d1859ed63614` | `bc00b6fc275d9595` | `59e2a180d1b9ccc7` | `3dd2e6dd1afd23cf` |
 
-<!-- S6: two launches each; acceptance length; edit's reply sha256 at both TP sizes; PARALLEL= count -->
+hashは、各TPの2回の起動、`PARALLEL=` を空にしたTP=2の起動（count）、containerを全coreに置いたTP=2、リリースのimageでのTP=2（count）で保たれました。TP=2とTP=3は設計上互いに違います（rankの間での和の分け方が違うため）。受理長：TP=2で3.34／1.879／2.747、TP=3で3.048／1.787／2.839。`bench --kinds edit` は両TPで同じ返答を、363 roundで `token_sha256` `c419bce559d86b66` で返します。違う返答は受け入れを止めます。
 
 ## draftした応答とserialの一致
 
@@ -51,16 +49,14 @@ python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
 
 実行する環境に `tokenizers` packageが要ります。各本文を2回採点し、全要求が答え、各本文の2回が一致すればpassです。
 
-<!-- S6: the TP=2 and TP=3 values from s6-p2 and s6-p3, 2.x's beside them as information -->
-
 | 領域（位置数） | TP=2 | TP=3 | 2.x TP=2（参考） | 2.x TP=3（参考） |
 |---|---|---|---|---|
-| 日本語（6,826） | | | 2.5474 | 2.5313 |
-| 英語（6,678） | | | 2.9257 | 2.9001 |
-| コード（5,941） | | | 1.3184 | 1.3101 |
-| 数学（5,847） | | | 0.6250 | 0.6237 |
+| 日本語（6,826） | 2.5293 | 2.5246 | 2.5474 | 2.5313 |
+| 英語（6,678） | 2.9109 | 2.9206 | 2.9257 | 2.9001 |
+| コード（5,941） | 1.3138 | 1.3147 | 1.3184 | 1.3101 |
+| 数学（5,847） | 0.6272 | 0.6241 | 0.6250 | 0.6237 |
 
-**合格の条件**：passで、各領域がそのTPの基準と同じこと。
+**合格の条件**：passで、各領域がそのTPの基準と同じこと。両TPで、どの本文の2回の採点も完全に一致し（最大の動きは0.0）、TP=2の値は、エンジンがリリースの前に同じ採点で出した値と同じです。
 
 ## promptのscoreと構造化出力
 
@@ -77,9 +73,7 @@ python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
 python -m glm53_tf bench --out ../records/<run>/bench.jsonl
 ```
 
-<!-- S6: TP=2 and TP=3 prefill and decode from s6-p2 and s6-p3 -->
-
-decodeの行はどれも上限で止まります（`finish_reason` `length`）。prompt cacheはこれらのpromptを持ちません：どの行も `cached` は0です。
+基準値：TP=2でprefill 1,433.5 tok/s・decode 42.01 tok/s、TP=3で1,454.9と55.61。decodeの行はどれも上限で止まり（`finish_reason` `length`）、prefillの行の `cached` はどれも0です。containerを全coreに置くと、同じbuildはTP=2で1,481.6と42.45でした（[効率coreにする理由](../README.ja.md#配信の既定)）。
 
 ## 長い入力
 
@@ -90,9 +84,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-<!-- S6: TP=2 200K, TP=3 200K, 500K and 1M with their first-token times and heat waits -->
-
-1,036,859 tokenのpromptはTP=3だけのものです。TP=2の窓は245,760 tokenです。
+目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値：199,307 tokenで合言葉を、TP=2で152.7秒、TP=3で150.2秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで425.4秒、1,035,295 tokenで3つ中3つ、1,082.9秒でした。どれも保持したpromptから再開せず（`cached` 0）、熱で待ちませんでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は245,760 tokenです。
 
 ## tool引数ゲート越しのtool
 
@@ -106,24 +98,22 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 エンジンは `clear_thinking` をchat templateに渡しません（[制限](../README.ja.md#制限)）。呼び方は、点数を1.x系・2.x系と比べられるよう、それを残します。
 
-<!-- S6: TP=2 and TP=3 scores, the Safety Gate, the failed scenarios -->
-
-各1回なので、1〜2点は1回の試行で動く範囲です。
+基準値：両TPで93/100、Safety Gateは合格。TP=2はTC-21とTC-61を、TP=3はTC-61だけを落としました。各1回なので、1〜2点は1回の試行で動く範囲です。
 
 ## 応答を止める
 
-**合格の条件**（両TPで、思考を切って）：1から1,000までの数を書かせるstreamの要求を約5秒でクライアントが切ると、15秒以内に `/health` の `live` blockに接続が残らず、直後の短い要求が10秒以内に答える。同じ要求にstop文字列 `"\n300\n"` を付けると299で終わり、`finish_reason` が `stop`。93,178 tokenの台帳のpromptを、読んでいる途中の3秒でクライアントが切ると、直後の短い要求が、prompt全体が最初のtokenまでにかかる時間の半分未満で答える。
+**合格の条件**（両TPで、思考を切って）：1から1,000までの数を書かせるstreamの要求を約5秒でクライアントが切ると、15秒以内に `/health` の `live` blockに接続が残らず、直後の短い要求が10秒以内に答える。同じ要求にstop文字列 `"\n300\n"` を付けると299で終わり、`finish_reason` が `stop`。約93,000 tokenの台帳のpromptを、読んでいる途中の3秒でクライアントが切ると、直後の短い要求が、prompt全体が最初のtokenまでにかかる時間の半分未満で答える。基準値：両TPで、切ってから1.0秒で接続が消えました。切ったpromptの後、短い要求はTP=2で0.32秒、TP=3で1.49秒で答え、prompt全体の最初のtokenまでは67.8秒と66.6秒でした。
 
 ## 返答の長い連続
 
 40の要求を続けて流します。どれも新しいnonceと約6,000 tokenのPythonのmoduleに詳しいreviewを頼むもので、それぞれ最大1,024 token、temperature 0、effort low。これが全coreでCPUのzoneを温めた負荷です（[効率coreにする理由](../README.ja.md#配信の既定)）。**合格の条件**：40本すべてが答え、熱の見張りがエンジンを止めないこと。
 
-<!-- S6: TP=2 and TP=3: hottest zone of each host, seconds at or above 92 °C, GPU thermal slowdowns -->
+基準値：両TPで40本中40本、TP=2で1,599秒、TP=3で1,245秒。最も熱いzoneはTP=2でrank 0のホストの82.6 °C、TP=3で79.7 °Cで、92 °Cを読んだホストは無く、GPUは熱で遅くなりませんでした。containerを全coreに置くと、TP=2の同じ実行は7本目の返答、94.7 °Cで止まりました。
 
 ## メモリと温度
 
 メモリの見張りのlog（`<WORK>/logs/hostwatch-<label>.log`）に、実行中の各ホストの最低の `MemAvailable` が残ります。ホストの記録は2秒ごとにACPIの最も熱いzoneを示します。rank 0のlogは、prefillの熱の待ちごとの秒数を `heat_wait_s` の行に出します。応答はそれを運びません。
 
-<!-- S6: lowest MemAvailable per rank (TP=3 1M), the hottest zone per launch, heat waits, the followers' idle temperature -->
+基準値：起動の中の最低の `MemAvailable` は、TP=2で両rankとも16 GiB、TP=3でrank 0・1・2が30・30・36 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが89.0 °C、rank 1のホストが83.0 °C、TP=3で89.0・88.8・83.3 °Cでした。受け入れのどの要求も熱で待たず、1M tokenのpromptも含みます。
 
 **合格の条件**：どの実行もメモリの見張りにも熱の見張り（94 °C以上の読みが2回続く）にも止められないこと。
