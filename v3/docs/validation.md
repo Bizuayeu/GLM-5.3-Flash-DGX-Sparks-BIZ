@@ -21,15 +21,13 @@ The engine returns no token ids: each row gives the hash of the completion text 
 
 **Accepted when** each task gives one completion within the launch (`distinct_completions` 1) and its hashes are the reference of its TP:
 
-<!-- S6: the TP=2 and TP=3 hashes from s6-p2 and s6-p3, equal in s6-p2b and s6-p3b -->
-
 | Task | TP=2 `completion_sha256` | TP=2 `token_sha256` | TP=3 `completion_sha256` | TP=3 `token_sha256` |
 |---|---|---|---|---|
-| count | | | | |
-| prose | | | | |
-| code | | | | |
+| count | `3c8dee2084715576` | `bbf97d42e5d45bd3` | `1cf31fa39a420336` | `6835af3a11c0b3e6` |
+| prose | `f1d18bd46cdc4a6e` | `da21339524bf4382` | `72c9b1e2cf183215` | `d22f429e247f196f` |
+| code | `74c0d1859ed63614` | `bc00b6fc275d9595` | `59e2a180d1b9ccc7` | `3dd2e6dd1afd23cf` |
 
-<!-- S6: two launches each; acceptance length; edit's reply sha256 at both TP sizes; PARALLEL= count -->
+The hashes held in two launches at each TP size, in a TP=2 launch with `PARALLEL=` empty (count), at TP=2 with the containers on every core, and on the release image at TP=2 (count). TP=2 and TP=3 differ from each other by design (the ranks split the sums differently). Acceptance length: 3.34 / 1.879 / 2.747 at TP=2 and 3.048 / 1.787 / 2.839 at TP=3. `bench --kinds edit` returns the same reply at both TP sizes, `token_sha256` `c419bce559d86b66` in 363 rounds; a different reply stops the acceptance.
 
 ## Drafted equals serial
 
@@ -51,16 +49,14 @@ python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
 
 Needs the `tokenizers` package where it runs. Each text is scored twice; the run passes when every request answered and the two scores of each text agree.
 
-<!-- S6: the TP=2 and TP=3 values from s6-p2 and s6-p3, 2.x's beside them as information -->
-
 | Domain (positions) | TP=2 | TP=3 | 2.x TP=2 (information) | 2.x TP=3 (information) |
 |---|---|---|---|---|
-| Japanese (6,826) | | | 2.5474 | 2.5313 |
-| English (6,678) | | | 2.9257 | 2.9001 |
-| Code (5,941) | | | 1.3184 | 1.3101 |
-| Math (5,847) | | | 0.6250 | 0.6237 |
+| Japanese (6,826) | 2.5293 | 2.5246 | 2.5474 | 2.5313 |
+| English (6,678) | 2.9109 | 2.9206 | 2.9257 | 2.9001 |
+| Code (5,941) | 1.3138 | 1.3147 | 1.3184 | 1.3101 |
+| Math (5,847) | 0.6272 | 0.6241 | 0.6250 | 0.6237 |
 
-**Accepted when** the run passes and each domain equals the reference of its TP.
+**Accepted when** the run passes and each domain equals the reference of its TP. The two scores of every text agreed exactly (largest move 0.0) at both TP sizes, and the TP=2 values are those the engine gave before its release in the same scoring.
 
 ## Prompt scores and structured output
 
@@ -77,9 +73,7 @@ A 38,960-token prompt three times with a fresh nonce at its start (median), afte
 python -m glm53_tf bench --out ../records/<run>/bench.jsonl
 ```
 
-<!-- S6: TP=2 and TP=3 prefill and decode from s6-p2 and s6-p3 -->
-
-Every decode row stops at the limit (`finish_reason` `length`). The prompt cache does not hold these prompts: each row's `cached` is 0.
+Reference: 1,433.5 tok/s prefill and 42.01 tok/s decode at TP=2, 1,454.9 and 55.61 at TP=3. Every decode row stops at the limit (`finish_reason` `length`), and each prefill row's `cached` is 0. With the containers on every core the same build measured 1,481.6 and 42.45 at TP=2 ([why the efficiency cores](../README.md#serving-defaults)).
 
 ## Long inputs
 
@@ -90,9 +84,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-<!-- S6: TP=2 200K, TP=3 200K, 500K and 1M with their first-token times and heat waits -->
-
-The 1,036,859-token prompt is TP=3's alone; TP=2's window is 245,760 tokens.
+The targets fit 199,307, 499,254 and 1,035,295 tokens. Reference: the passphrase found at 199,307 tokens in 152.7 s at TP=2 and 150.2 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 425.4 s and 3 of 3 at 1,035,295 after 1,082.9 s. None resumed a kept prompt (`cached` 0) or waited for heat. The 1,036,859-token target is TP=3's alone; TP=2's window is 245,760 tokens.
 
 ## Tools through the tool-argument gate
 
@@ -106,24 +98,22 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 The engine does not pass `clear_thinking` to the chat template ([limits](../README.md#limits)); the invocation keeps it so that the scores compare with 1.x's and 2.x's.
 
-<!-- S6: TP=2 and TP=3 scores, the Safety Gate, the failed scenarios -->
-
-One trial each, so a point or two is within what one trial moves.
+Reference: 93/100 at both TP sizes with the Safety Gate passed; TP=2 failed TC-21 and TC-61, TP=3 TC-61 alone. One trial each, so a point or two is within what one trial moves.
 
 ## Stopping a reply
 
-**Accepted when**, at both TP sizes, with thinking off: a streamed request to write the numbers from 1 to 1,000, cut by the client after about 5 s, leaves no connection in `/health`'s `live` block within 15 s, and a short request right after answers within 10 s; the same request with the stop string `"\n300\n"` ends at 299 with `finish_reason` `stop`; a ledger prompt of 93,178 tokens cut by the client after 3 s, while it is read, lets a short request right after answer in less than half the time the whole prompt takes to its first token.
+**Accepted when**, at both TP sizes, with thinking off: a streamed request to write the numbers from 1 to 1,000, cut by the client after about 5 s, leaves no connection in `/health`'s `live` block within 15 s, and a short request right after answers within 10 s; the same request with the stop string `"\n300\n"` ends at 299 with `finish_reason` `stop`; a ledger prompt of about 93,000 tokens cut by the client after 3 s, while it is read, lets a short request right after answer in less than half the time the whole prompt takes to its first token. Reference: the connection gone 1.0 s after the cut at both TP sizes; after the cut prompt a short request answered in 0.32 s at TP=2 and 1.49 s at TP=3, against 67.8 s and 66.6 s to the whole prompt's first token.
 
 ## Long runs of replies
 
 Forty requests back to back, each a fresh nonce and a module of about 6,000 tokens of Python with a request for a detailed review, up to 1,024 tokens each, temperature 0, effort low. This is the load that heated the CPU's zones on every core ([why the efficiency cores](../README.md#serving-defaults)). **Accepted when** all forty answer and the thermal watch does not stop an engine.
 
-<!-- S6: TP=2 and TP=3: hottest zone of each host, seconds at or above 92 °C, GPU thermal slowdowns -->
+Reference: forty of forty at both TP sizes, in 1,599 s at TP=2 and 1,245 s at TP=3. The hottest zone reached 82.6 °C on rank 0's host at TP=2 and 79.7 °C at TP=3, no host read 92 °C, and the GPUs did not slow for heat. With the containers on every core the same run at TP=2 stopped at the seventh reply, at 94.7 °C.
 
 ## Memory and temperature
 
 The memory guard's log (`<WORK>/logs/hostwatch-<label>.log`) gives each host's lowest `MemAvailable` during the run; the hosts' telemetry gives the hottest ACPI zone every 2 s. Rank 0's log gives each prefill heat wait's seconds in a `heat_wait_s` line; the reply does not carry them.
 
-<!-- S6: lowest MemAvailable per rank (TP=3 1M), the hottest zone per launch, heat waits, the followers' idle temperature -->
+Reference: the lowest `MemAvailable` of a launch was 16 GiB on both ranks at TP=2 and 30, 30 and 36 GiB on ranks 0, 1 and 2 at TP=3. The hottest zone of a whole launch was 89.0 °C on rank 0's host and 83.0 °C on rank 1's at TP=2, and 89.0, 88.8 and 83.3 °C at TP=3. No request of the acceptance waited for heat, the 1M-token prompt included.
 
 **Accepted when** no run is stopped by the memory guard or the thermal watch (two readings in a row at or above 94 °C).

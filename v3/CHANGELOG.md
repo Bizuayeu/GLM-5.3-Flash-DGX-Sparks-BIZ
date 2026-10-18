@@ -43,7 +43,15 @@ The first release of the 3.x line. It serves the same pinned checkpoint as 1.x a
 
 ### Accepted
 
-<!-- S6: the window's results, the release image's ID, and that the binaries equal the accepted image's -->
+On the reference hosts on 2026-10-18, on the pinned checkpoint, in five launches (two at TP=2, one at TP=2 with `PARALLEL=` empty, two at TP=3), every container on the efficiency cores ([measured](README.md#measured-on-the-release); [validation](docs/validation.md)):
+
+- The decode check gave the same hashes in both launches of each TP size, drafted replies equalled serial ones, `bench --kinds edit` gave the same reply at both TP sizes, and an image part was refused with 400.
+- `prompt_logprobs` and structured output passed their checks at both TP sizes; the NLL set was scored twice with no movement, within 0.021 of 2.x's references per domain.
+- tool-eval-bench through the tool-argument gate: 93 at both TP sizes, with the Safety Gate passed.
+- Forty replies of up to 1,024 tokens after 6,000-token prompts, back to back, finished at both TP sizes with the hottest zone at 82.6 °C (TP=2) and 79.7 °C (TP=3). No request waited for heat, the 1,035,295-token prompt (3 of 3, first token after 1,082.9 s) included.
+- A cut reply, a stop string and a cut prompt stopped the work at both TP sizes.
+
+The window ran the image `glm53-tf3:3x-bc82bc4`. The release image `glm53-tf3:3.0.0` (linux/arm64 `sha256:73dcd449b44314e5ca1bb6462c8c14c44d7002535dc9fadd4a7f68b2ed7ec4d1`, the same on the three hosts) adds the engine's notices to it with the same binaries (`/usr/share/doc/tf3/ENGINE`), and gave the same decode-check count hash and edit reply in a TP=2 launch.
 
 ### Not in 3.0.0
 

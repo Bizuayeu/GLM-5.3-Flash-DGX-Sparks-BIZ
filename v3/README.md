@@ -8,14 +8,13 @@
 
 ## Summary
 
-<!-- S6: the status line and the acceptance date from the window (records/20261018-s6) -->
-
+- **Status.** 3.0.0 was accepted on the reference hosts on 2026-10-18 against the reference values of [validation](docs/validation.md), measured there, at TP=2 and TP=3 on the pinned checkpoint, with the containers on the efficiency cores ([measured on the release](#measured-on-the-release)). The release image is the window's with the engine's notices added: the same binaries, and the same decode-check count and edit reply in a TP=2 launch. That is the scope of the claim; other hosts are qualified by running the same checks.
 - **What it is.** Build steps, launch scripts and acceptance checks that serve the pinned checkpoint through a pinned commit of TensorFold's native engine as one OpenAI-compatible endpoint: two hosts at TP=2 over a direct ConnectX-7 link, or three at TP=3 in a switchless ring. The published measurements come from MSI EdgeXpert (MS-C931) systems.
 - **Repeatable.** Drafted replies equal serial ones, and a launch gives the token ids of the launch before it at the same TP size. The native engine's tokens are its own, not 2.x's: its kernels and its BF16 KV cache round differently, so the two lines compare by teacher-forced NLL, not token by token ([differences from 2.x](#differences-from-2x)).
 - **Structured output and prompt scores.** `response_format` with a JSON schema, `tool_choice` `required` or a named function (written in GLM's own tool markup) and `prompt_logprobs` on `/v1/completions` come to the native engine with this line's engine release ([API](#api)).
 - **Precision.** W4A16 for the routed experts and the dense MLP, BF16 elsewhere, BF16 KV (2.x keeps an FP8 KV cache). NVIDIA's model card measured its checkpoint under another recipe on other hardware, so its accuracy table does not describe this serving; [validation](docs/validation.md) gives the numbers that do.
 - **Licensing.** Apache-2.0 code and engine, MIT weights that the operator downloads, and xgrammar (Apache-2.0) in the image for structured output; nothing non-commercial in the serving path ([licensing at a glance](../README.md#licensing-at-a-glance)).
-- **Not validated.** Image input (the native engine refuses it on CUDA), the published AXL weights, more than one request at a time beyond [the checks run](#measured-on-the-release), harness integration (ZCode, Claude Code), other world sizes and hardware, full application quality and production reliability ([limits](#limits)).
+- **Not validated.** Image input (the native engine refuses it on CUDA), the published AXL weights, more than one request at a time (the acceptance sent one at a time), harness integration (ZCode, Claude Code), other world sizes and hardware, full application quality and production reliability ([limits](#limits)).
 
 ## What It Is
 
@@ -74,15 +73,13 @@ The model thinks before it answers: the reasoning comes back in `reasoning_conte
 
 [`scripts/serve.sh`](scripts/serve.sh) holds them, the same on every rank:
 
-<!-- S6: TP=3's prompt cache from s6-p3's load line -->
-
 | Setting | TP=2 (two hosts) | TP=3 (three hosts) |
 |---|---|---|
 | KV cache | BF16 latent and index keys (the engine's only form) | same |
 | Drafts | the checkpoint's MTP head (the engine's default) | same |
 | Window (`--context`) | 245,760 tokens: about the most one stream fits beside the model on each rank | 1,048,576 tokens (the model's limit) |
 | Requests decoded at once (`--parallel`) | 1 (`PARALLEL=1`); an empty `PARALLEL=` leaves it to the engine, which sizes the streams and the prompt cache from the memory free at start | same |
-| Prompt cache (kept prompt states, at the starts of 2,048-token chunks) | what the window leaves: 4.4 GiB on the reference pair (rank 0's load line) | |
+| Prompt cache (kept prompt states, at the starts of 2,048-token chunks) | what the window leaves: 4.4 to 4.5 GiB on the reference pair (rank 0's load line) | 16.0 GiB on the reference ring |
 | Reply limit when a request names none | 32,768 tokens (`--max-tokens`) | same |
 | Reasoning effort when a request names none | `high` (`--reasoning-effort`) | same |
 | NCCL | two rails per link, four channels, the IB transport named, from each rank's file; rank 0's address and port as `NCCL_COMM_ID` | two rails, four channels, the IB transport named, subnet-aware routing; rank 0's NCCL id handed over in a file |
@@ -94,7 +91,7 @@ The model thinks before it answers: the reasoning comes back in `reasoning_conte
 
 **Why 245,760 at TP=2.** BF16 KV takes about twice the memory of 2.x's FP8 cache per token, so the pair holds a shorter window than 2.x's 300,000 tokens. 245,760 is about the most that fit one stream on the reference pair. `CONTEXT` in every rank file chooses another.
 
-**Why the efficiency cores.** The engine keeps two CPU threads spinning on every rank, on rank 0 while it decodes and on the other ranks while they wait: one waits for the GPU, and the other, by its kernel time, is most likely NCCL's. On every core they heated the CPU's thermal zones, which are five of a GB10's seven: forty 1,024-token replies in a row, each after a prompt of about 6,000 tokens, took rank 0's hottest zone to 94.7 °C at TP=2, and the thermal watch stopped the engine at the seventh. The heat wait cannot hold them, since it acts between prompt chunks. On the efficiency cores the forty replies finished with that zone at 85.1 °C, and rank 1's host waited at 57 to 63 °C instead of about 70 °C, for 1.1% slower decode, 2.7% slower prefill, a 200,000-token prompt 2.5% slower and a start 25 s longer. Lower heat bands (86/82/87) made the prompts that waited 26 to 89% slower without lowering the peak of a 1,048,576-token prompt, and a CUDA context that sleeps instead of spinning decoded 12% slower and left the other thread spinning. `CPUSET=` gives the container every core.
+**Why the efficiency cores.** The engine keeps two CPU threads spinning on every rank, on rank 0 while it decodes and on the other ranks while they wait: one waits for the GPU, and the other, by its kernel time, is most likely NCCL's. On every core they heated the CPU's thermal zones, which are five of a GB10's seven: forty 1,024-token replies in a row, each after a prompt of about 6,000 tokens, took rank 0's hottest zone to 94.7 °C at TP=2, and the thermal watch stopped the engine at the seventh. The heat wait cannot hold them, since it acts between prompt chunks. On the efficiency cores the forty replies finished with that zone at 85.1 °C, and rank 1's host waited at 57 to 63 °C instead of about 70 °C, for 1 to 3% of speed and a start about 25 s longer ([measured on the release](#measured-on-the-release)). Lower heat bands (86/82/87) made the prompts that waited 26 to 89% slower without lowering the peak of a 1,048,576-token prompt, and a CUDA context that sleeps instead of spinning decoded 12% slower and left the other thread spinning. `CPUSET=` gives the container every core.
 
 ## Configuration
 
@@ -146,7 +143,7 @@ The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through t
 | Repeatable output | drafted equals serial, resume equals fresh, chunking does not matter, as the engine's contract | drafted equals serial and launches repeat their token ids; the tokens differ from 2.x's (other kernels, BF16 KV), so the lines compare by NLL |
 | KV and window | FP8 latent and index keys; 300,000 tokens at TP=2, 1,048,576 at TP=3 | BF16; 245,760 tokens at TP=2, 1,048,576 at TP=3 |
 | Requests at once | one | one by default; `PARALLEL` lets the engine share its decode rounds among more, within the memory the window leaves |
-| Prompt cache | 8 entries, 3 GiB (`TF_GLM_CACHE_*`) | states at chunk starts in what the window leaves (4.4 GiB at TP=2); no entry count |
+| Prompt cache | 8 entries, 3 GiB (`TF_GLM_CACHE_*`) | states at chunk starts in what the window leaves (4.4 to 4.5 GiB at TP=2, 16.0 GiB at TP=3); no entry count |
 | Image input | accepted (`VISION=1`) | refused |
 | Published AXL weights | optional | not validated |
 | Structured output, required tool calls | accepted, with xgrammar in the image | accepted, with xgrammar's `libtfgrammar` in the image; required tool calls in GLM's markup |
@@ -162,7 +159,28 @@ The two lines' containers both claim every GPU: run one line's engine at a time 
 
 ## Measured on the Release
 
-<!-- S6: the 3.0.0 table and notes from the window (records/20261018-s6) -->
+**3.0.0** (2026-10-18, engine `3d3d61d5`, image `glm53-tf3:3.0.0`). Five launches in one window on the pinned checkpoint, two at each TP size and one at TP=2 with `PARALLEL=` empty, every container on the efficiency cores and `serve.sh`'s defaults; nothing stopped them. The window ran the image `glm53-tf3:3x-bc82bc4`; the release image adds the engine's notices to it with the same binaries (`/usr/share/doc/tf3/ENGINE`), and gave the same count hash and edit reply in a TP=2 launch.
+
+| 3.0.0 | TP=2 | TP=3 |
+|---|---|---|
+| Start (s, two launches) | 281 / 268 | 235 / 235 |
+| Decode check count / prose / code (tok/s) | 38.68 / 26.25 / 32.91 | 47.87 / 33.17 / 44.59 |
+| MTP acceptance length, same tasks | 3.34 / 1.879 / 2.747 | 3.048 / 1.787 / 2.839 |
+| `bench --kinds decode` (tok/s, median) | 42.01 | 55.61 |
+| `bench --kinds edit` (tok/s, median) | 45.40 | 60.69 |
+| Prefill of 38,960 tokens (tok/s, median of three) | 1,433.5 | 1,454.9 |
+| 199,307-token prompt (s) | 152.7 | 150.2 |
+| 499,254 and 1,035,295-token prompts, first token (s) | — | 425.4 / 1,082.9 |
+| A prompt of about 93,000 tokens cut 3 s in: the next request answered after (s), against the uncut prompt's first token | 0.32 against 67.8 | 1.49 against 66.6 |
+| Teacher-forced NLL, ja / en / code / math | 2.5293 / 2.9109 / 1.3138 / 0.6272 | 2.5246 / 2.9206 / 1.3147 / 0.6241 |
+| tool-eval-bench through the gate | 93 | 93 |
+| Forty replies of up to 1,024 tokens after 6,000-token prompts (s, hottest zone) | 1,599, 82.6 °C | 1,245, 79.7 °C |
+| Hottest zone of a launch, by rank (°C) | 89.0 / 83.0 | 89.0 / 88.8 / 83.3 |
+| Lowest `MemAvailable`, by rank (GiB) | 16 / 16 | 30 / 30 / 36 |
+
+- **Repeatable.** The two launches at each TP size gave the same decode-check hashes, and the launch with `PARALLEL=` empty the same count hash (the engine chose one stream at TP=2); drafted equalled serial, and `bench --kinds edit` gave the same reply at both TP sizes ([validation](docs/validation.md)).
+- **Heat.** No request waited for heat, no zone read 92 °C and the GPUs did not slow for heat, the 1M-token prompt included. With the containers on every core the same image's earlier window stopped when rank 0's CPU zone reached 96.1 °C during tool-eval-bench, and the forty replies stopped at the seventh at 94.7 °C. Against every core at TP=2, decode was 1.0% slower, prefill 3.2% and the 200K-token prompt 2.7% ([why the efficiency cores](#serving-defaults)).
+- **Against 2.x (information).** The tokens are the native engine's own; NLL differs from 2.x's reference values by at most 0.021 per domain. 2.9.2's `bench --kinds decode` gave 42.96 and 57.25 tok/s at TP=2 and TP=3.
 
 ## Limits
 
@@ -212,9 +230,7 @@ v3/
 
 Each item is a trigger and what this line then does.
 
-<!-- S6: check each against the window -->
-
-- Upstream merges pull requests #1016, #1017 and #1018, or asks for changes → follow the merged form in a 3.x release; the NLL and decode checks tell whether the bits moved.
+- Upstream releases pull requests #1016, #1017 and #1018, taken for its 1.1.1 with changes → move the release branch onto that release, follow the merged form and accept it again; the NLL and decode checks tell whether the bits moved. Upstream's 1.1.0 already carries its own GLM CUDA work, with a two-rank NVFP4 qualification it lists as open.
 - Upstream's TP bootstrap (pull request #636) lands → start TP=3 on it and drop the NCCL id file from the release branch.
 - The engine's spinning threads (above) → give upstream the measurements of each remedy (the container's cores, a context that sleeps, lower heat bands) and follow the one it chooses in a 3.x release.
 - `chat_template_kwargs.clear_thinking` → pass it to the chat template as 2.x does, and offer it upstream.
