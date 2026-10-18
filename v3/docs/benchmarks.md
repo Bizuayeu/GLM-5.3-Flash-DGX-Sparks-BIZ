@@ -39,7 +39,6 @@ Every long prompt is a ledger of numbered lines, `Ledger <i>: the river barge de
 
 <!-- S6: whether the TP=3 ledgers resumed each other's opening lines (cached) -->
 
-
 - **One passphrase at 199,652 tokens**, in the middle. Not streamed, up to 512 tokens; correct when the reply contains it. At both TP sizes.
 - **Three passphrases** (one twentieth from the start, the middle, one twentieth from the end) **at 499,622 and 1,036,859 tokens**, TP=3. Streamed, up to 256 tokens; the client times the first streamed token; correct when the reply lists all three.
 

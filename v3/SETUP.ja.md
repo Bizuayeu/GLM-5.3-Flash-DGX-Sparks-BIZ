@@ -2,7 +2,7 @@
 
 [English](SETUP.md) · [3.x系の概要](README.ja.md) · [検証](docs/validation.ja.md)
 
-2台のTP=2または3台のTP=3で、TensorFoldのnativeエンジンの3.x系を配信する手順を順に並べます。機体・ケーブル・kernel・checkpointの準備は2.x系と同じで、その段は[2.x系の手順書](../v2/SETUP.ja.md)を指します。全ホストに同じcheckoutを置き、以下のコマンドはimageのbuild contextがあるそのルートから実行します。この系列のPythonの道具は `v3/` から実行します。ホストを変えるコマンド（他のサーバーの停止、このサーバーの起動）は、運用者が許可した時間の中で行います。
+2台のTP=2または3台のTP=3で、TensorFoldのネイティブエンジンの3.x系を配信する手順を順に並べます。機体・ケーブル・kernel・checkpointの準備は2.x系と同じで、その段は[2.x系の手順書](../v2/SETUP.ja.md)を指します。全ホストに同じcheckoutを置き、以下のコマンドはimageのbuild contextがあるそのルートから実行します。この系列のPythonの道具は `v3/` から実行します。ホストを変えるコマンド（他のサーバーの停止、このサーバーの起動）は、運用者が許可した時間の中で行います。
 
 ## 1. 機体とfabric
 
