@@ -5,10 +5,10 @@
 # CLUSTER_ENV (examples/cluster.tp*.env) sets TP, HOSTS (SSH names in rank order), CHECKOUT (this repository on
 # each host, for the memory guard) and optionally SSH, CONTAINER and WORK (each host's directory at /work).
 # start: every rank runs `serve.sh TP RANK /work/rank.env` in its container. TP=2: the highest rank first, rank 0
-#        last. TP=3: rank 0 first; its NCCL id (/work/nccl-id, 256 hex characters) is copied to the other hosts, then
-#        the others start. Then the memory guard (hostwatch.sh) on every host; waits for rank 0's "serving" line and
-#        stops at the first rank that refuses or whose engine is gone. Logs: WORK/logs/serve-rRANK-LABEL.log,
-#        hostwatch-LABEL.log.
+#        last. TP=3: the three ranks together; once their lines are up rank 0 writes its NCCL id (/work/nccl-id, 256
+#        hex characters), which is copied to the other hosts, where their ranks wait for it. Then the memory guard
+#        (hostwatch.sh) on every host; waits for rank 0's "serving" line and stops at the first rank that refuses or
+#        whose engine is gone. Logs: WORK/logs/serve-rRANK-LABEL.log, hostwatch-LABEL.log.
 # stop:  rank 0 first (the others leave when it does), then any rank left; prints each host's MemAvailable.
 set -u
 if [ $# -lt 2 ]; then
@@ -51,8 +51,8 @@ start)
     $SSH "${H[$r]}" "mkdir -p $WORK/logs && rm -f $WORK/nccl-id $WORK/nccl-id.tmp" || exit 1
   done
   if [ "$TP" = 3 ]; then
-    launch 0 "$label" "$*"
-    for _ in $(seq 1 60); do
+    for r in 2 1 0; do launch "$r" "$label" "$*"; done
+    for _ in $(seq 1 150); do
       [ "$($SSH "${H[0]}" "stat -c %s $WORK/nccl-id 2>/dev/null")" = 256 ] && break
       [ "$(count 0)" = 0 ] && break
       sleep 2
@@ -65,7 +65,6 @@ start)
     fi
     for r in 1 2; do
       printf '%s' "$id" | $SSH "${H[$r]}" "cat > $WORK/nccl-id.tmp && mv $WORK/nccl-id.tmp $WORK/nccl-id" || exit 1
-      launch "$r" "$label" "$*"
     done
   else
     for ((r = TP - 1; r >= 0; r--)); do
