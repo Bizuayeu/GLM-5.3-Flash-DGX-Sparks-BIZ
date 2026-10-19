@@ -9,7 +9,7 @@ ARG BUILD_IMAGE=nvidia/cuda:13.3.1-devel-ubuntu24.04@sha256:4ff859525f99de5782aa
 ARG RUNTIME_IMAGE=nvidia/cuda:13.3.1-runtime-ubuntu24.04@sha256:63da350831208559df18c7b8f3e0d5d1c984eaa815cdde690aacd6606cd0cb11
 # The engine and its compiler as v3/config/engine.lock.json pins them (v3/tests/test_engine_lock.py keeps them equal).
 ARG ENGINE_REPO=https://github.com/Bizuayeu/TensorFold.git
-ARG ENGINE_REF=3d3d61d5937fea3bac68e13d75d5d2c7585ce3df
+ARG ENGINE_REF=1a8f1efdc47b778c68cfdd30c1ba4966b2fe9064
 ARG ZIG_URL=https://ziglang.org/download/0.17.0/zig-aarch64-linux-0.17.0.tar.xz
 ARG ZIG_SHA256=9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8
 ARG BUILD_FLAGS="-Dnvcc=/usr/local/cuda/bin/nvcc -Dsm=121"
