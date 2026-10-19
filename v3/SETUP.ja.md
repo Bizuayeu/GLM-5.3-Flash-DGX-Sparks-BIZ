@@ -6,7 +6,7 @@
 
 ## 1. 機体とfabric
 
-[2.x系の手順1](../v2/SETUP.ja.md#1-機体とfabric)のとおりです：ConnectX-7のリンクを持つDGX Sparkまたは互換のGB10機を2台か3台、対は直結、3台はリングにし、各ホストのRDMAデバイス名、RoCE v2のGIDのindex、rankが待ち合わせるアドレスを記録し、長い処理の前にGPUクロックに上限を設けます。参照機のリングでは、TP=3の各ホストのアドレスはdummyのinterfaceの `/32` で、リンクの上に経路を張ります（[3台をリングにつなぐ](../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。そこではNCCLの `NCCL_COMM_ID` で集まれないので、TP=3ではrank 0がNCCLのidをファイルに書き、他のrankがそれを読みます（手順5）。
+[2.x系の手順1](../v2/SETUP.ja.md#1-機体とfabric)のとおりです：ConnectX-7のリンクを持つDGX Sparkまたは互換のGB10機を2台か3台、対は直結、3台はリングにし、各ホストのRDMAデバイス名、RoCE v2のGIDのindex、rankが待ち合わせるアドレスを記録し、長い処理の前にGPUクロックに上限を設けます。参照機のリングでは、TP=3の各ホストのアドレスはdummyのinterfaceの `/32` で、リンクの上に経路を張ります（[3台をリングにつなぐ](../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。rankどうしの生存の線は `NCCL_COMM_ID` でそこのrank 0に届きますが、NCCLはそれで集まれないので、TP=3では各rankがNCCLの環境からそれを外し、rank 0がNCCLのidをファイルに書き、他のrankがそれを読みます（[手順5](#5-起動)）。
 
 ## 2. checkoutとcheckpoint
 
@@ -27,22 +27,22 @@ python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksu
 GB10ホストの1台（linux/arm64）で、checkoutのルートからbuildします：
 
 ```sh
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.0.0 .
-docker image inspect --format '{{.Id}}' glm53-tf3:3.0.0
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.1.0 .
+docker image inspect --format '{{.Id}}' glm53-tf3:3.1.0
 ```
 
-buildは、[`config/engine.lock.json`](config/engine.lock.json) のcommit（`ENGINE_REF`）のTensorFoldのBIZ releaseからエンジンをcompileします。Zigのcompilerはlockが名指す版で、SHA-256で確かめます。構造化出力の `libtfgrammar` も、lockが固定するxgrammarのreleaseからcommitで確かめてbuildします。実行のimageには、`/usr/local/bin` に `tensorfold-native` と `tf-cuda-test`、`/usr/local/lib` に `libtfgrammar.so`、NCCL 2.30.7とRDMAのuserspace、`/opt/glm53-tf3/` に `serve.sh`、エンジンのcommitと各binaryのSHA-256を書いた `/usr/share/doc/tf3/ENGINE`、このリポジトリ・xgrammar・エンジンの表示（`/usr/share/doc/tf3/` の下）が入ります。2つのbaseのimageはdigestで固定しています。参照機ではbuildに約7分かかりました。他のホストへimageを写し（リンク越しに `docker save glm53-tf3:3.0.0 | ssh <host> docker load`）、全ホストのimage IDを比べます。同じでなければいけません。
+buildは、[`config/engine.lock.json`](config/engine.lock.json) のcommit（`ENGINE_REF`）のTensorFoldのBIZ releaseからエンジンをcompileします。Zigのcompilerはlockが名指す版で、SHA-256で確かめます。構造化出力の `libtfgrammar` も、lockが固定するxgrammarのreleaseからcommitで確かめてbuildします。実行のimageには、`/usr/local/bin` に `tensorfold-native` と `tf-cuda-test`、`/usr/local/lib` に `libtfgrammar.so`、NCCL 2.30.7とRDMAのuserspace、`/opt/glm53-tf3/` に `serve.sh`、エンジンのcommitと各binaryのSHA-256を書いた `/usr/share/doc/tf3/ENGINE`、このリポジトリ・xgrammar・エンジンの表示（`/usr/share/doc/tf3/` の下）が入ります。2つのbaseのimageはdigestで固定しています。参照機では3.1.0のimageのbuildに約11分かかりました。他のホストへimageを写し（リンク越しに `docker save glm53-tf3:3.1.0 | ssh <host> docker load`）、全ホストのimage IDを比べます。同じでなければいけません。
 
 ## 4. 各ホストのcontainerとrankのファイル
 
 ```sh
-v3/scripts/create_container.sh glm53-tf3:3.0.0 ~/glm53-tf3   # container glm53-tf3、~/glm53-tf3 を /work に
+v3/scripts/create_container.sh glm53-tf3:3.1.0 ~/glm53-tf3   # container glm53-tf3、~/glm53-tf3 を /work に
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # このホストのrank：tp2-rank0/1 か tp3-rank0/1/2
 ```
 
 `create_container.sh` はcontainerに割り当てるcoreを出します。`CPUSET` が無ければ最大周波数の最も低いcoreで、GB10では効率coreの `cpuset 0-4,10-14` です。エンジンのthreadが空回りする間も、CPUの温度を低く保ちます（[配信の既定](README.ja.md#配信の既定)）。前に `CPUSET=` を付けると全core、`CPUSET=<list>` で書いたcoreです。
 
-`~/glm53-tf3/rank.env` をこのホストの値に直します：`MASTER`（リンク上のrank 0のアドレス、全rankで同じ）、`NCCL_IB_HCA`（リンクのRDMAデバイス、2本のrail）、`NCCL_IB_GID_INDEX`、`NCCL_SOCKET_IFNAME`。TP=2では29583が使われていれば `NCCL_PORT` も。exampleは参照機のファイルで、各行が何と測られたかを書いています。このファイルは `bash` が読み込むもので、`docker --env-file` には渡しません。exampleがコメントにしている行は、全rankで同じに既定を変えます：`PARALLEL`、`CONTEXT`、熱の帯、`API_KEY_FILE`（[設定](README.ja.md#設定)）。
+`~/glm53-tf3/rank.env` をこのホストの値に直します：`MASTER`（リンク上のrank 0のアドレス、全rankで同じ）、`NCCL_IB_HCA`（リンクのRDMAデバイス、2本のrail）、`NCCL_IB_GID_INDEX`、`NCCL_SOCKET_IFNAME`。29583が使われていれば `NCCL_PORT` も。exampleは参照機のファイルで、各行が何と測られたかを書いています。TP=3のexampleは `TF_GLM_MM=0` も書いています。上流がissue #1067を直すまで、TP=3では全rankにこれが要ります（[配信の既定](README.ja.md#配信の既定)）。このファイルは `bash` が読み込むもので、`docker --env-file` には渡しません。exampleがコメントにしている行は、全rankで同じに既定を変えます：`PARALLEL`、`CONTEXT`、熱の帯、`API_KEY_FILE`（[設定](README.ja.md#設定)）。
 
 エンジンにはホストでのbuildの段がありません。kernelはbinaryの中にあります。
 
@@ -54,16 +54,17 @@ cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # このホスト�
 v3/scripts/cluster.sh state/cluster.env start first
 ```
 
-TP=2では大きいrankから起動し、rank 0を最後にします。TP=3ではrank 0を先に起動し、それが `/work/nccl-id` に書くNCCLのid（16進256文字）を待ち、ファイルを他のホストへ写してから、他のrankを起動します。各rankはcontainerの中で `serve.sh TP RANK /work/rank.env` を動かします。全ホストでメモリの見張り（`hostwatch.sh`：`MemAvailable` が5 GiBを切るとエンジンを止める）を起動し、rank 0の `[tensorfold] serving` の行を待ちます。終わりは、`READY` とかかった秒数、rankが断ったかエンジンが消えたかrank 0がidを書かなかったときの `FAILED` と各rankのlogの末尾、15分たっての `TIMEOUT` のどれかです。各rankのlogは `<WORK>/logs/serve-r<RANK>-<LABEL>.log`、見張りのlogは `hostwatch-<LABEL>.log` です。labelの後の引数は全rankの `tensorfold-native serve` に渡り、`cluster.sh state/cluster.env status` は各rankのエンジンのprocessを数えます。`FAILED` か `TIMEOUT` の後は[運用](docs/operations.ja.md#起動の結果)を見ます。
+TP=2では大きいrankから起動し、rank 0を最後にします。TP=3では3つのrankをまとめて起動し、rank 0を最後にします。全rankの生存の線がつながると、rank 0が `/work/nccl-id` にNCCLのid（16進256文字）を書き、scriptがそのファイルを他のホストへ写し、そこのrankはそれを待って読みます。各rankはcontainerの中で `serve.sh TP RANK /work/rank.env` を動かします。全ホストでメモリの見張り（`hostwatch.sh`：`MemAvailable` が5 GiBを切るとエンジンを止める）を起動し、rank 0の `[tensorfold] serving` の行を待ちます。終わりは、`READY` とかかった秒数、rankが断ったかエンジンが消えたかrank 0がidを書かなかったときの `FAILED` と各rankのlogの末尾、15分たっての `TIMEOUT` のどれかです。各rankのlogは `<WORK>/logs/serve-r<RANK>-<LABEL>.log`、見張りのlogは `hostwatch-<LABEL>.log` です。labelの後の引数は全rankの `tensorfold-native serve` に渡り、`cluster.sh state/cluster.env status` は各rankのエンジンのprocessを数えます。`FAILED` か `TIMEOUT` の後は[運用](docs/operations.ja.md#起動の結果)を見ます。
 
 各rankの起動の行を読みます：
 
-- `[serve.sh]`：TP、rank、`MASTER`、窓（`context`：TP=2で245760、TP=3で1048576）、`parallel`（rankのファイルが別の値を書かなければ1、空の `PARALLEL=` なら `auto`）、熱の帯、imageのエンジンのcommit
+- `[serve.sh]`：TP、rank、`MASTER`、窓（`context`：TP=2で245760、TP=3で1048576）、`parallel`（rankのファイルが別の値を書かなければ1、空の `PARALLEL=` なら `auto`）、熱の帯、imageのエンジンのcommit、`TF_GLM_MM`（rankのファイルが書かなければ `unset`）
+- TP=3では、各rankの `NCCL_COMM_ID … leaves NCCL's environment`
 - rank 0のloadの行 `[tensorfold] CUDA sm_121 …`：modelのGiB、`1 stream at once` とその窓でのGiB、残りのGiB、prompt cacheのGiB
 - 各rankのNCCLの行（`via NET/IB`、rankのファイルの `NCCL_DEBUG` の行で起動時に一度だけ出る）：全接続が `NET/IB` で、socketは無い
 - `serving` の行：modelの名前（rankのファイルで `MODEL_NAME` を設定しなければ `glm-tf`）、`HOST` と `PORT` を設定しなければ `127.0.0.1:8095`、窓
 
-rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、3.0.0の受け入れで起動にTP=3で235秒、TP=2で268〜281秒かかりました。
+rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、3.1.0の受け入れで起動にTP=3で247〜553秒、TP=2で301〜593秒かかりました。
 
 ## 6. tool引数ゲート（任意）
 

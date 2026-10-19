@@ -6,7 +6,7 @@ The ordered steps for serving the 3.x line on two hosts at TP=2 or three hosts a
 
 ## 1. Hosts and fabric
 
-As in [2.x step 1](../v2/SETUP.md#1-hosts-and-fabric): two or three DGX Spark or compatible GB10 systems with ConnectX-7 links, a direct link for the pair, a ring for three hosts, the RDMA device names, the RoCE v2 GID index and the address the ranks meet on recorded for each host, and the GPU clock capped before long runs. On the reference ring each host's address for TP=3 is a `/32` on a dummy interface, routed over the links ([three hosts in a ring](../docs/qsfp-network.md#8-three-hosts-in-a-ring)); NCCL's `NCCL_COMM_ID` cannot bootstrap there, so at TP=3 rank 0 writes its NCCL id to a file that the other ranks read (step 6).
+As in [2.x step 1](../v2/SETUP.md#1-hosts-and-fabric): two or three DGX Spark or compatible GB10 systems with ConnectX-7 links, a direct link for the pair, a ring for three hosts, the RDMA device names, the RoCE v2 GID index and the address the ranks meet on recorded for each host, and the GPU clock capped before long runs. On the reference ring each host's address for TP=3 is a `/32` on a dummy interface, routed over the links ([three hosts in a ring](../docs/qsfp-network.md#8-three-hosts-in-a-ring)). The ranks' liveness lines reach rank 0 there through `NCCL_COMM_ID`, but NCCL cannot bootstrap through it, so at TP=3 each rank takes it out of NCCL's environment and rank 0 writes its NCCL id to a file that the other ranks read ([step 5](#5-start)).
 
 ## 2. Checkout and checkpoint
 
@@ -27,22 +27,22 @@ The engine reads the checkpoint from each host's Hugging Face cache, by default 
 Build on one of the GB10 hosts (linux/arm64), from the checkout root:
 
 ```sh
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.0.0 .
-docker image inspect --format '{{.Id}}' glm53-tf3:3.0.0
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.1.0 .
+docker image inspect --format '{{.Id}}' glm53-tf3:3.1.0
 ```
 
-The build compiles the engine from the BIZ release of TensorFold at the commit in [`config/engine.lock.json`](config/engine.lock.json) (`ENGINE_REF`), with the Zig compiler the lock names and checks by SHA-256, and builds `libtfgrammar` (structured output) from the xgrammar release the lock pins, checked by commit. The runtime image holds `tensorfold-native` and `tf-cuda-test` in `/usr/local/bin`, `libtfgrammar.so` in `/usr/local/lib`, NCCL 2.30.7 and the RDMA userspace, `serve.sh` in `/opt/glm53-tf3/`, `/usr/share/doc/tf3/ENGINE`, which names the engine commit and every binary's SHA-256, and the notices of this repository, xgrammar and the engine under `/usr/share/doc/tf3/`. Both base images are pinned by digest. The build took about 7 minutes on a reference host. Copy the image to the other hosts (`docker save glm53-tf3:3.0.0 | ssh <host> docker load`, over the link) and compare the image IDs of every host; they must be equal.
+The build compiles the engine from the BIZ release of TensorFold at the commit in [`config/engine.lock.json`](config/engine.lock.json) (`ENGINE_REF`), with the Zig compiler the lock names and checks by SHA-256, and builds `libtfgrammar` (structured output) from the xgrammar release the lock pins, checked by commit. The runtime image holds `tensorfold-native` and `tf-cuda-test` in `/usr/local/bin`, `libtfgrammar.so` in `/usr/local/lib`, NCCL 2.30.7 and the RDMA userspace, `serve.sh` in `/opt/glm53-tf3/`, `/usr/share/doc/tf3/ENGINE`, which names the engine commit and every binary's SHA-256, and the notices of this repository, xgrammar and the engine under `/usr/share/doc/tf3/`. Both base images are pinned by digest. The build of 3.1.0's image took about 11 minutes on a reference host. Copy the image to the other hosts (`docker save glm53-tf3:3.1.0 | ssh <host> docker load`, over the link) and compare the image IDs of every host; they must be equal.
 
 ## 4. Container and rank file on each host
 
 ```sh
-v3/scripts/create_container.sh glm53-tf3:3.0.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
+v3/scripts/create_container.sh glm53-tf3:3.1.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # this host's rank: tp2-rank0/1 or tp3-rank0/1/2
 ```
 
 `create_container.sh` prints the cores it gives the container: unless `CPUSET` is set, the cores with the lowest maximum frequency, `cpuset 0-4,10-14` on a GB10, whose efficiency cores keep the CPU cooler while the engine's threads spin ([serving defaults](README.md#serving-defaults)). `CPUSET=` before it gives every core, and `CPUSET=<list>` the cores listed.
 
-Edit `~/glm53-tf3/rank.env` with this host's values: `MASTER` (rank 0's address on the link, the same on every rank), `NCCL_IB_HCA` (the RDMA devices on the links, both rails), `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`; at TP=2 also `NCCL_PORT` if 29583 is taken. The examples are the reference hosts' files and say what each line was measured as. The file is sourced by `bash`, not passed to `docker --env-file`. Lines the examples leave commented out change a default for every rank alike: `PARALLEL`, `CONTEXT`, the heat bands and `API_KEY_FILE` ([configuration](README.md#configuration)).
+Edit `~/glm53-tf3/rank.env` with this host's values: `MASTER` (rank 0's address on the link, the same on every rank), `NCCL_IB_HCA` (the RDMA devices on the links, both rails), `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`; also `NCCL_PORT` if 29583 is taken. The examples are the reference hosts' files and say what each line was measured as. The TP=3 examples also set `TF_GLM_MM=0`, which TP=3 needs on every rank until upstream fixes issue #1067 ([serving defaults](README.md#serving-defaults)). The file is sourced by `bash`, not passed to `docker --env-file`. Lines the examples leave commented out change a default for every rank alike: `PARALLEL`, `CONTEXT`, the heat bands and `API_KEY_FILE` ([configuration](README.md#configuration)).
 
 The engine needs no build step on the host: its kernels are in the binary.
 
@@ -54,16 +54,17 @@ From a machine with SSH to every host, after copying [`examples/cluster.tp2.env`
 v3/scripts/cluster.sh state/cluster.env start first
 ```
 
-At TP=2 it starts the highest rank first and rank 0 last. At TP=3 it starts rank 0 first, waits for the NCCL id it writes to `/work/nccl-id` (256 hex characters), copies the file to the other hosts and then starts them. Each rank runs `serve.sh TP RANK /work/rank.env` in its container. It starts the memory guard on every host (`hostwatch.sh`: stops the engine below 5 GiB `MemAvailable`) and waits for rank 0's `[tensorfold] serving` line. It ends with `READY` and the seconds it took; with `FAILED` and every rank's log tail when a rank refuses, an engine is gone or rank 0 writes no id; or with `TIMEOUT` after 15 minutes. Each rank logs to `<WORK>/logs/serve-r<RANK>-<LABEL>.log` and the guard to `hostwatch-<LABEL>.log`; arguments after the label go to every rank's `tensorfold-native serve`, and `cluster.sh state/cluster.env status` counts each rank's engine processes. After `FAILED` or `TIMEOUT`, see [operations](docs/operations.md#start-outcomes).
+At TP=2 it starts the highest rank first and rank 0 last. At TP=3 it starts the three ranks together, rank 0 last; once every rank's liveness line is up, rank 0 writes its NCCL id to `/work/nccl-id` (256 hex characters), and the script copies the file to the other hosts, whose ranks wait for it. Each rank runs `serve.sh TP RANK /work/rank.env` in its container. It starts the memory guard on every host (`hostwatch.sh`: stops the engine below 5 GiB `MemAvailable`) and waits for rank 0's `[tensorfold] serving` line. It ends with `READY` and the seconds it took; with `FAILED` and every rank's log tail when a rank refuses, an engine is gone or rank 0 writes no id; or with `TIMEOUT` after 15 minutes. Each rank logs to `<WORK>/logs/serve-r<RANK>-<LABEL>.log` and the guard to `hostwatch-<LABEL>.log`; arguments after the label go to every rank's `tensorfold-native serve`, and `cluster.sh state/cluster.env status` counts each rank's engine processes. After `FAILED` or `TIMEOUT`, see [operations](docs/operations.md#start-outcomes).
 
 Read each rank's startup lines:
 
-- `[serve.sh]`: TP, rank, `MASTER`, the window (`context`: 245760 at TP=2, 1048576 at TP=3), `parallel` (1 unless the rank file sets another, `auto` for an empty `PARALLEL=`), the heat bands and the engine commit of the image
+- `[serve.sh]`: TP, rank, `MASTER`, the window (`context`: 245760 at TP=2, 1048576 at TP=3), `parallel` (1 unless the rank file sets another, `auto` for an empty `PARALLEL=`), the heat bands, the engine commit of the image and `TF_GLM_MM` (`unset` unless the rank file sets it)
+- at TP=3, each rank's `NCCL_COMM_ID … leaves NCCL's environment`
 - rank 0's load line, `[tensorfold] CUDA sm_121 …`: the model's GiB, `1 stream at once` and its GiB at the window, the GiB left, and the prompt cache's GiB
 - each rank's NCCL lines (`via NET/IB`, logged once at start by the rank file's `NCCL_DEBUG` lines) name `NET/IB` for every connection, none over sockets
 - the `serving` line: the model name (`glm-tf` unless `MODEL_NAME` is set in the rank file), `127.0.0.1:8095` unless `HOST` and `PORT` are, and the window
 
-Rank 0 serves the OpenAI-compatible API on loopback. A start took 235 s at TP=3 and 268 to 281 s at TP=2 on the reference hosts, in 3.0.0's acceptance.
+Rank 0 serves the OpenAI-compatible API on loopback. A start took 247 to 553 s at TP=3 and 301 to 593 s at TP=2 on the reference hosts, in 3.1.0's acceptance.
 
 ## 6. Tool-argument gate (optional)
 

@@ -4,6 +4,46 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.1.0
+
+The 3.x line on upstream TensorFold 1.1.1. The checkpoint, the serving defaults and the tools are 3.0.0's; TP=2 gives new tokens on upstream's tiled BF16 linears, and TP=3 gives 3.0.0's.
+
+### Engine
+
+- The image compiles the engine from the branch `release/3.1.0` of [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold) at `1a8f1efdc47b778c68cfdd30c1ba4966b2fe9064` ([`config/engine.lock.json`](config/engine.lock.json)), with Zig 0.17.0 and CUDA 13.3.1 for sm_121 as before. That is upstream TensorFold 1.1.1 with two commits:
+  - **The heat wait's look-ahead** (`TF_HEAT_CEILING`), as in 3.0.0.
+  - **Rank 0's NCCL id in a file** at TP=3 (`TF_GLM_NCCL_ID_FILE`). 1.1.x opens the ranks' liveness lines to rank 0 through `NCCL_COMM_ID` before NCCL, so each rank now takes `NCCL_COMM_ID` out of NCCL's environment once the lines are up, and rank 0 writes the id then. Kept to this line until upstream's TP bootstrap (pull request #636).
+- `prompt_logprobs`, structured output and required or named tool calls in GLM's tool markup are upstream's own on GLM's CUDA engine since 1.1.1, written after this line's pull requests #1016, #1017 and #1018, which upstream closed; the release branch no longer carries its own commits for them. `libtfgrammar` is still built from xgrammar v0.2.8.
+- Upstream runs GLM's BF16 linears on tiled kernels by default. They refuse a TP=3 rank's KDA width (upstream issue #1067), so the TP=3 rank files set `TF_GLM_MM=0`, the glue kernels 3.0.0 ran: TP=3 gives 3.0.0's decode-check hashes, edit reply and NLL. TP=2 runs the tiled kernels and gives new reference values ([validation](docs/validation.md)).
+
+### Launch
+
+- `serve.sh` exports `NCCL_COMM_ID` at TP=3 too (`MASTER:NCCL_PORT`), beside the id file, and its startup line names `TF_GLM_MM`.
+- `cluster.sh` starts the three TP=3 ranks together, rank 0 last, waits up to 5 minutes for rank 0's NCCL id and copies it to the other hosts, whose ranks wait for it.
+- [`examples/`](examples/): the TP=3 rank files set `TF_GLM_MM=0`, with the line to remove once upstream fixes #1067.
+
+### Documentation
+
+- Setup, the README and operations describe TP=3's start on 1.1.x and `TF_GLM_MM=0`; the README states what upstream 1.1.1 changed for this line (image input with `--vision`, which `serve.sh` does not pass, and the efficiency cores in upstream's runbook).
+- Operations: on GB10 the engine counts the page cache as free memory (`MemAvailable`), so dropping it before a start is not needed; the acceptance windows still do, as a step kept from 2.x.
+
+### Accepted
+
+On the reference hosts on 2026-10-19 and 20, on the pinned checkpoint, in five launches (three at TP=2, one of them with `PARALLEL=` empty, and two at TP=3), every container on the efficiency cores ([measured](README.md#measured-on-the-release); [validation](docs/validation.md)):
+
+- The decode check gave the same hashes in both launches of each TP size: TP=3's are 3.0.0's, TP=2's new on the tiled kernels. Drafted replies equalled serial ones, `bench --kinds edit` gave 3.0.0's reply at both TP sizes in 190 rounds instead of 363, and an image part was refused with 400.
+- `prompt_logprobs` and structured output passed their checks at both TP sizes; the NLL set was scored twice with no movement, TP=3 equal to 3.0.0 and TP=2 within 0.02 of it.
+- tool-eval-bench through the tool-argument gate: 92 at TP=2 and 93 at TP=3, with the Safety Gate passed.
+- Forty replies of up to 1,024 tokens after 6,000-token prompts, back to back, finished at both TP sizes with the hottest zone at 74.9 °C (TP=2) and 79.8 °C (TP=3). No request waited for heat, the 1,035,295-token prompt (3 of 3, first token after 1,022.7 s) included.
+- A cut reply, a stop string and a cut prompt stopped the work at both TP sizes.
+- On every core, recorded and not the default: the forty replies at TP=2 finished in the same time with rank 0's host at 93.0 °C, and two requests at once at 88.5 °C.
+
+The release image, started by its own `serve.sh` and this release's `cluster.sh`, gave the same decode-check hashes and edit reply in one launch at each TP size.
+
+### Not in 3.1.0
+
+Image input (upstream's engine reads images on GLM's CUDA path with `--vision`, which `serve.sh` does not pass), the published AXL weights, log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.0.0 — 2026-10-18
 
 The first release of the 3.x line. It serves the same pinned checkpoint as 1.x and 2.x, `nvidia/GLM-5.3-Flash-NVFP4` at `423acf37583782c51c142d145aef733d72943d93`, with TensorFold's native engine, the Zig and CUDA engine that took the place of the Python engine 2.x runs, on two hosts at TP=2 or three hosts at TP=3. The 2.x line continues in [`v2/`](../v2/README.md).

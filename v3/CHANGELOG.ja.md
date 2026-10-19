@@ -6,6 +6,46 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.1.0
+
+上流のTensorFold 1.1.1の上の3.x系です。checkpoint、配信の既定、道具は3.0.0のままです。TP=2は上流のtiledのBF16のlinearで新しいtokenを出し、TP=3は3.0.0と同じtokenを出します。
+
+### Engine
+
+- imageは[Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold)のbranch `release/3.1.0` の `1a8f1efdc47b778c68cfdd30c1ba4966b2fe9064` からエンジンをcompileします（[`config/engine.lock.json`](config/engine.lock.json)）。Zig 0.17.0とsm_121向けのCUDA 13.3.1はこれまでどおりです。上流のTensorFold 1.1.1に二つのcommitを足した版です：
+  - **熱の待ちの見込み**（`TF_HEAT_CEILING`）：3.0.0と同じです。
+  - **rank 0のNCCLのidをファイルで**（TP=3、`TF_GLM_NCCL_ID_FILE`）。1.1.xはNCCLの前に、rankどうしの生存の線を `NCCL_COMM_ID` でrank 0へ張るので、各rankは線がつながった後に `NCCL_COMM_ID` をNCCLの環境から外し、rank 0はそこでidを書きます。上流のTPのbootstrap（pull request #636）までこの系列に留めます。
+- `prompt_logprobs`、構造化出力、GLMのtoolのmarkupでの `required` か名指しのtool呼び出しは、1.1.1からGLMのCUDAのエンジンで上流自身のものです。この系列のpull request #1016・#1017・#1018の後に上流が書き、上流はそれらを閉じました。リリースのbranchはそのための自前のcommitをもう持ちません。`libtfgrammar` は引き続きxgrammar v0.2.8からbuildします。
+- 上流はGLMのBF16のlinearを既定でtiledのkernelで回します。それはTP=3のrankのKDAの幅を断る（上流のissue #1067）ので、TP=3のrankのファイルは3.0.0が回したglueのkernel（`TF_GLM_MM=0`）にします：TP=3はdecode checkのhash、editの返事、NLLが3.0.0と同じです。TP=2はtiledのkernelで回り、新しい基準値を出します（[検証](docs/validation.ja.md)）。
+
+### Launch
+
+- `serve.sh` はTP=3でも `NCCL_COMM_ID`（`MASTER:NCCL_PORT`）をidのファイルと並べてexportし、起動の行に `TF_GLM_MM` を出します。
+- `cluster.sh` はTP=3の3つのrankをまとめて起動し（rank 0を最後に）、rank 0のNCCLのidを最大5分待って他のホストへ写します。そこのrankはそれを待って読みます。
+- [`examples/`](examples/)：TP=3のrankのファイルに `TF_GLM_MM=0` と、上流が#1067を直したら外す旨の行。
+
+### Documentation
+
+- setup、README、運用に、1.1.xでのTP=3の起動と `TF_GLM_MM=0` を書きました。READMEには上流1.1.1がこの系列に変えたこと（`--vision` での画像入力、ただし `serve.sh` は渡さない、上流のrunbookの効率core）を書きました。
+- 運用：GB10ではエンジンがページキャッシュを空きメモリ（`MemAvailable`）に数えるので、起動の前に外す必要はありません。受け入れの窓は2.x系から残した手順として、今も外しています。
+
+### Accepted
+
+参照機で2026-10-19〜20に、固定したcheckpointで5回の起動（TP=2で3回、うち1回は `PARALLEL=` を空に、TP=3で2回）、全containerを効率coreに置いて（[測定値](README.ja.md#リリースでの測定値)、[検証](docs/validation.ja.md)）：
+
+- decode検査は各TPの2回の起動で同じhashを出しました。TP=3は3.0.0のhash、TP=2はtiledのkernelでの新しいhashです。draftした返答はserialと同じで、`bench --kinds edit` は両TPで3.0.0と同じ返答を363 roundではなく190 roundで出し、画像のpartは400で断られました。
+- `prompt_logprobs` と構造化出力は両TPで検査を通りました。NLLのセットは2回の採点で動かず、TP=3は3.0.0と同じ、TP=2は3.0.0から0.02以内でした。
+- tool引数ゲート越しのtool-eval-bench：TP=2で92、TP=3で93、Safety Gateは合格。
+- 6,000 tokenのpromptの後に最大1,024 tokenの返答を40本続けて、両TPで終わり、最も熱いzoneは74.9 °C（TP=2）と79.8 °C（TP=3）でした。熱で待った要求は無く、1,035,295 tokenのprompt（3つ中3つ、最初のtokenまで1,022.7秒）も含みます。
+- 切った返答、stop文字列、切ったpromptは、両TPで処理を止めました。
+- 全core（既定ではなく記録として）：TP=2の40本の返答は同じ時間で終わり、rank 0のホストは93.0 °C、2つの要求の同時は88.5 °Cでした。
+
+リリースのimageは、それ自身の `serve.sh` とこのリリースの `cluster.sh` で各TPに1回起動し、decode検査で同じhashと同じ編集の返答を出しました。
+
+### Not in 3.1.0
+
+画像入力（上流のエンジンは `--vision` でGLMのCUDAの経路でも画像を読むが、`serve.sh` は渡さない）、公開したAXLの重み、生成したtokenのlog-probability、chat templateへの `clear_thinking` の受け渡し（[制限](README.ja.md#制限)）。
+
 ## 3.0.0 — 2026-10-18
 
 3.x系の最初のリリースです。1.x系・2.x系と同じ固定のcheckpoint（`nvidia/GLM-5.3-Flash-NVFP4` の `423acf37583782c51c142d145aef733d72943d93`）を、TensorFoldのネイティブエンジン、つまり2.x系が動かすPythonのエンジンに代わったZigとCUDAのエンジンで、2台のTP=2または3台のTP=3で配信します。2.x系は[`v2/`](../v2/README.ja.md)で続きます。
