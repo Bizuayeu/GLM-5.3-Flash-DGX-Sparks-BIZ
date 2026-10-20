@@ -88,7 +88,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-Fitted to the targets, the prompts came to 199,307, 499,254 and 1,035,295 tokens. Reference: the passphrase found at 199,307 tokens in 153.4 s at TP=2 and 140.4 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 398.1 s and 3 of 3 at 1,035,295 after 1,022.7 s. None resumed a kept prompt (`cached` 0) or waited for heat. In 3.2.0's acceptance, run in the afternoon, the 1,035,295-token prompt waited 34 s for heat (17 pauses of 2 s while rank 0's hottest zone read 92.4 °C) and gave its first token after 1,056.9 s; all three passphrases were found. The 1,036,859-token target is TP=3's alone; TP=2's window is 245,760 tokens.
+Fitted to the targets, the prompts came to 199,307, 499,254 and 1,035,295 tokens. Reference: the passphrase found at 199,307 tokens in 153.4 s at TP=2 and 140.4 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 398.1 s and 3 of 3 at 1,035,295 after 1,022.7 s. None resumed a kept prompt (`cached` 0) or waited for heat. In 3.2.0's acceptance, run in the afternoon, the 1,035,295-token prompt waited 34 s for heat (17 pauses of 2 s: 10 by the band, rank 0's hottest zone at 92.1 to 92.5 °C, and 7 by the look-ahead of `TF_HEAT_CEILING`, the zone at 91.3 to 91.9 °C) and gave its first token after 1,056.9 s; all three passphrases were found. The 1,036,859-token target is TP=3's alone; TP=2's window is 245,760 tokens.
 
 ## Tools through the tool-argument gate
 
@@ -106,13 +106,13 @@ Reference: 92/100 at TP=2 and 93/100 at TP=3 with the Safety Gate passed; TP=2 f
 
 ## Stopping a reply
 
-**Accepted when**, at both TP sizes, with thinking off: a streamed request to write the numbers from 1 to 1,000, cut by the client after about 5 s, leaves no connection in `/health`'s `live` block within 15 s, and a short request right after answers within 10 s; the same request with the stop string `"\n300\n"` ends at 299 with `finish_reason` `stop`; a ledger prompt of about 93,000 tokens cut by the client after 3 s, while it is read, lets a short request right after answer in less than half the time the whole prompt takes to its first token. Reference: the connection gone 1.0 s after the cut at both TP sizes; after the cut prompt a short request answered in 0.39 s at TP=2 and 0.25 s at TP=3, against 68.4 s and 62.8 s to the whole prompt's first token.
+**Accepted when**, at both TP sizes, with thinking off: a streamed request to write the numbers from 1 to 1,000, cut by the client after about 5 s, leaves no connection in `/health`'s `live` block within 15 s, and a short request right after answers within 10 s; the same request with the stop string `"\n300\n"` ends at 299 with `finish_reason` `stop`; a ledger prompt of about 93,000 tokens cut by the client after 3 s, while it is read, lets a short request right after answer in less than half the time the whole prompt takes to its first token. Reference: the connection gone 1.0 s after the cut at both TP sizes; after the cut prompt a short request answered in 0.39 s at TP=2 and 0.25 s at TP=3, against 68.4 s and 62.8 s to the whole prompt's first token. In 3.2.0's acceptance the short request answered in 0.42 s at TP=2 and 1.53 s at TP=3 (3.0.0's TP=3: 1.49 s), against 68.8 s and 62.6 s.
 
 ## Long runs of replies
 
 Forty requests back to back, each a fresh nonce and a module of about 6,000 tokens of Python with a request for a detailed review, up to 1,024 tokens each, temperature 0, effort low. This is the load that heated the CPU's zones on every core ([why the efficiency cores](../README.md#serving-defaults)). **Accepted when** all forty answer and the thermal watch does not stop an engine.
 
-Reference: forty of forty at both TP sizes, in 1,536 s at TP=2 and 1,315 s at TP=3. The hottest zone reached 74.9 °C on rank 0's host at TP=2 and 79.8 °C at TP=3. No GPU slowed for heat. On every core the same forty at TP=2 finished in 1,535 s with rank 0's host at 93.0 °C, 1 °C under the thermal watch's stop ([why the efficiency cores](../README.md#serving-defaults)).
+Reference: forty of forty at both TP sizes, in 1,536 s at TP=2 and 1,315 s at TP=3. The hottest zone reached 74.9 °C on rank 0's host at TP=2 and 79.8 °C at TP=3 (3.2.0's acceptance: 1,548 s and 75.6 °C at TP=2, 1,317 s and 82.5 °C at TP=3, run in the afternoon). No GPU slowed for heat. On every core the same forty at TP=2 finished in 1,535 s with rank 0's host at 93.0 °C, 1 °C under the thermal watch's stop ([why the efficiency cores](../README.md#serving-defaults)).
 
 ## Memory and temperature
 
