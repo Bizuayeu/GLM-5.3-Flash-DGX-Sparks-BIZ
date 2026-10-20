@@ -60,7 +60,11 @@ class EngineLockTests(unittest.TestCase):
 
     def test_the_image_builds_the_media_libraries_the_lock_pins(self):
         media, args = lock()["media"], dockerfile_args()
-        for name, arg in (("libjpeg_turbo", "JPEG_TURBO"), ("libwebp", "WEBP"), ("ffmpeg", "FFMPEG")):
+        for name, arg in (
+            ("libjpeg_turbo", "JPEG_TURBO"),
+            ("libwebp", "WEBP"),
+            ("ffmpeg", "FFMPEG"),
+        ):
             self.assertEqual(args[f"{arg}_URL"], media[name]["url"], name)
             self.assertEqual(args[f"{arg}_SHA256"], media[name]["sha256"], name)
 
