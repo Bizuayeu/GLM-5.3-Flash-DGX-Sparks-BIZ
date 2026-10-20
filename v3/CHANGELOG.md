@@ -4,7 +4,7 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
-## 3.2.0
+## 3.2.0 — 2026-10-20
 
 Image and video input. The engine, the checkpoint and the text path are 3.1.0's; the serving defaults add the engine's `--vision`.
 
