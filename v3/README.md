@@ -2,19 +2,20 @@
 
 [日本語](README.ja.md) · [Repository index](../README.md) · [Setup runbook](SETUP.md) · [Validation](docs/validation.md) · [Changelog](CHANGELOG.md)
 
-**NVFP4 BIZ** serves NVIDIA's pinned GLM-5.3-Flash NVFP4 checkpoint as distributed, without retraining or requantizing it, on DGX Spark or compatible GB10 systems. The 3.x line serves it with TensorFold's native engine, the Zig and CUDA engine that took the place of the Python engine the [2.x line](../v2/README.md) runs, on two hosts at TP=2 or three hosts at TP=3. 3.0.0 was its first release, on upstream TensorFold 1.0.12; 3.1.0 moves it onto upstream 1.1.1. 2.x continues beside it.
+**NVFP4 BIZ** serves NVIDIA's pinned GLM-5.3-Flash NVFP4 checkpoint as distributed, without retraining or requantizing it, on DGX Spark or compatible GB10 systems. The 3.x line serves it with TensorFold's native engine, the Zig and CUDA engine that took the place of the Python engine the [2.x line](../v2/README.md) runs, on two hosts at TP=2 or three hosts at TP=3. 3.0.0 was its first release, on upstream TensorFold 1.0.12; 3.1.0 moves it onto upstream 1.1.1, and 3.2.0 adds image and video input. 2.x continues beside it.
 
 **BIZ** is the maintainer's mark and states the repository's intent; what it means and does not mean is in the [repository README](../README.md#biz).
 
 ## Summary
 
-- **Status.** 3.1.0 was accepted on the reference hosts on 2026-10-19 and 20 against the reference values of [validation](docs/validation.md), measured there, at TP=2 and TP=3 on the pinned checkpoint, with the containers on the efficiency cores ([measured on the release](#measured-on-the-release)). The acceptance ran the engine built from the release's commit, and the release image gave the same decode-check hashes and edit reply in a launch at each TP size. That is the scope of the claim; other hosts are qualified by running the same checks.
+- **Status.** 3.2.0 was accepted on the reference hosts on 2026-10-20 against the reference values of [validation](docs/validation.md), measured there, at TP=2 and TP=3 on the pinned checkpoint, with the vision tower loaded and the containers on the efficiency cores ([measured on the release](#measured-on-the-release)). The acceptance ran the release image, started by its own `serve.sh`. That is the scope of the claim; other hosts are qualified by running the same checks.
 - **What it is.** Build steps, launch scripts and acceptance checks that serve the pinned checkpoint through a pinned commit of TensorFold's native engine as one OpenAI-compatible endpoint: two hosts at TP=2 over a direct ConnectX-7 link, or three at TP=3 in a switchless ring. The published measurements come from MSI EdgeXpert (MS-C931) systems.
 - **Repeatable.** Drafted replies equal serial ones, and a launch gives the token ids of the launch before it at the same TP size. The native engine's tokens are its own, not 2.x's: its kernels and its BF16 KV cache round differently, so the two lines compare by teacher-forced NLL, not token by token ([differences from 2.x](#differences-from-2x)).
 - **Structured output and prompt scores.** `response_format` with a JSON schema, `tool_choice` `required` or a named function (written in GLM's own tool markup) and `prompt_logprobs` on `/v1/completions` are upstream TensorFold's own on GLM's CUDA engine since 1.1.1, written after this line's pull requests #1016, #1017 and #1018 ([API](#api)).
+- **Images and videos.** Chat requests may carry PNG, JPEG and WebP images and H.264, HEVC, VP8, VP9 and MPEG-4 videos as data URLs, read by the checkpoint's vision tower on rank 0 through the engine's `--vision`, which `serve.sh` passes by default ([limits](#limits)).
 - **Precision.** W4A16 for the routed experts and the dense MLP, BF16 elsewhere, BF16 KV (2.x keeps an FP8 KV cache). NVIDIA's model card measured its checkpoint under another recipe on other hardware, so its accuracy table does not describe this serving; [validation](docs/validation.md) gives the numbers that do.
-- **Licensing.** Apache-2.0 code and engine, MIT weights that the operator downloads, and xgrammar (Apache-2.0) in the image for structured output; nothing non-commercial in the serving path ([licensing at a glance](../README.md#licensing-at-a-glance)).
-- **Not validated.** Image input (`serve.sh` starts the engine without `--vision`), the published AXL weights, more than one request at a time (the acceptance sent one at a time), harness integration (ZCode, Claude Code), other world sizes and hardware, full application quality and production reliability ([limits](#limits)).
+- **Licensing.** Apache-2.0 code and engine, MIT weights that the operator downloads, xgrammar (Apache-2.0) in the image for structured output, and libjpeg-turbo, libwebp (BSD-style) and FFmpeg's decoders (LGPL-2.1) for images and videos; nothing non-commercial in the serving path ([licensing at a glance](../README.md#licensing-at-a-glance)).
+- **Not validated.** Image and video URLs (`--vision-urls`, off), the published AXL weights, more than one request at a time (the acceptance sent one at a time), harness integration (ZCode, Claude Code), other world sizes and hardware, full application quality and production reliability ([limits](#limits)).
 
 ## What It Is
 
@@ -44,10 +45,10 @@ python -m glm53_tf download --background
 python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum --wait
 
 # One host builds the image, the others load it; compare the image IDs (SETUP §3)
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.1.0 .
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.2.0 .
 
 # Each host, from the checkout root (SETUP §4)
-v3/scripts/create_container.sh glm53-tf3:3.1.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.2.0 ~/glm53-tf3
 cp v3/examples/tp2-rank0.env ~/glm53-tf3/rank.env     # tp2-rank1 on the other host; then put this host's values
 
 # The control machine (SETUP §5, §8)
@@ -79,16 +80,16 @@ The model thinks before it answers: the reasoning comes back in `reasoning_conte
 | Drafts | the checkpoint's MTP head (the engine's default) | same |
 | Window (`--context`) | 245,760 tokens: about the most one stream fits beside the model on each rank | 1,048,576 tokens (the model's limit) |
 | Requests decoded at once (`--parallel`) | 1 (`PARALLEL=1`); an empty `PARALLEL=` leaves it to the engine, which sizes the streams and the prompt cache from the memory free at start | same |
-| Prompt cache (kept prompt states, at the starts of 2,048-token chunks) | what the window leaves: 5.2 to 6.3 GiB on the reference hosts, with the memory free at the start (rank 0's load line; 4.4 to 4.5 GiB with 3.0.0's engine) | 16.0 GiB on the reference ring |
+| Prompt cache (kept prompt states, at the starts of 2,048-token chunks) | what the window leaves: 4.4 to 5.4 GiB on the reference hosts with the vision tower loaded (rank 0's load line; 5.2 to 6.3 GiB with `VISION=`, moving with the memory free at the start; 4.4 to 4.5 GiB with 3.0.0's engine) | 16.0 GiB on the reference ring |
 | Reply limit when a request names none | 32,768 tokens (`--max-tokens`) | same |
 | Reasoning effort when a request names none | `high` (`--reasoning-effort`) | same |
 | NCCL | two rails per link, four channels, the IB transport named, from each rank's file; rank 0's address and port as `NCCL_COMM_ID` | two rails, four channels, the IB transport named, subnet-aware routing; rank 0's address and port as `NCCL_COMM_ID` for the ranks' liveness lines alone, and rank 0's NCCL id handed over in a file |
 | BF16 linears | upstream's tiled kernels (the engine's default) | the engine's glue kernels (`TF_GLM_MM=0` in the rank files): the tiled ones refuse a TP=3 rank's KDA width (upstream issue #1067) |
 | Prefill pause for heat | before each prompt chunk, every rank together, while any rank's hottest ACPI zone is above 92 °C, until all are at or below 88 °C (`TF_HEAT_HIGH`, `TF_HEAT_LOW`); also while that zone plus the rise of the last chunk run straight after another would pass 93 °C (`TF_HEAT_CEILING`) | same |
-| Image input | none: `serve.sh` passes no `--vision`, so image parts are refused with 400 (upstream reads images on GLM's CUDA engine with it since 1.1.0; not validated here) | same |
+| Image and video input | on (`VISION=1`, the engine's `--vision`): the checkpoint's vision tower on rank 0, PNG, JPEG and WebP images and videos as data URLs, at the engine's limits ([limits](#limits)); `VISION=` for text alone, every rank the same | same |
 | Container cores | the cores with the lowest maximum frequency: a GB10's efficiency cores, 0-4 and 10-14 (`create_container.sh`, `CPUSET`) | same |
 
-**Why one request at a time.** With `--parallel` unset the engine asks for eight streams and serves as many as fit, so the number of streams and the room left for the prompt cache change from one start to the next with the memory free at that moment (at TP=3 one start took two streams and 0.1 GiB of prompt cache). One stream, as 2.x serves, keeps the window the same at every start, and the prompt cache moves only with the memory free (5.2 to 6.3 GiB at TP=2). At TP=2 3.0.0's engine fitted no second stream beside the 245,760-token window (it needed 4.55 GiB on each rank, and rank 1 had 4.41 GiB). 3.1.0's does: with `PARALLEL=` empty it took two streams of 3.16 GiB and left a 3.1 GiB prompt cache, against one stream's 6.3 GiB.
+**Why one request at a time.** With `--parallel` unset the engine asks for eight streams and serves as many as fit, so the number of streams and the room left for the prompt cache change from one start to the next with the memory free at that moment (at TP=3 one start took two streams and 0.1 GiB of prompt cache). One stream, as 2.x serves, keeps the window the same at every start, and the prompt cache moves only with the memory free (4.4 to 5.4 GiB at TP=2 with the vision tower, 5.2 to 6.3 GiB with `VISION=`). At TP=2 3.0.0's engine fitted no second stream beside the 245,760-token window (it needed 4.55 GiB on each rank, and rank 1 had 4.41 GiB). 3.1.0's does: with `PARALLEL=` empty it took two streams of 3.16 GiB and left a 3.1 GiB prompt cache, against one stream's 6.3 GiB.
 
 **Why 245,760 at TP=2.** BF16 KV takes about twice the memory of 2.x's FP8 cache per token, so the pair holds a shorter window than 2.x's 300,000 tokens. 245,760 is about the most that fit one stream on the reference pair. `CONTEXT` in every rank file chooses another.
 
@@ -145,8 +146,8 @@ The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through t
 | Repeatable output | drafted equals serial, resume equals fresh, chunking does not matter, as the engine's contract | drafted equals serial and launches repeat their token ids; the tokens differ from 2.x's (other kernels, BF16 KV), so the lines compare by NLL |
 | KV and window | FP8 latent and index keys; 300,000 tokens at TP=2, 1,048,576 at TP=3 | BF16; 245,760 tokens at TP=2, 1,048,576 at TP=3 |
 | Requests at once | one | one by default; `PARALLEL` lets the engine share its decode rounds among more, within the memory the window leaves |
-| Prompt cache | 8 entries, 3 GiB (`TF_GLM_CACHE_*`) | states at chunk starts in what the window leaves (5.2 to 6.3 GiB at TP=2, 16.0 GiB at TP=3); no entry count |
-| Image input | accepted (`VISION=1`) | refused (`serve.sh` passes no `--vision`) |
+| Prompt cache | 8 entries, 3 GiB (`TF_GLM_CACHE_*`) | states at chunk starts in what the window leaves (4.4 to 5.4 GiB at TP=2 with the vision tower, 16.0 GiB at TP=3); no entry count |
+| Image input | accepted (`VISION=1`) | accepted, and videos (`VISION=1`, the default) |
 | Published AXL weights | optional | not validated |
 | Structured output, required tool calls | accepted, with xgrammar in the image | accepted, with xgrammar's `libtfgrammar` in the image; required tool calls in GLM's markup |
 | `prompt_logprobs` | accepted | accepted on non-streamed `/v1/completions` |
@@ -160,6 +161,29 @@ The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through t
 The two lines' containers both claim every GPU: run one line's engine at a time ([operations](docs/operations.md#hand-the-hosts-to-2x)).
 
 ## Measured on the Release
+
+**3.2.0** (2026-10-20, engine `1a8f1efd`, upstream 1.1.1, image `glm53-tf3:3.2.0`). Five launches on the pinned checkpoint with the release image, started by its own `serve.sh` (the vision tower loaded, its default) and this release's `cluster.sh`: three at TP=2, one of them with `PARALLEL=` empty, and two at TP=3, every container on the efficiency cores, `TF_GLM_MM=0` at TP=3; nothing stopped them.
+
+| 3.2.0 | TP=2 | TP=3 |
+|---|---|---|
+| Start (s, two launches) | 301 / 301 | 246 / 258 |
+| Decode check count / prose / code (tok/s) | 38.73 / 27.82 / 33.73 | 51.78 / 33.03 / 44.31 |
+| MTP acceptance length, same tasks | 3.066 / 1.882 / 2.621 | 3.368 / 1.787 / 2.839 |
+| `bench --kinds decode` (tok/s, median) | 43.75 | 55.19 |
+| `bench --kinds edit` (tok/s, median) | 70.85 | 89.83 |
+| Prefill of 38,960 tokens (tok/s, median of three) | 1,408.1 | 1,518.2 |
+| 199,307-token prompt (s) | 154.4 | 140.5 |
+| 499,254 and 1,035,295-token prompts, first token (s) | — | 398.7 / 1,056.9 |
+| A prompt of about 93,000 tokens cut 3 s in: the next request answered after (s), against the uncut prompt's first token | 0.42 against 68.8 | 1.53 against 62.6 |
+| Teacher-forced NLL, ja / en / code / math | 2.5412 / 2.9293 / 1.3145 / 0.6261 | 2.5246 / 2.9206 / 1.3147 / 0.6241 |
+| tool-eval-bench through the gate | 92 | 93 |
+| Forty replies of up to 1,024 tokens after 6,000-token prompts (s, hottest zone) | 1,548, 75.6 °C | 1,317, 82.5 °C |
+| Hottest zone of a launch, by rank (°C) | 81.7 / 84.2 | 92.5 / 89.2 / 86.7 |
+| Lowest `MemAvailable`, by rank (GiB) | 13 / 12 | 22 / 24 / 29 |
+
+- **Against 3.1.0.** The text path is 3.1.0's: with the tower loaded both TP sizes gave 3.1.0's decode-check hashes, edit reply in 190 rounds and NLL, text by text, and tool-eval-bench's scores, and the TP=2 launch with `PARALLEL=` empty (two streams) the same count hash. Decode, prefill and the edit reply moved by at most 0.7%. The tower takes 1.27 GiB on rank 0 at both TP sizes, and the lowest `MemAvailable` at TP=2 fell from 15 GiB to 12.
+- **Images and videos.** Drafted equalled serial on a picture at both TP sizes in the acceptance; the image and video checks of [validation](docs/validation.md#image-and-video-input) passed in shorter launches the same day, at TP=2 and TP=3.
+- **Heat.** The TP=3 launch ran in the afternoon: the 1,035,295-token prompt waited 34 s for heat, 17 pauses of 2 s while rank 0's hottest zone read 92.4 °C, and its first token came 34 s later than 3.1.0's, run at night. No other request waited, and no zone reached the thermal watch's stop. The cut prompt at TP=3 let the next request answer in 1.53 s (3.1.0: 0.25 s; 3.0.0: 1.49 s), within the check's bound of half the uncut prompt's first token.
 
 **3.1.0** (2026-10-20, engine `1a8f1efd`, upstream 1.1.1, image `glm53-tf3:3.1.0`). Five launches on the pinned checkpoint with the engine built from `1a8f1efd`, started the way this release's `serve.sh` and `cluster.sh` start it: three at TP=2, one of them with `PARALLEL=` empty, and two at TP=3, every container on the efficiency cores and `serve.sh`'s defaults, `TF_GLM_MM=0` at TP=3; nothing stopped them. Two more at TP=2 on every core recorded the heat. The release image, started by its own `serve.sh` and this release's `cluster.sh`, gave the same decode-check hashes and edit reply in one launch at each TP size.
 
@@ -210,7 +234,7 @@ The two lines' containers both claim every GPU: run one line's engine at a time 
 ## Limits
 
 - **One request at a time by default.** More need `PARALLEL`; at TP=2 the 245,760-token window holds two streams with half the prompt cache, and more need a smaller window ([serving defaults](#serving-defaults)).
-- **No image input.** `serve.sh` passes no `--vision`, and the engine answers image, audio and video parts with 400. Upstream's engine reads images on GLM's CUDA path with `--vision` since 1.1.0; this line has not accepted it. 2.x reads images.
+- **Images and videos within the engine's limits.** At most 4 images a request, counting every image the submitted history holds (a client that resends earlier turns with their images reaches it), sharing 4,096 image tokens; 10 MiB an image and 20 MiB a request; PNG, JPEG and WebP data URLs, GIF and animated pictures refused. Videos in user messages only, 2 a request (16 MB each, 20 MB together, an hour of footage), sampled at 2 frames a second up to 256 frames, sharing 16,384 video tokens; a clip under half a second is refused. Images and videos take their tokens from the window. HTTPS URLs need `--vision-urls`, which `serve.sh` does not pass. Audio parts are refused with 400.
 - **No log-probabilities of generated tokens.** `logprobs` and `top_logprobs` are refused with 400; `prompt_logprobs` is served on non-streamed `/v1/completions` only.
 - **`clear_thinking` is not passed to the chat template.** The native server passes the template only `enable_thinking`, `thinking_mode` and `reasoning_effort`; the pinned template takes a missing `clear_thinking` as false and keeps the reasoning of earlier turns that a client sends back. A client that sends earlier turns without their reasoning sees no difference.
 - **Every rank keeps two CPU cores spinning**, rank 0 while it decodes and the others while they wait. The default container cores keep the CPU's zones below the thermal watch's stop at a cost of 1 to 3% in speed with 3.0.0's engine (with 3.1.0's the forty replies took the same time, and a start about 40 s longer); on every core, long runs of replies reached the stop with 3.0.0's engine and came within 1 °C of it with 3.1.0's ([why the efficiency cores](#serving-defaults)).
@@ -259,7 +283,7 @@ Each item is a trigger and what this line then does.
 - Upstream's TP bootstrap (pull request #636) lands → start TP=3 on it and drop the NCCL id file from the release branch.
 - Upstream takes pull request #1053 (the waiting ranks sleep while rank 0 has no stream) → follow it in a 3.x release and measure again whether the container still needs the efficiency cores.
 - `chat_template_kwargs.clear_thinking` → pass it to the chat template as 2.x does, and offer it upstream.
-- Image input (`--vision`, upstream's on GLM's CUDA engine since 1.1.0) and the published AXL weights on the native engine → accept them as 2.x did.
+- The published AXL weights on the native engine → accept them as 2.x did.
 
 ## Local Data and Contribution
 

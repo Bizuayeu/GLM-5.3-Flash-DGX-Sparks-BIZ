@@ -2,7 +2,7 @@
 
 [日本語](validation.ja.md) · [3.x overview](../README.md) · [Setup runbook](../SETUP.md) · [Benchmark method](benchmarks.md)
 
-What a 3.x launch is accepted on, in the order to run it, with the reference values. The reference values are the native engine's own, measured on the reference hosts in 3.1.0's acceptance on 2026-10-19 and 20 with the engine built from `1a8f1efd` (upstream 1.1.1 and this line's two commits), `serve.sh`'s defaults and every container on the efficiency cores. TP=3 runs the BF16 linears on the glue kernels 3.0.0 ran (`TF_GLM_MM=0`) and gave 3.0.0's decode-check hashes, edit reply and NLL; TP=2 runs upstream's tiled kernels and gave new ones ([serving defaults](../README.md#serving-defaults)). 2.x's references do not apply: the native engine's kernels and its BF16 KV cache give other tokens, so the two lines compare by teacher-forced NLL, and 2.x's values appear here as information only. Which images were accepted against them is the README's [status](../README.md#summary). A check that differs is a finding to explain before routine use, not a value to replace.
+What a 3.x launch is accepted on, in the order to run it, with the reference values. The reference values are the native engine's own, measured on the reference hosts in 3.1.0's acceptance on 2026-10-19 and 20 with the engine built from `1a8f1efd` (upstream 1.1.1 and this line's two commits), `serve.sh`'s defaults and every container on the efficiency cores. TP=3 runs the BF16 linears on the glue kernels 3.0.0 ran (`TF_GLM_MM=0`) and gave 3.0.0's decode-check hashes, edit reply and NLL; TP=2 runs upstream's tiled kernels and gave new ones ([serving defaults](../README.md#serving-defaults)). 3.2.0's acceptance on 2026-10-20 ran the same checks with the vision tower loaded and gave the same hashes, edit reply, NLL and tool-eval-bench scores at both TP sizes; where its speed, memory or heat differed, the sections below say so. 2.x's references do not apply: the native engine's kernels and its BF16 KV cache give other tokens, so the two lines compare by teacher-forced NLL, and 2.x's values appear here as information only. Which images were accepted against them is the README's [status](../README.md#summary). A check that differs is a finding to explain before routine use, not a value to replace.
 
 Run the tools from `v3/` of the checkout on rank 0, in its virtual environment ([setup §2](../SETUP.md#2-checkout-and-checkpoint)) or in the container, which has Python and `tokenizers`, against the engine on loopback (`http://127.0.0.1:8095`, model `glm-tf` unless the rank file sets others). Let the hosts cool between long requests ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)), and keep the memory guard and the [thermal watch](../../host/README.md#during-long-runs) running.
 
@@ -31,11 +31,15 @@ The hashes held in two launches at each TP size and in a TP=2 launch with `PARAL
 
 ## Drafted equals serial
 
-The same prompt with and without drafts (`"draft": false` in the request body decodes one token a round) must give the same text: prose, code and counting prompts, up to 256 tokens, temperature 0, effort low, at both TP sizes, compared as whole texts (reasoning and answer). `bench --kinds edit` gives the same reply in every run and in a second launch.
+The same prompt with and without drafts (`"draft": false` in the request body decodes one token a round) must give the same text: prose, code and counting prompts, up to 256 tokens, temperature 0, effort low, at both TP sizes, compared as whole texts (reasoning and answer). With the vision tower loaded the check also sends a small PNG with a request to describe it, up to 64 tokens, and compares the two replies the same way. `bench --kinds edit` gives the same reply in every run and in a second launch.
 
-## Image input refused
+## Image and video input
 
-`serve.sh` starts the engine without `--vision`, so it reads no images. **Accepted when** a request with an image part is refused with 400.
+`serve.sh` starts the engine with `--vision` (`VISION=1`, the default). The checks send greedy requests with thinking off. **Accepted when**:
+
+- **Text unchanged**: with the tower loaded, the decode check and `bench --kinds edit` give the hashes and reply above, at both TP sizes.
+- **Images**, at both TP sizes: the same picture as a PNG, a JPEG and a WebP data URL answers, each with the same reply drafted and with `"draft": false`, and a GIF is refused with 400; a conversation with the picture in its first message resumes its later turn from the prompt cache past the picture, with the cold run's reply, and with `"draft": false` and at once with another the same.
+- **Videos**: at TP=2, upstream's `tools/zig/video_served.py` at the engine's commit passes on its 13 clips (made by `tools/zig/glm_video_fixtures.py` with PyAV 19.0.1), against the pinned checkpoint's processor in transformers 5.19.0, with `REASONING_EFFORT=` in the rank files (the tool renders the chat template at its own default effort): each clip's prompt ids equal the processor's; a later turn resumes past its video, and another video under the same text resumes only the text before it; drafted equals `"draft": false`; four requests at once equal their runs alone; a video and an image answer in one request; and eight malformed requests are refused with 400 and the reason. At TP=3, an H.264 MP4 and a VP9 WebM answer, each with the same reply drafted and with `"draft": false`.
 
 ## Teacher-forced NLL
 
@@ -84,7 +88,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-Fitted to the targets, the prompts came to 199,307, 499,254 and 1,035,295 tokens. Reference: the passphrase found at 199,307 tokens in 153.4 s at TP=2 and 140.4 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 398.1 s and 3 of 3 at 1,035,295 after 1,022.7 s. None resumed a kept prompt (`cached` 0) or waited for heat. The 1,036,859-token target is TP=3's alone; TP=2's window is 245,760 tokens.
+Fitted to the targets, the prompts came to 199,307, 499,254 and 1,035,295 tokens. Reference: the passphrase found at 199,307 tokens in 153.4 s at TP=2 and 140.4 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 398.1 s and 3 of 3 at 1,035,295 after 1,022.7 s. None resumed a kept prompt (`cached` 0) or waited for heat. In 3.2.0's acceptance, run in the afternoon, the 1,035,295-token prompt waited 34 s for heat (17 pauses of 2 s while rank 0's hottest zone read 92.4 °C) and gave its first token after 1,056.9 s; all three passphrases were found. The 1,036,859-token target is TP=3's alone; TP=2's window is 245,760 tokens.
 
 ## Tools through the tool-argument gate
 
@@ -114,6 +118,6 @@ Reference: forty of forty at both TP sizes, in 1,536 s at TP=2 and 1,315 s at TP
 
 The memory guard's log (`<WORK>/logs/hostwatch-<label>.log`) gives each host's lowest `MemAvailable` during the run; the hosts' telemetry gives the hottest ACPI zone every 2 s. Rank 0's log gives each prefill heat wait's seconds in a `heat_wait_s` line; the reply does not carry them.
 
-Reference: the lowest `MemAvailable` of a launch was 15 GiB on both ranks at TP=2 and 23, 11 and 26 GiB on ranks 0, 1 and 2 at TP=3; rank 1's 11 GiB was one 2-s reading during tool-eval-bench, with 24 GiB before and after it. The hottest zone of a whole launch was 81.8 °C on rank 0's host and 83.6 °C on rank 1's at TP=2, and 90.8, 89.3 and 85.5 °C at TP=3. No request of the acceptance waited for heat, the 1M-token prompt included.
+Reference: the lowest `MemAvailable` of a launch was 15 GiB on both ranks at TP=2 and 23, 11 and 26 GiB on ranks 0, 1 and 2 at TP=3; rank 1's 11 GiB was one 2-s reading during tool-eval-bench, with 24 GiB before and after it. The hottest zone of a whole launch was 81.8 °C on rank 0's host and 83.6 °C on rank 1's at TP=2, and 90.8, 89.3 and 85.5 °C at TP=3. No request of the acceptance waited for heat, the 1M-token prompt included. With the vision tower loaded (3.2.0's acceptance) the lowest was 13 and 12 GiB at TP=2 and 22, 24 and 29 GiB at TP=3, the hottest zone 81.7 and 84.2 °C at TP=2 and 92.5, 89.2 and 86.7 °C at TP=3, and the 1M-token prompt waited 34 s for heat ([long inputs](#long-inputs)).
 
 **Accepted when** no run is stopped by the memory guard or the thermal watch (two readings in a row at or above 94 °C).

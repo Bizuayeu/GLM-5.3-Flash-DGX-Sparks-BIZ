@@ -2,7 +2,7 @@
 
 [English](validation.md) · [3.x系の概要](../README.ja.md) · [配備の手順書](../SETUP.ja.md) · [ベンチマークの方法](benchmarks.ja.md)
 
-3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値はネイティブエンジン自身のもので、2026-10-19〜20の3.1.0の受け入れで、参照機で `1a8f1efd`（上流1.1.1とこの系列の二つのcommit）からbuildしたエンジン、`serve.sh` の既定、全containerを効率coreにして測りました。TP=3はBF16のlinearを3.0.0と同じglueのkernel（`TF_GLM_MM=0`）で回し、decode checkのhash、editの返答、NLLが3.0.0と同じでした。TP=2は上流のtiledのkernelで回り、新しい値を出しました（[配信の既定](../README.ja.md#配信の既定)）。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
+3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値はネイティブエンジン自身のもので、2026-10-19〜20の3.1.0の受け入れで、参照機で `1a8f1efd`（上流1.1.1とこの系列の二つのcommit）からbuildしたエンジン、`serve.sh` の既定、全containerを効率coreにして測りました。TP=3はBF16のlinearを3.0.0と同じglueのkernel（`TF_GLM_MM=0`）で回し、decode checkのhash、editの返答、NLLが3.0.0と同じでした。TP=2は上流のtiledのkernelで回り、新しい値を出しました（[配信の既定](../README.ja.md#配信の既定)）。2026-10-20の3.2.0の受け入れは、visionのtowerを読み込んで同じ検査を回し、両TPで同じhash、editの返答、NLL、tool-eval-benchの点を出しました。速さ、メモリ、熱が違った所は、下の各節に書きます。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
 
 道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、またはPythonと `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)を動かしたままにします。
 
@@ -31,11 +31,15 @@ hashは、各TPの2回の起動と、`PARALLEL=` を空にしたTP=2の起動（
 
 ## draftした応答とserialの一致
 
-同じpromptをdraftありとなし（要求の本文に `"draft": false` で1 roundに1 token）で流し、同じ文章になること：prose・code・countのpromptで最大256 token、temperature 0、effort low、両TPで、文章は全体（推論と答え）で比べます。`bench --kinds edit` は、どの回でも、2回目の起動でも同じ返答を出します。
+同じpromptをdraftありとなし（要求の本文に `"draft": false` で1 roundに1 token）で流し、同じ文章になること：prose・code・countのpromptで最大256 token、temperature 0、effort low、両TPで、文章は全体（推論と答え）で比べます。visionのtowerを読み込んだ起動では、小さなPNGを説明させる要求（最大64 token）も送り、二つの返答を同じように比べます。`bench --kinds edit` は、どの回でも、2回目の起動でも同じ返答を出します。
 
-## 画像入力の拒否
+## 画像と動画の入力
 
-`serve.sh` はエンジンを `--vision` 無しで起動するので、画像を読みません。**合格の条件**：画像のpartを含む要求を400で断ること。
+`serve.sh` はエンジンを `--vision` 付きで起動します（既定の `VISION=1`）。検査の要求は、思考を切ったgreedyで送ります。**合格の条件**：
+
+- **textは変わらない**：towerを読み込んだまま、decode検査と `bench --kinds edit` が、両TPで上のhashと返答を出す。
+- **画像**（両TPで）：同じ絵をPNG・JPEG・WebPのdata URLで送ると答え、どれもdraftありと `"draft": false` で同じ返答になる。GIFは400で断る。絵を最初のmessageに置いた会話は、後のturnを絵の先までprompt cacheから再開し、冷えた回と同じ返答を出し、`"draft": false` でも、別の要求と同時でも同じになる。
+- **動画**：TP=2では、エンジンのcommitの上流の `tools/zig/video_served.py` が、その13本のclip（`tools/zig/glm_video_fixtures.py` がPyAV 19.0.1で作る）で、固定したcheckpointのprocessor（transformers 5.19.0）に照らして通る（rankのファイルに `REASONING_EFFORT=`：道具はchat templateを既定のeffortで組みます）：各clipのpromptのidがprocessorのものと同じ。後のturnが動画の先まで再開し、同じtextの下の別の動画はその前のtextだけを再開する。draftありが `"draft": false` と同じ。4本同時がそれぞれの単独と同じ。動画と画像を1つの要求で答える。形の崩れた8種類の要求を理由つきの400で断る。TP=3では、H.264のMP4とVP9のWebMが答え、どちらもdraftありと `"draft": false` で同じ返答になる。
 
 ## teacher-forced NLL
 
@@ -84,7 +88,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値：199,307 tokenで合言葉を、TP=2で153.4秒、TP=3で140.4秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで398.1秒、1,035,295 tokenで3つ中3つ、1,022.7秒でした。どれも保持したpromptから再開せず（`cached` 0）、熱で待ちませんでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は245,760 tokenです。
+目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値：199,307 tokenで合言葉を、TP=2で153.4秒、TP=3で140.4秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで398.1秒、1,035,295 tokenで3つ中3つ、1,022.7秒でした。どれも保持したpromptから再開せず（`cached` 0）、熱で待ちませんでした。午後に回した3.2.0の受け入れでは、1,035,295 tokenのpromptが熱で34秒待ち（rank 0の最も熱いzoneが92.4 °Cを読む間、2秒の待ちを17回）、最初のtokenまで1,056.9秒で、3つの合言葉をすべて見つけました。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は245,760 tokenです。
 
 ## tool引数ゲート越しのtool
 
@@ -114,6 +118,6 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 メモリの見張りのlog（`<WORK>/logs/hostwatch-<label>.log`）に、実行中の各ホストの最低の `MemAvailable` が残ります。ホストの記録は2秒ごとにACPIの最も熱いzoneを示します。rank 0のlogは、prefillの熱の待ちごとの秒数を `heat_wait_s` の行に出します。応答はそれを運びません。
 
-基準値：起動の中の最低の `MemAvailable` は、TP=2で両rankとも15 GiB、TP=3でrank 0・1・2が23・11・26 GiBでした。rank 1の11 GiBはtool-eval-benchの最中の2秒の1回の読みで、前後は24 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C、TP=3で90.8・89.3・85.5 °Cでした。受け入れのどの要求も熱で待たず、1M tokenのpromptも含みます。
+基準値：起動の中の最低の `MemAvailable` は、TP=2で両rankとも15 GiB、TP=3でrank 0・1・2が23・11・26 GiBでした。rank 1の11 GiBはtool-eval-benchの最中の2秒の1回の読みで、前後は24 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C、TP=3で90.8・89.3・85.5 °Cでした。受け入れのどの要求も熱で待たず、1M tokenのpromptも含みます。visionのtowerを読み込んだ3.2.0の受け入れでは、最低はTP=2で13・12 GiB、TP=3で22・24・29 GiB、最も熱いzoneはTP=2で81.7・84.2 °C、TP=3で92.5・89.2・86.7 °Cで、1M tokenのpromptが熱で34秒待ちました（[長い入力](#長い入力)）。
 
 **合格の条件**：どの実行もメモリの見張りにも熱の見張り（94 °C以上の読みが2回続く）にも止められないこと。

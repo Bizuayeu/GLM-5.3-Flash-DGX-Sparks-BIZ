@@ -24,7 +24,7 @@
 - **メモリの見張り**（`hostwatch.sh`、`cluster.sh` が起動）は、`MemAvailable` が5 GiBを切るとcontainerの中の `pkill -9` でエンジンを止め、`KILLED` と書きます。
 - **熱の見張り**（[`host/thermal-watch`](../../host/README.ja.md#長い運転の間)、運用者が `--container glm53-tf3 --process 'tensorfold-native serve'` で起動）は、94 °C以上の読みが2回続くとエンジンを止め、`ABORT` と書きます。
 
-3.0.0と3.1.0の受け入れでは、どちらもエンジンを止めませんでした。2.x系では、一つのrankが終わっても他のrankは一緒には終わらず、`cluster.sh stop` が終わらせるまでcollectiveで待ちました。どれかのrankが止まったら、全rankを止め、見張りのlogで原因を探し、全rankを起動し直します。
+3.0.0・3.1.0・3.2.0の受け入れでは、どちらもエンジンを止めませんでした。2.x系では、一つのrankが終わっても他のrankは一緒には終わらず、`cluster.sh stop` が終わらせるまでcollectiveで待ちました。どれかのrankが止まったら、全rankを止め、見張りのlogで原因を探し、全rankを起動し直します。
 
 エンジンの熱の待ちは、どれかのrankの最も熱いzoneが92 °Cを超えているか、次のchunkが続けて流した直前のchunkと同じだけ上がれば93 °Cを超えるとき、chunkの合間でpromptの処理を止め、全rankが88 °C以下になるまで待ちます（[配信の既定](../README.ja.md#配信の既定)）。待ちに時間の上限はありません。待つごとの秒数は、rank 0のlogの `heat_wait_s` の行に出ます。
 
@@ -42,7 +42,7 @@ rankどうしはTCPのsocketではなくRoCEで話す必要があります：
 - rankのファイルの `NCCL_DEBUG=INFO` と `NCCL_DEBUG_SUBSYS=INIT,NET` で、NCCLは起動時に各接続の経路を一度logに出します。`grep -c 'via NET/IB' <WORK>/logs/serve-r<RANK>-<LABEL>.log` で数え、`NET/Socket` は一つもあってはいけません。
 - `NET/IB` でない接続があれば、rankのファイルをホストと照らします：`NCCL_IB_HCA`、`NCCL_IB_GID_INDEX`、`NCCL_SOCKET_IFNAME`。どれも[手順書 §1](../SETUP.ja.md#1-機体とfabric)で記録したものです。GIDのindexは、リンクが落ちたりホストの電源が落ちたりした後に動くことがあります（[GID indexが動く](../../docs/nccl-validation.ja.md#gid-indexが動く)）。
 
-3.0.0と3.1.0の受け入れでは、どの起動も全接続が `NET/IB` でした。
+3.0.0・3.1.0・3.2.0の受け入れでは、どの起動も全接続が `NET/IB` でした。
 
 ## containerを作り直す
 
@@ -50,7 +50,7 @@ rankどうしはTCPのsocketではなくRoCEで話す必要があります：
 
 ```sh
 docker rm -f glm53-tf3                                  # containerは起動の合間は眠っているだけ
-v3/scripts/create_container.sh glm53-tf3:3.1.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.2.0 ~/glm53-tf3
 ```
 
 `create_container.sh` はcontainerに名前を付けるので、古いものを先に消します（または改名します：`docker rename glm53-tf3 glm53-tf3-old` の後に `docker stop`）。ホストのディレクトリは残ります：rankのファイルとlogです。containerの中では何もbuildしません。

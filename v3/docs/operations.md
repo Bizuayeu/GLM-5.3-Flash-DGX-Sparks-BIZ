@@ -24,7 +24,7 @@ Two watchers stop one host's engine, each on its own host only:
 - **The memory guard** (`hostwatch.sh`, started by `cluster.sh`) stops the engine with `pkill -9` inside the container when `MemAvailable` falls below 5 GiB, and writes `KILLED`.
 - **The thermal watch** ([`host/thermal-watch`](../../host/README.md#during-long-runs), started by the operator with `--container glm53-tf3 --process 'tensorfold-native serve'`) stops it after two readings in a row at or above 94 °C, and writes `ABORT`.
 
-Neither stopped an engine in the 3.0.0 or 3.1.0 acceptance. Under 2.x the other ranks did not end when one did: they waited in a collective until `cluster.sh stop` ended them. After any rank stops, stop every rank, find the cause in the guard's or the watch's log, and start every rank again.
+Neither stopped an engine in the 3.0.0, 3.1.0 or 3.2.0 acceptance. Under 2.x the other ranks did not end when one did: they waited in a collective until `cluster.sh stop` ended them. After any rank stops, stop every rank, find the cause in the guard's or the watch's log, and start every rank again.
 
 The engine's heat wait holds a prompt pass between chunks while any rank's hottest zone is above 92 °C, or would pass 93 °C if the next chunk rose as much as the last one run straight after another, until every rank is at or below 88 °C ([serving defaults](../README.md#serving-defaults)). A wait has no time limit; rank 0's log gives each wait's seconds in a `heat_wait_s` line.
 
@@ -42,7 +42,7 @@ The ranks must talk over RoCE, not TCP sockets:
 - The rank files' `NCCL_DEBUG=INFO` and `NCCL_DEBUG_SUBSYS=INIT,NET` make NCCL log each connection's transport once at start. `grep -c 'via NET/IB' <WORK>/logs/serve-r<RANK>-<LABEL>.log` counts them, and none may be `NET/Socket`.
 - When a connection is not `NET/IB`, check the rank file against the host: `NCCL_IB_HCA`, `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`, recorded in [setup §1](../SETUP.md#1-hosts-and-fabric). A GID index can move after a link drops or a host loses power ([a GID index that moves](../../docs/nccl-validation.md#a-gid-index-that-moves)).
 
-Every start in the 3.0.0 and 3.1.0 acceptances ran every connection over `NET/IB`.
+Every start in the 3.0.0, 3.1.0 and 3.2.0 acceptances ran every connection over `NET/IB`.
 
 ## Recreate the container
 
@@ -50,7 +50,7 @@ After `cluster.sh state/cluster.env stop`, on each host:
 
 ```sh
 docker rm -f glm53-tf3                                  # the container only sleeps between starts
-v3/scripts/create_container.sh glm53-tf3:3.1.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.2.0 ~/glm53-tf3
 ```
 
 `create_container.sh` names the container, so the old one must go first (or be renamed: `docker rename glm53-tf3 glm53-tf3-old`, then `docker stop`). The host directory stays: the rank file and the logs. Nothing is built in the container.

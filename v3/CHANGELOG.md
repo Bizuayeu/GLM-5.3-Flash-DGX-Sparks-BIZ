@@ -4,6 +4,41 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.2.0
+
+Image and video input. The engine, the checkpoint and the text path are 3.1.0's; the serving defaults add the engine's `--vision`.
+
+### Image and video input
+
+- `serve.sh` starts every rank with `--vision` unless the rank file sets an empty `VISION=`: the checkpoint's vision tower is loaded on rank 0, and chat requests may carry `image_url` parts (PNG, JPEG and WebP data URLs, in user messages and tool results) and `video_url` parts (data URLs in user messages: H.264, HEVC, VP8, VP9 and MPEG-4 Part 2 in MP4, QuickTime, Matroska or WebM). The limits are the engine's defaults: 4 images a request, counting every image the submitted history holds, sharing 4,096 image tokens, 2 videos and 16,384 video tokens a request, sampled at 2 frames a second up to 256 frames ([limits](README.md#limits)). Public HTTPS URLs stay off (`--vision-urls`, which a rank file can add).
+- The image builds the libraries the engine opens at the first such input, at the releases it checks by version: libjpeg-turbo 3.1.4.1 (TurboJPEG) for JPEG, libwebp 1.6.0's decoder for WebP, and the engine's `libtfvideo.so` over FFmpeg 9.0.2, built static with the engine's decoder-only configuration (LGPL-2.1, no GPL parts). [`config/engine.lock.json`](config/engine.lock.json) pins each release by URL and SHA-256, and `/usr/share/doc/tf3/ENGINE` adds each library's SHA-256.
+- At TP=2 the model takes 1.27 GiB more on rank 0 with the tower (97.38 GiB against 96.11) and each stream 0.16 GiB more (3.32 against 3.16): the 245,760-token window stays, and the prompt cache is 4.4 to 5.4 GiB on the reference hosts (5.2 to 6.3 GiB with `VISION=`). At TP=3 the model takes 79.30 GiB on rank 0 (78.03) and the stream 13.03 GiB (12.88): the 1,048,576-token window and the 16.0 GiB prompt cache stay.
+
+### Documentation
+
+- The README, setup, operations and validation describe image and video input, its limits and its checks; [validation](docs/validation.md) replaces "image input refused" with the image and video checks.
+- [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) and the [licensing guide](../docs/licensing.md) name libjpeg-turbo, libwebp and FFmpeg, with FFmpeg's LGPL terms and the H.264 and HEVC patents for anyone redistributing a built image.
+
+### Accepted
+
+On the reference hosts on 2026-10-20, on the pinned checkpoint, with the release image (`glm53-tf3:3.2.0`) started by its own `serve.sh`, the vision tower loaded, in five launches (three at TP=2, one of them with `PARALLEL=` empty, and two at TP=3), every container on the efficiency cores ([measured](README.md#measured-on-the-release); [validation](docs/validation.md)):
+
+- The decode check gave 3.1.0's hashes in both launches of each TP size, and `bench --kinds edit` 3.1.0's reply in 190 rounds. Drafted replies equalled serial ones, a picture's included. The engine binary was built on another host than 3.1.0's and differs from it byte for byte; the same answers show the builds alike.
+- `prompt_logprobs` and structured output passed their checks at both TP sizes; the NLL set was scored twice with no movement, equal to 3.1.0's text by text at both TP sizes.
+- tool-eval-bench through the tool-argument gate: 92 at TP=2 and 93 at TP=3, with the Safety Gate passed.
+- Forty replies of up to 1,024 tokens after 6,000-token prompts, back to back, finished at both TP sizes with the hottest zone at 75.6 °C (TP=2) and 82.5 °C (TP=3). The 1,035,295-token prompt (3 of 3) gave its first token after 1,056.9 s, 34 s of it waiting for heat in the afternoon; no other request waited.
+- A cut reply, a stop string and a cut prompt stopped the work at both TP sizes.
+- The lowest `MemAvailable` was 12 GiB at TP=2 (15 GiB in 3.1.0's acceptance) and 22 GiB at TP=3, and no zone reached the thermal watch's stop.
+
+In shorter launches of the same image the same day:
+
+- Images at TP=2: PNG, JPEG and WebP answered, each with the same reply drafted and with `"draft": false`; a GIF and an audio part were refused with 400. A conversation with the picture in its first message resumed 6,144 of its 7,604 prompt tokens from the prompt cache with the cold run's reply, also with `"draft": false` and with two sent at once. At TP=3 the same pictures and an H.264 and a VP9 video answered, each the same drafted and with `"draft": false`, a GIF and an audio part were refused, and the conversation resumed past its picture.
+- Videos at TP=2: upstream's `video_served.py` passed on its 13 clips: all 12 it compares gave the processor's prompt ids, a later turn resumed past its video, drafted equalled `"draft": false`, four sent at once equalled their runs alone, a video and an image answered in one request, and eight malformed requests were refused with the reason.
+
+### Not in 3.2.0
+
+The published AXL weights, log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.1.0 — 2026-10-20
 
 The 3.x line on upstream TensorFold 1.1.1. The checkpoint, the serving defaults and the tools are 3.0.0's; TP=2 gives new tokens on upstream's tiled BF16 linears, and TP=3 gives 3.0.0's.
