@@ -50,6 +50,20 @@ class EngineLockTests(unittest.TestCase):
         self.assertRegex(grammar["ref"], HEX40)
         self.assertRegex(grammar["version"], r"^v\d+\.\d+\.\d+$")
 
+    def test_the_media_libraries_are_one_release_each_with_its_checksum(self):
+        media = lock()["media"]
+        self.assertEqual(sorted(media), ["ffmpeg", "libjpeg_turbo", "libwebp"])
+        for name, lib in media.items():
+            self.assertIn(lib["version"], lib["url"], name)
+            self.assertTrue(lib["url"].startswith("https://"), name)
+            self.assertRegex(lib["sha256"], r"^[0-9a-f]{64}$", name)
+
+    def test_the_image_builds_the_media_libraries_the_lock_pins(self):
+        media, args = lock()["media"], dockerfile_args()
+        for name, arg in (("libjpeg_turbo", "JPEG_TURBO"), ("libwebp", "WEBP"), ("ffmpeg", "FFMPEG")):
+            self.assertEqual(args[f"{arg}_URL"], media[name]["url"], name)
+            self.assertEqual(args[f"{arg}_SHA256"], media[name]["sha256"], name)
+
     def test_the_bases_are_pinned_by_digest(self):
         args = dockerfile_args()
         for name in ("BUILD_IMAGE", "RUNTIME_IMAGE"):

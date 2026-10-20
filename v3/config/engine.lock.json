@@ -17,5 +17,22 @@
     "version": "v0.2.8",
     "ref": "97787376faee5ed8466cfad57c99855e4ce2f6aa"
   },
-  "build": ["-Dnvcc=/usr/local/cuda/bin/nvcc", "-Dsm=121"]
+  "media": {
+    "libjpeg_turbo": {
+      "version": "3.1.4.1",
+      "url": "https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.4.1/libjpeg-turbo-3.1.4.1.tar.gz",
+      "sha256": "ecae8008e2cc9ade2f2c1bb9d5e6d4fb73e7c433866a056bd82980741571a022"
+    },
+    "libwebp": {
+      "version": "1.6.0",
+      "url": "https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz",
+      "sha256": "e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564"
+    },
+    "ffmpeg": {
+      "version": "9.0.2",
+      "url": "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz",
+      "sha256": "8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e"
+    }
+  },
+  "build":["-Dnvcc=/usr/local/cuda/bin/nvcc", "-Dsm=121"]
 }

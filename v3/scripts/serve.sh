@@ -66,7 +66,12 @@ args+=(--context "$context" --max-tokens 32768 --no-update-check)
 parallel=${PARALLEL-1}
 [ -n "$parallel" ] && args+=(--parallel "$parallel")
 [ -n "${API_KEY_FILE:-}" ] && args+=(--api-key-file "$API_KEY_FILE")
+# VISION: image and video parts (default 1: the checkpoint's tower on rank 0, PNG, JPEG and WebP data URLs, videos;
+# empty: text alone), every rank the same
+vision=${VISION-1}
+[ -n "$vision" ] && args+=(--vision)
 echo "[serve.sh] $(date -Is) TP=$tp rank $rank master $MASTER context $context parallel ${parallel:-auto}" \
+  "vision ${vision:-off}" \
   "heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}/${TF_HEAT_CEILING:-unset}" \
   "engine $(sed -n 's/^ref //p' /usr/share/doc/tf3/ENGINE 2>/dev/null || echo '?')" "TF_GLM_MM ${TF_GLM_MM-unset}"
 exec tensorfold-native serve "$CHECKPOINT" "${args[@]}" "$@"

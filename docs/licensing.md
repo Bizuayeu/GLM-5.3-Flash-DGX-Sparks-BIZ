@@ -54,7 +54,7 @@ The Apache offer covers the auxiliary artifact, not third-party expression that 
 
 ## Images and harnesses
 
-The recommended distribution is **source, pinned references and build instructions**, with users obtaining weights, the official base and harnesses separately. Redistributing a completed image requires checking its actual dependencies, including CUDA redistributables and OS copyleft components. The [CUDA 13.0 SDK agreement](https://docs.nvidia.com/cuda/archive/13.0.0/eula/index.html) is one relevant source, not a substitute for every dependency's terms.
+The recommended distribution is **source, pinned references and build instructions**, with users obtaining weights, the official base and harnesses separately. Redistributing a completed image requires checking its actual dependencies, including CUDA redistributables and OS copyleft components. The [CUDA 13.0 SDK agreement](https://docs.nvidia.com/cuda/archive/13.0.0/eula/index.html) is one relevant source, not a substitute for every dependency's terms. The 3.x image also holds FFmpeg (LGPL-2.1-or-later, inside the engine's `libtfvideo.so`, decoders only): a redistributor of the image passes on the LGPL text and FFmpeg's source (the pinned release tarball) with it, and checks the patents on H.264 and HEVC decoding where the image goes, which the copyright licenses do not cover.
 
 ZCode follows its [terms](https://zcode.z.ai/en/terms); Claude Code follows the agreement referenced by its [LICENSE](https://github.com/anthropics/claude-code/blob/main/LICENSE.md). Apache-covered integration configuration does not relicense those applications. Local model licensing and hosted cloud-plan terms are separate.
 
@@ -64,7 +64,7 @@ ZCode follows its [terms](https://zcode.z.ai/en/terms); Claude Code follows the 
 - [ ] Keep LICENSE, NOTICE and applicable LICENSES texts.
 - [ ] Mark modified files and record provenance/revisions.
 - [ ] For weights, attach model/MIT notices and review added materials.
-- [ ] For images, review the actual component inventory and redistribution terms; a 2.x image keeps the engine's notices under `/opt/tensorfold` and the project's under `/opt/glm53-tf/`.
+- [ ] For images, review the actual component inventory and redistribution terms; a 2.x image keeps the engine's notices under `/opt/tensorfold` and the project's under `/opt/glm53-tf/`, and a 3.x image those under `/usr/share/doc/tf3/`, with FFmpeg's LGPL text and source and the H.264 and HEVC patents checked.
 - [ ] Exclude harness binaries, keys, credentials and private logs unless separately authorized and licensed.
 
 Connection design and technical acceptance are covered in [harness integration](../v1/docs/harnesses.md).

@@ -18,6 +18,56 @@ ARG BUILD_FLAGS="-Dnvcc=/usr/local/cuda/bin/nvcc -Dsm=121"
 ARG XGRAMMAR_REPO=https://github.com/mlc-ai/xgrammar.git
 ARG XGRAMMAR_TAG=v0.2.8
 ARG XGRAMMAR_REF=97787376faee5ed8466cfad57c99855e4ce2f6aa
+# Image and video input's libraries (--vision), the releases the engine checks by version at load: libjpeg-turbo's
+# TurboJPEG for JPEG, libwebp's decoder for WebP, and FFmpeg's decoders inside the engine's libtfvideo for video
+ARG JPEG_TURBO_URL=https://github.com/libjpeg-turbo/libjpeg-turbo/releases/download/3.1.4.1/libjpeg-turbo-3.1.4.1.tar.gz
+ARG JPEG_TURBO_SHA256=ecae8008e2cc9ade2f2c1bb9d5e6d4fb73e7c433866a056bd82980741571a022
+ARG WEBP_URL=https://storage.googleapis.com/downloads.webmproject.org/releases/webp/libwebp-1.6.0.tar.gz
+ARG WEBP_SHA256=e4ab7009bf0629fd11982d4c2aa83964cf244cffba7347ecd39019a9e38c4564
+ARG FFMPEG_URL=https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz
+ARG FFMPEG_SHA256=8c3850283eb25fa026482078a04051e0be17347b09ef81a0849bec15a96e002e
+
+# The media libraries, beside the engine's build: shared TurboJPEG and WebP decoder, and a static PIC FFmpeg with the
+# engine's tools/zig/build_ffmpeg.sh configuration (decoders only, no GPL parts: LGPL-2.1), linked into libtfvideo below
+FROM ${BUILD_IMAGE} AS media
+ARG JPEG_TURBO_URL
+ARG JPEG_TURBO_SHA256
+ARG WEBP_URL
+ARG WEBP_SHA256
+ARG FFMPEG_URL
+ARG FFMPEG_SHA256
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends cmake make xz-utils curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+WORKDIR /tmp/media
+RUN curl -fsSL -o jpeg.tar.gz "$JPEG_TURBO_URL" && echo "$JPEG_TURBO_SHA256  jpeg.tar.gz" | sha256sum -c - \
+ && mkdir jpeg && tar -xzf jpeg.tar.gz -C jpeg --strip-components=1 \
+ && cmake -S jpeg -B jpeg/b -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/jpeg -DENABLE_STATIC=OFF \
+      -DWITH_TURBOJPEG=ON \
+ && cmake --build jpeg/b -j"$(nproc)" && cmake --install jpeg/b
+RUN curl -fsSL -o webp.tar.gz "$WEBP_URL" && echo "$WEBP_SHA256  webp.tar.gz" | sha256sum -c - \
+ && mkdir webp && tar -xzf webp.tar.gz -C webp --strip-components=1 \
+ && cd webp && ./configure --prefix=/opt/webp --disable-static --enable-libwebpdecoder --disable-libwebpmux \
+      --disable-libwebpdemux --disable-png --disable-jpeg --disable-tiff --disable-gif --disable-wic \
+ && make -j"$(nproc)" && make install
+RUN curl -fsSL -o ffmpeg.tar.xz "$FFMPEG_URL" && echo "$FFMPEG_SHA256  ffmpeg.tar.xz" | sha256sum -c - \
+ && mkdir ffmpeg && tar -xJf ffmpeg.tar.xz -C ffmpeg --strip-components=1 \
+ && cd ffmpeg && ./configure --prefix=/opt/ffmpeg --enable-static --disable-shared --enable-pic \
+      --disable-programs --disable-doc --disable-network --disable-autodetect --disable-everything \
+      --disable-avdevice --disable-avfilter --disable-swresample \
+      --enable-avcodec --enable-avformat --enable-swscale \
+      --enable-decoder=h264,hevc,vp8,vp9,mpeg4 \
+      --enable-parser=h264,hevc,vp8,vp9,mpeg4video \
+      --enable-demuxer=mov,matroska \
+      --enable-bsf=vp9_superframe_split \
+ && make -j"$(nproc)" && make install
+# The libraries the engine opens (libturbojpeg.so.0, libwebpdecoder.so.3) and the three projects' notices
+RUN mkdir -p /out/lib /out/LICENSES \
+ && cp -P /opt/jpeg/lib*/libturbojpeg.so.0* /opt/webp/lib/libwebpdecoder.so.3* /out/lib/ \
+ && cp jpeg/LICENSE.md /out/LICENSES/libjpeg-turbo-LICENSE.md \
+ && cp jpeg/README.ijg /out/LICENSES/libjpeg-turbo-README.ijg \
+ && cp webp/COPYING /out/LICENSES/libwebp-COPYING.txt && cp webp/PATENTS /out/LICENSES/libwebp-PATENTS.txt \
+ && cp ffmpeg/COPYING.LGPLv2.1 /out/LICENSES/FFmpeg-LGPL-2.1.txt && cp ffmpeg/LICENSE.md /out/LICENSES/FFmpeg-LICENSE.md
 
 FROM ${BUILD_IMAGE} AS build
 ARG ENGINE_REPO
@@ -55,6 +105,17 @@ RUN git clone --branch "$XGRAMMAR_TAG" --recurse-submodules "$XGRAMMAR_REPO" /xg
  && cp /xgrammar/3rdparty/dlpack/LICENSE /out/LICENSES/dlpack-Apache-2.0.txt \
  && cd /out && printf "xgrammar %s %s %s\n" "$XGRAMMAR_REPO" "$XGRAMMAR_TAG" "$XGRAMMAR_REF" >> ENGINE \
  && sha256sum libtfgrammar.so >> ENGINE
+# Video input's libtfvideo (`zig build video` puts it in zig-out/native/lib) over the media stage's static FFmpeg; the
+# media libraries' versions and every library's SHA-256 go into ENGINE
+ARG JPEG_TURBO_URL
+ARG WEBP_URL
+ARG FFMPEG_URL
+COPY --from=media /opt/ffmpeg /opt/ffmpeg
+COPY --from=media /out/lib/ /out/media/
+RUN /opt/zig/zig build video -Dffmpeg=/opt/ffmpeg \
+ && cp zig-out/native/lib/libtfvideo.so /out/media/ \
+ && cd /out && printf "media %s\nmedia %s\nmedia %s\n" "$JPEG_TURBO_URL" "$WEBP_URL" "$FFMPEG_URL" >> ENGINE \
+ && cd /out/media && sha256sum libtfvideo.so libturbojpeg.so.0.* libwebpdecoder.so.3.* >> /out/ENGINE
 # The engine's own notices, which its binaries carry (a step of its own, after the builds)
 RUN mkdir /out/engine \
  && cp -r /src/LICENSE /src/NOTICE /src/THIRD_PARTY_NOTICES.md /src/LICENSES /out/engine/
@@ -78,7 +139,11 @@ COPY --from=build /out/tensorfold-native /out/tf-cuda-test /usr/local/bin/
 COPY --from=build /out/ENGINE /usr/share/doc/tf3/ENGINE
 # the server looks in ../lib beside its binary for the grammar library
 COPY --from=build /out/libtfgrammar.so /usr/local/lib/
+# and in the loader's path for the media libraries (JPEG, WebP, video), which it opens at the first such input
+COPY --from=build /out/media/ /usr/local/lib/
+RUN ldconfig
 COPY --from=build /out/LICENSES/ /usr/share/doc/tf3/LICENSES/
+COPY --from=media /out/LICENSES/ /usr/share/doc/tf3/LICENSES/
 COPY --from=build /out/engine/ /usr/share/doc/tf3/engine/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/doc/tf3/
 # The rank's start (cluster.sh runs it in the container on every host)
