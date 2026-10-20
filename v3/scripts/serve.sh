@@ -12,9 +12,8 @@
 # environment once the lines are up; rank 0 then writes its NCCL id to ID_FILE and the other ranks wait for it there.
 # The ranks start together and cluster.sh copies the file to the other hosts. TP=3 also needs TF_GLM_MM=0 in the rank
 # file until upstream's #1067 (the default bf16 linears refuse a TP=3 rank's KDA width).
-# A prefill waits between chunks while any rank's hottest zone is above TF_HEAT_HIGH (92), or would pass
-# TF_HEAT_CEILING (93) if the next chunk rose as much as the last one run straight after another, until all are at or
-# below TF_HEAT_LOW (88). The rank file may set other values, the same on every rank, or empty ones for none (an empty
+# A prefill waits between chunks while any rank's hottest zone is above TF_HEAT_HIGH (92), until all are at or below
+# TF_HEAT_LOW (88). The rank file may set other values, the same on every rank, or empty ones for none (an empty
 # value is left unset: the engine refuses one). Without the bands a 1M prefill held one host at 94-97.7 C.
 set -eu
 if [ $# -lt 3 ]; then
@@ -46,12 +45,7 @@ else
   export TF_GLM_NCCL_ID_FILE=${ID_FILE:-/work/nccl-id}
 fi
 TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}
-if [ -n "$TF_HEAT_HIGH" ] && [ -n "$TF_HEAT_LOW" ]; then
-  TF_HEAT_CEILING=${TF_HEAT_CEILING-93}
-else
-  TF_HEAT_CEILING=${TF_HEAT_CEILING-}   # a ceiling comes only with both bands
-fi
-for v in TF_HEAT_HIGH TF_HEAT_LOW TF_HEAT_CEILING; do
+for v in TF_HEAT_HIGH TF_HEAT_LOW; do
   if [ -n "${!v}" ]; then export "$v"; else unset "$v"; fi
 done
 # The pinned checkpoint as the Hugging Face cache holds it, mounted read-only at /hub (create_container.sh)
@@ -72,6 +66,6 @@ vision=${VISION-1}
 [ -n "$vision" ] && args+=(--vision)
 echo "[serve.sh] $(date -Is) TP=$tp rank $rank master $MASTER context $context parallel ${parallel:-auto}" \
   "vision ${vision:-off}" \
-  "heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}/${TF_HEAT_CEILING:-unset}" \
+  "heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}" \
   "engine $(sed -n 's/^ref //p' /usr/share/doc/tf3/ENGINE 2>/dev/null || echo '?')" "TF_GLM_MM ${TF_GLM_MM-unset}"
 exec tensorfold-native serve "$CHECKPOINT" "${args[@]}" "$@"

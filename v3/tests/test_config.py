@@ -100,6 +100,15 @@ class ServeScriptTests(unittest.TestCase):
         self.assertIn('[ -n "$parallel" ] && args+=(--parallel "$parallel")', serve)
         self.assertEqual(serve.count("--parallel"), 1)
 
+    def test_serve_sh_waits_for_heat_by_the_band_alone(self):
+        # 92/88 unless the rank file says otherwise; no ceiling (3.3.0: the engine has no TF_HEAT_CEILING).
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn(
+            "TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}\n", serve
+        )
+        self.assertNotIn("TF_HEAT_CEILING", serve)
+        self.assertIn('"heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}"', serve)
+
 
 if __name__ == "__main__":
     unittest.main()
