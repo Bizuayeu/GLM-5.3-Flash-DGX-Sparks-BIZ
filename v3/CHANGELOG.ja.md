@@ -31,7 +31,7 @@ TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` の
 
 参照機で2026-10-22〜23に、visionのtowerを読み込み、`TF_GLM_MM` は無しで、全containerを効率coreに置き、各checkpointで5回の起動（TP=2で3回、うち1回は `PARALLEL=` を空に、TP=3で2回）。XSFP4はリリースのimage（`glm53-tf3:3.3.0`）をそれ自身の `serve.sh` で起動し、固定したcheckpointはエンジンが一つ前のcommitのimageで回し、各TPでもう1回リリースのimageで起動しました（[測定値](README.ja.md#リリースでの測定値)、[検証](docs/validation.ja.md)）：
 
-- 固定したcheckpoint：TP=2では、decode検査が2回の起動で3.1.0と同じhashを出し、`bench --kinds edit` は3.1.0と同じ返答を190 roundで出しました。TP=3ではtiledのkernelで、decode検査が2回の起動で新しいhashを出し、それが今のTP=3の基準値です。編集の返答は3.1.0のままでした。リリースのimageは両TPで同じhash、編集の返答、NLLを出し、`TF_GLM_MM=0` ではエンジンが3.1.0のTP=3のhash、編集の返答、NLLを出しました。
+- 固定したcheckpoint：TP=2では、decode検査が2回の起動で3.1.0と同じhashを出し、`bench --kinds edit` は3.1.0と同じ返答を190 roundで出しました。TP=3ではtiledのkernelで、decode検査が2回の起動で新しいhashを出し、それが今のTP=3の基準値です。編集の返答は3.1.0のままでした。リリースのimageは両TPで同じhash、編集の返答、NLLを出し、もう1回の起動で `TF_GLM_MM=0` にすると、エンジンは3.1.0のTP=3のhash、編集の返答、NLLを出しました。
 - XSFP4：decode検査は各TPの2回の起動で自分のhashを出し、それが基準値になりました。`bench --kinds edit` は固定したcheckpointと同じ返答を190 roundで出しました。
 - draftした返答はserialと同じで、画像1枚の返答も含みます。PNG・JPEG・WebPの画像とH.264・VP9の動画が答え、それぞれdraftありと `"draft": false` で同じ返答でした。GIFと音声のpartは400で断られました。
 - `prompt_logprobs` と構造化出力は検査を通りました。ただしTP=3のXSFP4のplainな要求は、自分の返答を持ちます。NLLのセットは2回の採点で動きませんでした。

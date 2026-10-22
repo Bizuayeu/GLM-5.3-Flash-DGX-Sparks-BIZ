@@ -13,14 +13,14 @@
 - **反復性。** draftした応答はserialと同じで、起動は同じTPの前の起動のtoken idを出します。ネイティブエンジンのtokenはそれ自身のもので、2.x系のものではありません：kernelとBF16のKV cacheの丸めが違うので、二つの系列はtokenごとではなくteacher-forced NLLで比べます（[2.x系との違い](#2x系との違い)）。
 - **構造化出力とpromptのscore。** JSON schemaつきの `response_format`、`required` か名指しの関数の `tool_choice`（GLM自身のtoolのmarkupで書く）、`/v1/completions` の `prompt_logprobs` は、1.1.1からGLMのCUDAのエンジンで上流のTensorFold自身のものです。この系列のpull request #1016・#1017・#1018の後に上流が書きました（[API](#api)）。
 - **画像と動画。** chatの要求は、PNG・JPEG・WebPの画像と、H.264・HEVC・VP8・VP9・MPEG-4の動画をdata URLで持てます。rank 0にあるcheckpointのvision towerが、エンジンの `--vision` で読みます。`serve.sh` は既定でこれを渡します（[制限](#制限)）。
-- **精度。** 固定したcheckpointではrouted expertとdense MLPはW4A16、他はBF16です。XSFP4ではrouted expertはW4A16、他のprojectionはcheckpointが保存するFP8の形のままです（[checkpoint](#checkpoint)）。KVはどちらもBF16です（2.x系はFP8のKV cacheを持ちます）。NVIDIAのmodel cardは別のレシピ・別の機材でcheckpointを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
+- **精度。** 固定したcheckpointではrouted expertとdense MLPはW4A16、他はBF16です。XSFP4ではrouted expertはW4A16、他のprojectionはcheckpointが保存する形のままで、多くは8 bit、vision towerのMLPはNVFP4です（[checkpoint](#checkpoint)）。KVはどちらもBF16です（2.x系はFP8のKV cacheを持ちます）。NVIDIAのmodel cardは別のレシピ・別の機材でcheckpointを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
 - **ライセンス。** コードとエンジンはApache-2.0、重みは運用者がダウンロードし、MIT（固定したcheckpoint）かNVIDIA Open Model Agreement（XSFP4、商用に使える）です。imageには構造化出力のためにxgrammar（Apache-2.0）、画像と動画のためにlibjpeg-turbo・libwebp（BSD系）とFFmpegのdecoder（LGPL-2.1）が入ります。配信の経路に非商用の条件はありません（[ライセンスの早見表](../README.ja.md#ライセンスの早見表)）。
 - **未検証。** 画像と動画のURL（`--vision-urls`、無効）、公開したAXLの重み、同時に2つ以上の要求（受け入れは一度に一つずつ送りました）、ハーネス連携（ZCode・Claude Code）、他のrank数と機材、アプリケーション全体の品質と本番の信頼性（[制限](#制限)）。
 
 ## 何であるか
 
 - **重み**：既定は `nvidia/GLM-5.3-Flash-NVFP4` のrevision `423acf37583782c51c142d145aef733d72943d93`（[`config/model.lock.json`](config/model.lock.json)）。1.x系・2.x系と同じで、[Z.aiのGLM-5.3-Flash](https://huggingface.co/zai-org/GLM-5.3-Flash)から作られています。routed expertとdense MLPはcheckpointのNVFP4 blockからW4A16で、attention・shared expert・headはBF16のまま計算します。選べるのは `Bizuayeu/GLM-5.3-Flash-XSFP4` です（[`config/xsfp4.lock.json`](config/xsfp4.lock.json)、[checkpoint](#checkpoint)）。
-- **エンジン**：TensorFoldのネイティブエンジン（`tensorfold-native`）。[Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold) のbranch `release/3.3.0` として公開するBIZ版です：上流のTensorFold v1.1.2に、上流のpull request #1050のcode、上流のpull request #1179のpatch（1.1.2の後に取り込まれた。indexがmodelのfolderの中のfolderにあるshardを名指せるもので、1.1.2ではFP4-LocalとXSFP4のindexにこれが要る）、この系列のcommitを一つ足したものです。#1050（15のcommit、上流ではopen）はNVIDIAのGLM-5.3-Flash-FP4-Localを保存された形のまま読み、それと共に、experts以外にFP4-Localのtensorを持つXSFP4のcheckpointも読みます：各projectionの形をcheckpointの `MIXED_PRECISION` のレシピから見分け、MXFP8と128×128 blockのFP8のprojectionを保存の形のまま計算し、FP4-Localの圧縮したexpertのscaleを読み、float32のnormの重みをfloat32のまま保ちます。この系列のcommitはTP=3のためにこの系列に留めるもので、rank 0がNCCLのidをファイルで他のrankへ渡し（`TF_GLM_NCCL_ID_FILE`）、各rankはその後、rankどうしの生存の線がrank 0に届くための `NCCL_COMM_ID` をNCCLの環境から外します。リングのpoint-to-pointの `/32` のアドレスでは、NCCLはそれで集まれないためです（上流のTPのbootstrap、pull request #636が入るまで）。3.1.0と3.2.0の熱の待ちの天井への見込み（`TF_HEAT_CEILING`）は無くなり、熱の待ちは上流の帯だけです（[配信の既定](#配信の既定)）。imageは一つのcommitに固定します（[`config/engine.lock.json`](config/engine.lock.json)）。
+- **エンジン**：TensorFoldのネイティブエンジン（`tensorfold-native`）。[Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold) のbranch `release/3.3.0` として公開するBIZ版です：上流のTensorFold v1.1.2に、上流のpull request #1050のcode、上流のpull request #1179のpatch（1.1.2の後に取り込まれた。indexがmodelのfolderの中のfolderにあるshardを名指せるもので、1.1.2ではFP4-LocalとXSFP4のindexにこれが要る）、この系列のcommitを一つ足したものです。#1050のcode（15のcommit。pull requestは上流でopen）はNVIDIAのGLM-5.3-Flash-FP4-Localを保存された形のまま読み、それと共に、experts以外にFP4-Localのtensorを持つXSFP4のcheckpointも読みます：各projectionの形をcheckpointの `MIXED_PRECISION` のレシピから見分け、MXFP8と128×128 blockのFP8のprojectionを保存の形のまま計算し、FP4-Localの圧縮したexpertのscaleを読み、float32のnormの重みをfloat32のまま保ちます。この系列のcommitはTP=3のためにこの系列に留めるもので、rank 0がNCCLのidをファイルで他のrankへ渡し（`TF_GLM_NCCL_ID_FILE`）、各rankはその後、rankどうしの生存の線がrank 0に届くための `NCCL_COMM_ID` をNCCLの環境から外します。リングのpoint-to-pointの `/32` のアドレスでは、NCCLはそれで集まれないためです（上流のTPのbootstrap、pull request #636が入るまで）。3.1.0と3.2.0の熱の待ちの天井への見込み（`TF_HEAT_CEILING`）は無くなり、熱の待ちは上流の帯だけです（[配信の既定](#配信の既定)）。imageは一つのcommitに固定します（[`config/engine.lock.json`](config/engine.lock.json)）。
 - **image**：[`docker/Dockerfile`](docker/Dockerfile)。エンジンはNVIDIAのCUDA 13.3.1のbuild用imageで、lockが名指すZigのcompiler（SHA-256で確かめる）がcompileし、`libtfgrammar` は固定したcommitのxgrammarのreleaseからbuildします。実行のimageはCUDA 13.3.1にNCCL 2.30.7とRDMAのuserspaceです。2つのbaseのimageはdigestで固定しています。`/usr/share/doc/tf3/ENGINE` がエンジンのcommitと各binaryのSHA-256を名指し、`/usr/share/doc/tf3/engine/` にエンジンのライセンスと表示があります。
 - **起動**：[`scripts/`](scripts/) のshellの台本と、rankごとの環境ファイル一つ（[`examples/`](examples/) に参照機のファイル）。順番は[SETUP.ja.md](SETUP.ja.md)にあります。ホストでは何もbuildしません：kernelはbinaryの中にあります。
 
@@ -43,7 +43,7 @@
 # 一度だけ、ある1台の v3/ からその仮想環境で。その後cacheを他のホストへ写し、写しごとに検証する（SETUP §2）
 python -m glm53_tf download --background
 python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum --wait
-# XSFP4にするなら（下のcheckpoint）：両方に --checkpoint xsfp4 を足し、全rankのファイルに CHECKPOINT を置く
+# XSFP4にするなら（下のcheckpoint）：両方に --checkpoint xsfp4 を足し、検証には別の --output を渡し（SETUP §2）、全rankのファイルに CHECKPOINT を置く
 
 # 1台がimageをbuildし、他はそれを読み込む。image IDを比べる（SETUP §3）
 docker build -f v3/docker/Dockerfile -t glm53-tf3:3.3.0 .
@@ -80,7 +80,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | 重み | `nvidia/GLM-5.3-Flash-NVFP4`（[`config/model.lock.json`](config/model.lock.json)） | [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)（[`config/xsfp4.lock.json`](config/xsfp4.lock.json)） |
 | 作り手 | NVIDIA、Z.aiのBF16の重みから | 本リポジトリの管理者、NVIDIAの[`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)（revision `76348ddb`）とZ.aiのBF16の重みから |
 | routed expert | NVFP4、W4A16で配信 | XSFP4、W4A16で配信：平滑化を重みに畳み込み、BF16の重みからNVFP4のblockを当てはめ直したもので、実行時にkernelが何も掛けません。MTP層のexpertも同じ |
-| その他 | dense MLPはNVFP4（W4A16）、attention・shared expert・headはBF16 | FP4-Localのtensorを保存の形のまま：MXFP8（dense MLP、KDA、`lm_head`、MTP層のattentionとshared expert）、128×128 blockのFP8（MLAとshared expert）、float32のnorm。vision towerはMXFP8とNVFP4 |
+| その他 | dense MLPはNVFP4（W4A16）、attention・shared expert・headはBF16 | FP4-Localのtensorを保存の形のまま：MXFP8（dense MLP、KDA、`lm_head`、MTP層のattentionとshared expert）、128×128 blockのFP8（MLAとshared expert）、BF16とF32のnorm。vision towerはMXFP8とNVFP4 |
 | TP=2・TP=3のrank 0のmodel（読み込みの行） | 97.38・79.30 GiB | 93.44・76.36 GiB |
 | このエンジンのTP=2でBF16の重みと比べた次token（128文書、144,285位置）：top-1の一致 / BF16に対するNLLの上がり / KLの下限 | 92.68% / +1.37% / 0.0510 | 93.26% / +0.85% / 0.0431 |
 | 同じものをTP=3で | 92.71% / +1.38% / 0.0511 | 93.30% / +0.85% / 0.0436 |
@@ -90,7 +90,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 
 各文書はtoken idとしてエンジンに送り、`prompt_logprobs` は20。KLの下限は、両方が確率を返したtoken（エンジンの上位20、BF16の上位20、本文のtoken）を1つずつ数え、残りを1つの塊として数えます。全語彙のKLより低く、エンジンの外で測ったKLとは比べられません（XSFP4の[model card](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)に両方があります）。XSFP4はどちらのTPでも3つとも固定したcheckpointよりBF16に近く、差の文書ごとの95%区間は0を含みません。参考として、FP4-Local自身を同じエンジンでそのまま読み込むと、TP=2で 92.82% / +1.11% / 0.0510、TP=3で 92.75% / +1.07% / 0.0514 でした。
 
-2つは別のtokenを出すので、それぞれが[検証](docs/validation.ja.md)に自分の基準値を持ちます。XSFP4は窓の横に多くのメモリを残します：TP=2でrank 0のprompt cacheは5.2 GiBに対して8.9 GiB、`PARALLEL=` を空にするとエンジンは2本に対して3本のstreamを取りました。速さは固定したcheckpointのものと違います：draftの受理と層の形が違うので、[測定値](#リリースでの測定値)はそれぞれのcheckpointのもので、自分とだけ比べられます。XSFP4が持つFP4-Localのchat templateは、固定したものと3か所違います（contentの無いmessageは何も出さない、tool callの名前を `~` でつなぐ、toolの引数を並べ替える検査が早く止まる）。
+2つは別のtokenを出すので、それぞれが[検証](docs/validation.ja.md)に自分の基準値を持ちます。XSFP4は窓の横に多くのメモリを残します：TP=2でrank 0のprompt cacheは5.2 GiBに対して8.9 GiB、`PARALLEL=` を空にするとエンジンは2本に対して3本のstreamを取りました。速さは固定したcheckpointのものと違います：draftの受理と層の形が違うので、[測定値](#リリースでの測定値)はそれぞれのcheckpointのもので、自分とだけ比べられます。XSFP4が持つFP4-Localのchat templateは、固定したものと3か所違います（contentの無いmessageは何も出さない、tool callの名前を `~` でつなぐ、toolの結果を呼び出しの順に並べられるかの検査が、だめと分かった所で止まる）。
 
 ## 配信の既定
 
@@ -111,7 +111,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | 画像と動画の入力 | 有効（`VISION=1`、エンジンの `--vision`）：rank 0にcheckpointのvision tower、PNG・JPEG・WebPの画像と動画をdata URLで、エンジンの制限の中で（[制限](#制限)）。`VISION=` でtextだけ、全rankで同じに | 同じ |
 | containerのcore | 最大周波数の最も低いcore：GB10の効率core、0-4と10-14（`create_container.sh`、`CPUSET`） | 同じ |
 
-**一度に一要求にする理由。** `--parallel` を設定しないと、エンジンは8本のstreamを求めて収まるだけを配信するので、streamの数とprompt cacheに残る余地は、そのときの空きメモリによって起動ごとに変わります（TP=3では、ある起動が2本のstreamと0.1 GiBのprompt cacheを取りました）。2.x系と同じ1本のstreamなら、窓はどの起動でも同じで、prompt cacheは空きメモリの分だけ動きます（TP=2で、vision towerありは4.4〜5.4 GiB、`VISION=` では5.2〜6.3 GiB）。TP=2では、3.0.0のエンジンは245,760 tokenの窓の隣に2本目のstreamが収まりませんでした（各rankで4.55 GiBが要り、rank 1には4.41 GiBでした）。3.1.0のエンジンは収まります：`PARALLEL=` を空にすると3.16 GiBのstreamを2本取り、prompt cacheは1本のときの6.3 GiBに対して3.1 GiBでした。
+**一度に一要求にする理由。** `--parallel` を設定しないと、エンジンは8本のstreamを求めて収まるだけを配信するので、streamの数とprompt cacheに残る余地は、そのときの空きメモリによって起動ごとに変わります（TP=3では、ある起動が2本のstreamと0.1 GiBのprompt cacheを取りました）。2.x系と同じ1本のstreamなら、窓はどの起動でも同じで、prompt cacheは空きメモリの分だけ動きます（TP=2でvision towerありの固定したcheckpointは、3.3.0の2回の起動で5.2・5.1 GiB）。TP=2では、3.0.0のエンジンは245,760 tokenの窓の隣に2本目のstreamが収まりませんでした（各rankで4.55 GiBが要り、rank 1には4.41 GiBでした）。3.1.0からのエンジンは収まります：3.3.0では `PARALLEL=` を空にすると2本のstreamを取り、prompt cacheは1本のときの5.2 GiBに対して1.5 GiBでした。
 
 **TP=2を245,760にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取るので、対が持てる窓は2.x系の300,000 tokenより短くなります。245,760は、参照対で1本のstreamが収まるほぼ最大です。全rankのファイルの `CONTEXT` で別の値を選びます。
 
@@ -164,11 +164,11 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 | | 2.x（TensorFoldのPythonのエンジン） | 3.x（TensorFoldのネイティブエンジン） |
 |---|---|---|
-| エンジン | TensorFold 0.6.5のBIZ版。PythonとTritonのkernelで、kernelは実行時にcompile | TensorFold 1.1.1のBIZ版（3.0.0は1.0.12）。ZigとCUDAで、kernelはbinaryの中 |
+| エンジン | TensorFold 0.6.5のBIZ版。PythonとTritonのkernelで、kernelは実行時にcompile | TensorFold 1.1.2のBIZ版（3.0.0は1.0.12、3.1.0と3.2.0は1.1.1）。ZigとCUDAで、kernelはbinaryの中 |
 | 出力の反復性 | エンジンの契約として、draftした応答はserialと同じ、再開したpromptは最初からと同じ、chunkの切り方で結果が変わらない | draftした応答はserialと同じで、起動はtoken idを繰り返す。tokenは2.x系のものと違う（別のkernel、BF16 KV）ので、系列の間はNLLで比べる |
 | KVと窓 | latentとindexのkeyをFP8。TP=2で300,000 token、TP=3で1,048,576 | BF16。TP=2で245,760 token、TP=3で1,048,576 |
 | 同時の要求 | 1 | 既定で1。`PARALLEL` で、窓が残すメモリの中で、エンジンがdecodeのroundをより多くの要求に分ける |
-| prompt cache | 8本、3 GiB（`TF_GLM_CACHE_*`） | 窓の残りに、chunkの始まりの状態を保つ（TP=2でvision towerありは4.4〜5.4 GiB、TP=3で16.0 GiB）。本数の上限は無い |
+| prompt cache | 8本、3 GiB（`TF_GLM_CACHE_*`） | 窓の残りに、chunkの始まりの状態を保つ（TP=2でvision towerありは5.1〜5.2 GiB、TP=3で16.0 GiB）。本数の上限は無い |
 | 画像入力 | 受ける（`VISION=1`） | 受け、動画も（`VISION=1`、既定） |
 | 公開したAXLの重み | 任意で使える | 未検証 |
 | 構造化出力、必須のtool呼び出し | 受ける。imageにxgrammar | 受ける。imageにxgrammarの `libtfgrammar`。必須のtool呼び出しはGLMのmarkupで |
@@ -206,9 +206,9 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 - **3.2.0との差。** TP=2では、固定したcheckpointのtextの道は3.2.0のものです：decode検査のhash、190 roundの編集の返答、NLL（textごと）が3.1.0と同じで、`PARALLEL=` を空にした起動もcountで同じhashを出しました。decode、prefill、編集の返答の速さの動きは最大0.7%で、rank 0のprompt cacheは5.2 GiB（4.7）です。TP=3では、BF16のlinearが3.2.0のglueのkernelに代わって上流のtiledのkernelで回ります（上流1.1.2がTP=3のrankに開いた、issue #1067）：decode検査のhashとNLLは新しく（[検証](docs/validation.ja.md#decode検査)）、編集の返答は190 roundで3.2.0のままで1.3%速く（89.83に対して90.99 tok/s）、prefillは2.7%速くなりました（1,518.2に対して1,559.7）。
 - **画像。** 全項目のどの起動でも、画像1枚のdraftありと逐次が同じでした。
-- **XSFP4。** decode検査のhash、編集の返答、NLLはXSFP4自身の基準値です（[検証](docs/validation.ja.md#xsfp4)）。各TPで2回目の起動も同じでした。速さはXSFP4自身の文の上の数です（[checkpoint](#checkpoint)）。
+- **XSFP4。** decode検査のhash、編集の返答、NLLはXSFP4自身の基準値です（[検証](docs/validation.ja.md#xsfp4)）。各TPで2回目の起動もhashと編集の返答が同じでした。速さはXSFP4自身の文の上の数です（[checkpoint](#checkpoint)）。
 - **XSFP4の既知の振る舞い。** TP=3では、[検証](docs/validation.ja.md#応答を止める)のstop文字列の要求（1から1,000の数をtemperature 0で、`\n300\n` で止める）が、300の前で繰り返しに入り、4,000 tokenの上限まで走ります。上流1.1.1でも同じでした。TP=2と、固定したcheckpointの両TPでは300で止まります。1 tokenずつ生成させると、この数え上げは時々1つの数を2度書き、その場所はTPと書き始めの位置で変わります。同じ位置をprefillした文脈からは、エンジンは正しい数を選びます（確かめたのは1か所）。同じ確かめで固定したcheckpointは繰り返さず、MTPのdraftは何も変えず、原因は分かっていません。TP=3では、「The capital of France is」へのXSFP4の8 tokenのgreedyの返答が、固定したcheckpointの「Paris is pronounced」に対して「Paris is spelled」で終わるので、prompt scoreとstructured outputの検査のplainな要求は、そこで自分のhashを持ちます（[検証](docs/validation.ja.md#xsfp4)）。
-- **熱。** 天井が無いので、promptは最も熱いzoneが92 °Cを越えている間だけ、88 °Cまで待ちます。待ったのはTP=3の1,035,295 tokenのpromptだけです：固定したcheckpointは午後に、2秒の待ちを19回、計38秒待ち、最初のtokenは1,064.9秒（待ちを除くと1,026.9秒で、3.2.0の1,022.9秒と合います）。XSFP4は夜に、21回、計42秒待ちました。熱の見張りの停止に届いたzoneはありません。
+- **熱。** 天井が無いので、promptは最も熱いzoneが92 °Cを越えている間だけ、88 °Cまで待ちます。待ったのはTP=3の1,035,295 tokenのpromptだけです：固定したcheckpointは午後に、2秒の待ちを19回、計38秒待ち、最初のtokenは1,064.9秒（待ちを除くと1,026.9秒。3.2.0は1,022.9秒）。XSFP4は夜に、21回、計42秒待ちました。熱の見張りの停止に届いたzoneはありません。
 
 **3.2.0**（2026-10-20、エンジン `1a8f1efd`、上流1.1.1、image `glm53-tf3:3.2.0`）。固定したcheckpointで、リリースのimageを、それ自身の `serve.sh`（既定でvisionのtowerを読み込みます）とこのリリースの `cluster.sh` で5回起動しました：TP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回。全containerを効率coreに置き、TP=3では `TF_GLM_MM=0` で、止まった起動はありません。
 

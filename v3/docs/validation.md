@@ -118,7 +118,7 @@ Reference: forty of forty at both TP sizes, in 1,536 s at TP=2 and 1,233 s at TP
 
 The memory guard's log (`<WORK>/logs/hostwatch-<label>.log`) gives each host's lowest `MemAvailable` during the run; the hosts' telemetry gives the hottest ACPI zone every 2 s. Rank 0's log gives each prefill heat wait's seconds in a `heat_wait_s` line; the reply does not carry them.
 
-Reference: the lowest `MemAvailable` of a launch was 15 GiB on both ranks at TP=2 in 3.1.0's acceptance, without the vision tower, and 11 and 13 GiB with it in 3.3.0's; at TP=3, in 3.3.0's, 18, 20 and 26 GiB on ranks 0, 1 and 2. The hottest zone of a whole launch was 81.8 °C on rank 0's host and 83.6 °C on rank 1's at TP=2 (3.3.0: 82.6 and 84.1 °C), and 93.0, 90.0 and 86.0 °C at TP=3, during the 1M-token prompt, the only request of 3.3.0's acceptance that waited for heat ([long inputs](#long-inputs)).
+Reference: the lowest `MemAvailable` of a launch was 15 GiB on both ranks at TP=2 in 3.1.0's acceptance, without the vision tower, and 11 and 13 GiB with it in 3.3.0's; at TP=3, in 3.3.0's, 18, 20 and 26 GiB on ranks 0, 1 and 2. The hottest zone of a whole launch was 81.8 °C on rank 0's host and 83.6 °C on rank 1's at TP=2 (3.3.0: 82.6 and 84.1 °C), and 93.0, 90.0 and 86.0 °C at TP=3, during the 1M-token prompt, the only request on the pinned checkpoint in 3.3.0's acceptance that waited for heat ([long inputs](#long-inputs)).
 
 **Accepted when** no run is stopped by the memory guard or the thermal watch (two readings in a row at or above 94 °C).
 

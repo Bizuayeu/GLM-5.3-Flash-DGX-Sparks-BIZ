@@ -118,7 +118,7 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 メモリの見張りのlog（`<WORK>/logs/hostwatch-<label>.log`）に、実行中の各ホストの最低の `MemAvailable` が残ります。ホストの記録は2秒ごとにACPIの最も熱いzoneを示します。rank 0のlogは、prefillの熱の待ちごとの秒数を `heat_wait_s` の行に出します。応答はそれを運びません。
 
-基準値：起動の中の最低の `MemAvailable` は、TP=2で、visionのtowerなしの3.1.0の受け入れでは両rankとも15 GiB、towerありの3.3.0では11・13 GiBでした。TP=3では、3.3.0でrank 0・1・2が18・20・26 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C（3.3.0：82.6・84.1 °C）、TP=3で93.0・90.0・86.0 °Cでした。TP=3の値は1M tokenのpromptの間のもので、3.3.0の受け入れで熱で待った要求はこれだけです（[長い入力](#長い入力)）。
+基準値：起動の中の最低の `MemAvailable` は、TP=2で、visionのtowerなしの3.1.0の受け入れでは両rankとも15 GiB、towerありの3.3.0では11・13 GiBでした。TP=3では、3.3.0でrank 0・1・2が18・20・26 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C（3.3.0：82.6・84.1 °C）、TP=3で93.0・90.0・86.0 °Cでした。TP=3の値は1M tokenのpromptの間のもので、3.3.0の受け入れの固定したcheckpointで、熱で待った要求はこれだけです（[長い入力](#長い入力)）。
 
 **合格の条件**：どの実行もメモリの見張りにも熱の見張り（94 °C以上の読みが2回続く）にも止められないこと。
 

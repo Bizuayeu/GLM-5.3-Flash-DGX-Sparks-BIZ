@@ -26,7 +26,7 @@ Two watchers stop one host's engine, each on its own host only:
 
 Neither stopped an engine in the 3.0.0 to 3.3.0 acceptances. Under 2.x the other ranks did not end when one did: they waited in a collective until `cluster.sh stop` ended them. After any rank stops, stop every rank, find the cause in the guard's or the watch's log, and start every rank again.
 
-The engine's heat wait holds a prompt pass between chunks while any rank's hottest zone is above 92 °C, or would pass 93 °C if the next chunk rose as much as the last one run straight after another, until every rank is at or below 88 °C ([serving defaults](../README.md#serving-defaults)). A wait has no time limit; rank 0's log gives each wait's seconds in a `heat_wait_s` line.
+The engine's heat wait holds a prompt pass between chunks while any rank's hottest zone is above 92 °C, until every rank is at or below 88 °C ([serving defaults](../README.md#serving-defaults)). A wait has no time limit; rank 0's log gives each wait's seconds in a `heat_wait_s` line.
 
 The thermal watch reads every ACPI zone, and five of a GB10's seven are the CPU's. The engine's spinning threads heat them through long runs of replies, which the heat wait does not hold; the container's default cores keep them lower ([why the efficiency cores](../README.md#serving-defaults)). A container created with every core moves to them with `docker update` ([recreate the container](#recreate-the-container)).
 
