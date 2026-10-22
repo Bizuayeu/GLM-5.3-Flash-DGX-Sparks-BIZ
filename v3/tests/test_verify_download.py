@@ -47,6 +47,7 @@ class VerifyDownloadTests(unittest.TestCase):
         for extra, hint in (
             ((), "run download first\n"),
             (("--checkpoint", "axl"), "run download first --checkpoint axl\n"),
+            (("--checkpoint", "xsfp4"), "run download first --checkpoint xsfp4\n"),
         ):
             with self.subTest(extra=extra):
                 err = io.StringIO()

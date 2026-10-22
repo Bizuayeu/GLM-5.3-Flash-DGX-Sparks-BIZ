@@ -1,5 +1,5 @@
 """Download a locked GLM checkpoint into the shared Hugging Face cache: NVIDIA's pinned one,
-or with --checkpoint axl the published option's (config/axl.lock.json)."""
+or with --checkpoint axl or xsfp4 a published option's (config/axl.lock.json, config/xsfp4.lock.json)."""
 
 import argparse
 import json

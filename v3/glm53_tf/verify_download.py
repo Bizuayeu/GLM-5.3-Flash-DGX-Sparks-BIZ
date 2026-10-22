@@ -1,5 +1,5 @@
 """Wait for the existing downloader, then verify a locked checkpoint's HF cache checksums
-(the pinned one, or with --checkpoint axl the published option's)."""
+(the pinned one, or with --checkpoint axl or xsfp4 a published option's)."""
 
 import argparse
 import json

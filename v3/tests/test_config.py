@@ -55,6 +55,12 @@ class CheckpointTests(unittest.TestCase):
         self.assertRegex(revision, r"^[0-9a-f]{40}$")
         self.assertEqual(state, Path("state/axl"))
 
+    def test_xsfp4_is_its_own_full_revision_in_its_own_state_folder(self):
+        model, revision, state = config.checkpoint("xsfp4", Path("state"))
+        self.assertEqual(model, "Bizuayeu/GLM-5.3-Flash-XSFP4")
+        self.assertRegex(revision, r"^[0-9a-f]{40}$")
+        self.assertEqual(state, Path("state/xsfp4"))
+
     def test_both_tools_explain_the_checkpoint_choice(self):
         import contextlib
         import io

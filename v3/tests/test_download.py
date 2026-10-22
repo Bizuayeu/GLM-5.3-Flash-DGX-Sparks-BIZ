@@ -47,6 +47,11 @@ class BackgroundTests(unittest.TestCase):
         self.assertEqual(logs, ["axl/download.log"])
         self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "axl"])
 
+    def test_an_xsfp4_job_passes_its_checkpoint_on_and_logs_in_its_folder(self):
+        popen, logs = self.background("--checkpoint", "xsfp4")
+        self.assertEqual(logs, ["xsfp4/download.log"])
+        self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "xsfp4"])
+
 
 def fake_hub(snapshot, sha, sizes):
     """A huggingface_hub whose model lists ``sizes`` and downloads into ``snapshot``."""
@@ -103,6 +108,15 @@ class DownloadTests(unittest.TestCase):
     def test_axl_records_its_own_model_and_revision_in_its_own_folder(self):
         code, status = self.run_download(which="axl")
         model, revision, _ = config.checkpoint("axl", Path("state"))
+        self.assertIsNone(code)
+        self.assertEqual(
+            (status["model"], status["revision"], status["status"]),
+            (model, revision, "complete"),
+        )
+
+    def test_xsfp4_records_its_own_model_and_revision_in_its_own_folder(self):
+        code, status = self.run_download(which="xsfp4")
+        model, revision, _ = config.checkpoint("xsfp4", Path("state"))
         self.assertIsNone(code)
         self.assertEqual(
             (status["model"], status["revision"], status["status"]),
