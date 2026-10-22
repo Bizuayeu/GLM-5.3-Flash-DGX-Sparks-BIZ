@@ -13,10 +13,11 @@ This guide covers both serving lines. **Original repository code and documentati
 | TensorFold, the BIZ release (2.x and 3.x engines) | Permitted under Apache-2.0 | Same | Conditional permission | Preserve the engine's LICENSE, NOTICE and third-party notices, installed under `/opt/tensorfold` (2.x) and `/usr/share/doc/tf3/engine/` (3.x); code from before 0.6.0 keeps its MIT notice |
 | MIT portions from kingjones, knapcio and HLE (centerforaisafety) | Permitted | Permitted; no publication requirement | Permitted, including sale/sublicensing | Retain copyright and permission notice in copies/substantial portions |
 | Pinned NVIDIA GLM NVFP4 weights | Model card explicitly permits commercial/non-commercial use under MIT | MIT permits modification, including further training/conversion | Permitted subject to MIT notices | Preserve model card and upstream copyright/MIT notice; identify provenance |
+| XSFP4 checkpoint (3.x's option) | Permitted: the NVIDIA Open Model Agreement states the works are commercially usable | Permitted: the agreement permits Derivative Works | Permitted subject to the agreement's section 3 | Give recipients a copy of the agreement, keep the source's notices, and ship a NOTICE file with "Licensed by NVIDIA Corporation under the NVIDIA Open Model Agreement."; NVIDIA's names only to describe the origin |
 | Complete image containing CUDA and other dependencies (2.x's is built on NVIDIA's PyTorch container, 3.x's on NVIDIA's CUDA runtime image, under NVIDIA's terms) | Subject to each component's terms | Do not treat SDK modification rights as Apache | **No blanket clearance for the image** | Review the actual component inventory, versions, redistributables and notices |
 | ZCode / Claude Code binaries | Subject to their product/service terms | No modification rights granted by this repository | No redistribution rights granted by this repository | Install separately from official sources; do not bundle credentials |
 
-Sources: [Apache sections 2–4 and 6–9](../LICENSE), MIT texts ([kingjones](../LICENSES/kingjones-MIT.txt), [knapcio](../LICENSES/knapcio-MIT.txt), [HLE](../LICENSES/hle-MIT.txt)), [pinned NVIDIA model card](https://huggingface.co/nvidia/GLM-5.3-Flash-NVFP4/blob/423acf37583782c51c142d145aef733d72943d93/README.md).
+Sources: [Apache sections 2–4 and 6–9](../LICENSE), [NVIDIA Open Model Agreement](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-agreement/), MIT texts ([kingjones](../LICENSES/kingjones-MIT.txt), [knapcio](../LICENSES/knapcio-MIT.txt), [HLE](../LICENSES/hle-MIT.txt)), [pinned NVIDIA model card](https://huggingface.co/nvidia/GLM-5.3-Flash-NVFP4/blob/423acf37583782c51c142d145aef733d72943d93/README.md).
 
 ## MIT and Apache-2.0 compared
 
@@ -44,6 +45,8 @@ When redistributing weights, attach the model card and upstream MIT notice, iden
 
 This project applied those rules once: the attention and `lm_head` W4A16 repack that the reference pair serves is published as [Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16) under MIT, with NVIDIA's model card kept beside it as `README.nvidia.md`, the Z.AI notice referenced, the source revision, tool commit and target recorded in its card and in `config.json`, and no training data added (weight-only conversion). The conversion tool's Apache-2.0 terms apply to the tool, not to the weights.
 
+It applied the NVIDIA Open Model Agreement's rules to a second: [Bizuayeu/GLM-5.3-Flash-XSFP4](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4), the option 3.x serves from 3.3.0, is a Derivative Work of [nvidia/GLM-5.3-Flash-FP4-Local](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local) whose routed and MTP experts were requantized from Z.AI's BF16 weights. Its repository carries the agreement's full text as `LICENSE`, a `NOTICE` with the agreement's statement, NVIDIA's model card as `README.nvidia.md`, and a card that names the source revision, what was requantized, the calibration data (not distributed) and the Z.AI MIT notice; its name uses NVIDIA's only to describe the origin.
+
 ## LPA projector
 
 The independently fitted [LPA cut32 auxiliary weights](../v1/docs/lpa.md#download-the-trained-projector) are offered under **Apache-2.0**, to the extent of the maintainer's rights. The Release package includes LICENSE, NOTICE, teacher provenance and training-data attribution. This does not relicense NVIDIA's checkpoint or the training dataset.
@@ -63,7 +66,7 @@ ZCode follows its [terms](https://zcode.z.ai/en/terms); Claude Code follows the 
 - [ ] Identify whether the deliverable contains source, weights, images or harnesses.
 - [ ] Keep LICENSE, NOTICE and applicable LICENSES texts.
 - [ ] Mark modified files and record provenance/revisions.
-- [ ] For weights, attach model/MIT notices and review added materials.
+- [ ] For weights, attach model/MIT notices and review added materials; for XSFP4, the NVIDIA Open Model Agreement and its NOTICE.
 - [ ] For images, review the actual component inventory and redistribution terms; a 2.x image keeps the engine's notices under `/opt/tensorfold` and the project's under `/opt/glm53-tf/`, and a 3.x image those under `/usr/share/doc/tf3/`, with FFmpeg's LGPL text and source and the H.264 and HEVC patents checked.
 - [ ] Exclude harness binaries, keys, credentials and private logs unless separately authorized and licensed.
 

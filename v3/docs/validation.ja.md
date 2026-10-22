@@ -2,7 +2,7 @@
 
 [English](validation.md) · [3.x系の概要](../README.ja.md) · [配備の手順書](../SETUP.ja.md) · [ベンチマークの方法](benchmarks.ja.md)
 
-3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値はネイティブエンジン自身のもので、2026-10-19〜20の3.1.0の受け入れで、参照機で `1a8f1efd`（上流1.1.1とこの系列の二つのcommit）からbuildしたエンジン、`serve.sh` の既定、全containerを効率coreにして測りました。TP=3はBF16のlinearを3.0.0と同じglueのkernel（`TF_GLM_MM=0`）で回し、decode checkのhash、editの返答、NLLが3.0.0と同じでした。TP=2は上流のtiledのkernelで回り、新しい値を出しました（[配信の既定](../README.ja.md#配信の既定)）。2026-10-20の3.2.0の受け入れは、visionのtowerを読み込んで同じ検査を回し、両TPで同じhash、editの返答、NLL、tool-eval-benchの点を出しました。速さ、メモリ、熱が違った所は、下の各節に書きます。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
+3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値はネイティブエンジン自身のもので、参照機で `serve.sh` の既定、全containerを効率coreにして測りました。TP=2の値は2026-10-19〜20の3.1.0の受け入れで、`1a8f1efd`（上流1.1.1とこの系列の二つのcommit）からbuildしたエンジンにより、上流のtiledのBF16のlinearで決めました。2026-10-20の3.2.0の受け入れ（visionのtowerを読み込んで）と、2026-10-22の3.3.0の受け入れ（上流1.1.2の上で）も、同じdecode checkのhash、editの返答、NLL、tool-eval-benchの点を出しました。TP=3の値は3.3.0の受け入れで決めました：上流1.1.2はTP=3のrankにもtiledのkernelを開き（issue #1067）、それがTP=3に新しいdecode checkのhashとNLLを出します。3.0.0〜3.2.0はTP=3をglueのkernel（`TF_GLM_MM=0`）で回し、その値は下の各節に参考として載せます（[配信の既定](../README.ja.md#配信の既定)）。後の受け入れで速さ、メモリ、熱が違った所は、下の各節に書きます。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
 
 道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、またはPythonと `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)を動かしたままにします。
 
@@ -23,11 +23,11 @@ done
 
 | タスク | TP=2 `completion_sha256` | TP=2 `token_sha256` | TP=3 `completion_sha256` | TP=3 `token_sha256` |
 |---|---|---|---|---|
-| count | `96385e4d65278eac` | `6faafd98ec90322f` | `1cf31fa39a420336` | `6835af3a11c0b3e6` |
-| prose | `464e122fc0c4a71e` | `b82116bdbaa49958` | `72c9b1e2cf183215` | `d22f429e247f196f` |
-| code | `3b7e3ee097146c50` | `ddd42119a8be799e` | `59e2a180d1b9ccc7` | `3dd2e6dd1afd23cf` |
+| count | `96385e4d65278eac` | `6faafd98ec90322f` | `722e240c88542622` | `79e1de392b1332b6` |
+| prose | `464e122fc0c4a71e` | `b82116bdbaa49958` | `62140b0b18d8ec3d` | `535792be03ba6cf5` |
+| code | `3b7e3ee097146c50` | `ddd42119a8be799e` | `c2af3204be4e883b` | `395594e4d0ee4f21` |
 
-hashは、各TPの2回の起動と、`PARALLEL=` を空にしたTP=2の起動（count。エンジンは2本のstreamを取りました）で保たれました。TP=3のhashは3.0.0のものです。全coreでも、この系の2つのcommitを除いた上流1.1.1がTP=2で同じtoken idを出し、リリースのimageは各TPで1回の起動で、そのTPのhashと編集の返答を出しました。TP=2とTP=3は設計上互いに違います（rankの間での和の分け方が違い、TP=2のlinearは別のkernelで回るため）。3.0.0のTP=2のhash（count `bbf97d42e5d45bd3`、prose `da21339524bf4382`、code `bc00b6fc275d9595`）は、そのエンジンのkernelのものです。受理長：TP=2で3.066／1.882／2.621、TP=3で3.368／1.787／2.839。`bench --kinds edit` は両TPで同じ返答を、190 roundで `token_sha256` `c419bce559d86b66` で返します（3.0.0のエンジンは同じ返答に363 round）。違う返答は受け入れを止めます。
+hashは、各TPの2回の起動と、`PARALLEL=` を空にしたTP=2の起動（count。エンジンは2本のstreamを取りました）で保たれました。全coreでも、この系の2つのcommitを除いた上流1.1.1がTP=2で同じtoken idを出し、各リリースのimageは各TPで1回の起動で、そのhashと編集の返答を出しました。TP=2とTP=3は設計上互いに違います（rankの間での和の分け方が違うため）。3.0.0のTP=2のhash（count `bbf97d42e5d45bd3`、prose `da21339524bf4382`、code `bc00b6fc275d9595`）は、そのエンジンのkernelのものです。glueのkernelでの3.0.0〜3.2.0のTP=3のhashは、count `1cf31fa39a420336`、prose `72c9b1e2cf183215`、code `59e2a180d1b9ccc7` でした。`TF_GLM_MM=0` は今もそのkernelを選び、上流1.1.2でも同じhash、編集の返答、NLLを出しました。受理長：TP=2で3.066／1.882／2.621、TP=3で4.645／1.858／2.954（glueのkernelでは3.368／1.787／2.839）。`bench --kinds edit` は両TPで同じ返答を、190 roundで `token_sha256` `c419bce559d86b66` で返します（3.0.0のエンジンは同じ返答に363 round）。違う返答は受け入れを止めます。
 
 ## draftした応答とserialの一致
 
@@ -55,12 +55,12 @@ python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
 
 | 領域（位置数） | TP=2 | TP=3 | 2.x TP=2（参考） | 2.x TP=3（参考） |
 |---|---|---|---|---|
-| 日本語（6,826） | 2.5412 | 2.5246 | 2.5474 | 2.5313 |
-| 英語（6,678） | 2.9293 | 2.9206 | 2.9257 | 2.9001 |
-| コード（5,941） | 1.3145 | 1.3147 | 1.3184 | 1.3101 |
-| 数学（5,847） | 0.6261 | 0.6241 | 0.6250 | 0.6237 |
+| 日本語（6,826） | 2.5412 | 2.5285 | 2.5474 | 2.5313 |
+| 英語（6,678） | 2.9293 | 2.9129 | 2.9257 | 2.9001 |
+| コード（5,941） | 1.3145 | 1.3158 | 1.3184 | 1.3101 |
+| 数学（5,847） | 0.6261 | 0.6262 | 0.6250 | 0.6237 |
 
-**合格の条件**：passで、各領域がそのTPの基準と同じこと。両TPで、どの本文の2回の採点も完全に一致しました（最大の動きは0.0）。TP=3の値は本文ごとに3.0.0と同じです。TP=2はtiledのkernelで3.0.0の値（2.5293・2.9109・1.3138・0.6272）から最大0.0184動き、2.x系の値との差は0.007以内です。
+**合格の条件**：passで、各領域がそのTPの基準と同じこと。両TPで、どの本文の2回の採点も完全に一致しました（最大の動きは0.0）。tiledのkernelで、TP=2は3.0.0の値（2.5293・2.9109・1.3138・0.6272）から最大0.0184、TP=3はglueのkernelの値（3.0.0〜3.2.0：2.5246・2.9206・1.3147・0.6241）から最大0.0077動きました。2.x系の値との差は、TP=2で0.007以内、TP=3で0.013以内です。
 
 ## promptのscoreと構造化出力
 
@@ -77,7 +77,7 @@ python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
 python -m glm53_tf bench --out ../records/<run>/bench.jsonl
 ```
 
-基準値：TP=2でprefill 1,415.7 tok/s・decode 43.80 tok/s、TP=3で1,507.9と55.05。decodeの行はどれも上限で止まり（`finish_reason` `length`）、prefillの行の `cached` はどれも0です。
+基準値：TP=2でprefill 1,415.7 tok/s・decode 43.80 tok/s（3.3.0：1,411.2と44.00）、TP=3で1,559.7と56.03（glueのkernelの3.1.0：1,507.9と55.05）。decodeの行はどれも上限で止まり（`finish_reason` `length`）、prefillの行の `cached` はどれも0です。
 
 ## 長い入力
 
@@ -88,7 +88,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値：199,307 tokenで合言葉を、TP=2で153.4秒、TP=3で140.4秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで398.1秒、1,035,295 tokenで3つ中3つ、1,022.7秒でした。どれも保持したpromptから再開せず（`cached` 0）、熱で待ちませんでした。午後に回した3.2.0の受け入れでは、1,035,295 tokenのpromptが熱で34秒待ち（2秒の待ちを17回：10回は帯でrank 0の最も熱いzoneが92.1〜92.5 °C、7回は `TF_HEAT_CEILING` の見込みでzoneが91.3〜91.9 °C）、最初のtokenまで1,056.9秒で、3つの合言葉をすべて見つけました。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は245,760 tokenです。
+目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値：199,307 tokenで合言葉を、TP=2で153.4秒（3.3.0：155.0秒）、TP=3で140.3秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで399.5秒、1,035,295 tokenで3つ中3つ、1,064.9秒で、そのうちpromptは熱で2秒の待ちを19回、計38秒待ちました（午後に回しました）。どれも保持したpromptから再開しませんでした（`cached` 0）。glueのkernel（3.1.0、夜）では、TP=3の3つが140.4・398.1・1,022.7秒で、熱では待ちませんでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は245,760 tokenです。
 
 ## tool引数ゲート越しのtool
 
@@ -102,22 +102,47 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 エンジンは `clear_thinking` をchat templateに渡しません（[制限](../README.ja.md#制限)）。呼び方は、点数を1.x系・2.x系と比べられるよう、それを残します。
 
-基準値：TP=2で92/100、TP=3で93/100、Safety Gateは合格。TP=2はTC-21とTC-61を、TP=3はTC-61だけを落としました。各1回なので、1〜2点は1回の試行で動く範囲です。
+基準値：TP=2で92/100、TP=3で95/100、Safety Gateは合格。TP=2はTC-21とTC-61を、TP=3はTC-61だけを落としました（glueのkernelでは93/100）。各1回なので、1〜2点は1回の試行で動く範囲です。
 
 ## 応答を止める
 
-**合格の条件**（両TPで、思考を切って）：1から1,000までの数を書かせるstreamの要求を約5秒でクライアントが切ると、15秒以内に `/health` の `live` blockに接続が残らず、直後の短い要求が10秒以内に答える。同じ要求にstop文字列 `"\n300\n"` を付けると299で終わり、`finish_reason` が `stop`。約93,000 tokenの台帳のpromptを、読んでいる途中の3秒でクライアントが切ると、直後の短い要求が、prompt全体が最初のtokenまでにかかる時間の半分未満で答える。基準値：両TPで、切ってから1.0秒で接続が消えました。切ったpromptの後、短い要求はTP=2で0.39秒、TP=3で0.25秒で答え、prompt全体の最初のtokenまでは68.4秒と62.8秒でした。3.2.0の受け入れでは、短い要求はTP=2で0.42秒、TP=3で1.53秒で答え（3.0.0のTP=3は1.49秒）、prompt全体は68.8秒と62.6秒でした。
+**合格の条件**（両TPで、思考を切って）：1から1,000までの数を書かせるstreamの要求を約5秒でクライアントが切ると、15秒以内に `/health` の `live` blockに接続が残らず、直後の短い要求が10秒以内に答える。同じ要求にstop文字列 `"\n300\n"` を付けると299で終わり、`finish_reason` が `stop`。約93,000 tokenの台帳のpromptを、読んでいる途中の3秒でクライアントが切ると、直後の短い要求が、prompt全体が最初のtokenまでにかかる時間の半分未満で答える。基準値：両TPで、切ってから1.0秒で接続が消えました。切ったpromptの後、短い要求はTP=2で0.39秒、TP=3で1.29秒で答え、prompt全体の最初のtokenまでは68.4秒と62.8秒でした（3.3.0のTP=2：0.36秒、68.8秒）。TP=3の短い要求の時間は起動ごとに動きます：glueのkernelで、3.1.0の受け入れでは0.25秒、3.2.0では1.53秒、3.0.0では1.49秒でした。
 
 ## 返答の長い連続
 
 40の要求を続けて流します。どれも新しいnonceと約6,000 tokenのPythonのmoduleに詳しいreviewを頼むもので、それぞれ最大1,024 token、temperature 0、effort low。これが全coreでCPUのzoneを温めた負荷です（[効率coreにする理由](../README.ja.md#配信の既定)）。**合格の条件**：40本すべてが答え、熱の見張りがエンジンを止めないこと。
 
-基準値：両TPで40本中40本、TP=2で1,536秒、TP=3で1,315秒。最も熱いzoneはTP=2でrank 0のホストの74.9 °C、TP=3で79.8 °Cでした（午後に回した3.2.0の受け入れでは、TP=2で1,548秒・75.6 °C、TP=3で1,317秒・82.5 °C）。GPUは熱で遅くなりませんでした。全coreでは、TP=2の同じ40本が1,535秒で終わり、rank 0のホストは93.0 °Cで、熱の見張りの止める温度まで1 °Cでした（[効率coreにする理由](../README.ja.md#配信の既定)）。
+基準値：両TPで40本中40本、TP=2で1,536秒、TP=3で1,233秒。最も熱いzoneはTP=2でrank 0のホストの74.9 °C、TP=3で85.1 °Cでした（3.3.0のTP=2：1,505秒・75.2 °C。glueのkernelのTP=3、3.1.0：1,315秒・79.8 °Cで、GPUは熱で遅くなりませんでした）。全coreでは、TP=2の同じ40本が1,535秒で終わり、rank 0のホストは93.0 °Cで、熱の見張りの止める温度まで1 °Cでした（[効率coreにする理由](../README.ja.md#配信の既定)）。
 
 ## メモリと温度
 
 メモリの見張りのlog（`<WORK>/logs/hostwatch-<label>.log`）に、実行中の各ホストの最低の `MemAvailable` が残ります。ホストの記録は2秒ごとにACPIの最も熱いzoneを示します。rank 0のlogは、prefillの熱の待ちごとの秒数を `heat_wait_s` の行に出します。応答はそれを運びません。
 
-基準値：起動の中の最低の `MemAvailable` は、TP=2で両rankとも15 GiB、TP=3でrank 0・1・2が23・11・26 GiBでした。rank 1の11 GiBはtool-eval-benchの最中の2秒の1回の読みで、前後は24 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C、TP=3で90.8・89.3・85.5 °Cでした。受け入れのどの要求も熱で待たず、1M tokenのpromptも含みます。visionのtowerを読み込んだ3.2.0の受け入れでは、最低はTP=2で13・12 GiB、TP=3で22・24・29 GiB、最も熱いzoneはTP=2で81.7・84.2 °C、TP=3で92.5・89.2・86.7 °Cで、1M tokenのpromptが熱で34秒待ちました（[長い入力](#長い入力)）。
+基準値：起動の中の最低の `MemAvailable` は、TP=2で、visionのtowerなしの3.1.0の受け入れでは両rankとも15 GiB、towerありの3.3.0では11・13 GiBでした。TP=3では、3.3.0でrank 0・1・2が18・20・26 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C（3.3.0：82.6・84.1 °C）、TP=3で93.0・90.0・86.0 °Cでした。TP=3の値は1M tokenのpromptの間のもので、3.3.0の受け入れで熱で待った要求はこれだけです（[長い入力](#長い入力)）。
 
 **合格の条件**：どの実行もメモリの見張りにも熱の見張り（94 °C以上の読みが2回続く）にも止められないこと。
+
+## XSFP4
+
+XSFP4のcheckpoint（[checkpoint](../README.ja.md#checkpoint)）は固定したcheckpointと別のtokenを出すので、自分の基準値を持ちます。3.3.0の受け入れ（2026-10-22）で決め、各TPの2回目の起動でも同じでした。検査は上と同じで、**合格の条件**も同じく、これらの値に照らします。ただし下のTP=3の二つの既知の振る舞いは除きます。`score-nll` にはXSFP4自身の `tokenizer.json`（固定したcheckpointのものとbyteまで同じ）を渡します。速さはこのcheckpointのもので、自分とだけ比べられます（[checkpoint](../README.ja.md#checkpoint)）。
+
+| 検査 | TP=2 | TP=3 |
+|---|---|---|
+| decode検査の `completion_sha256` count / prose / code | `4e3411bd357abdd4` / `3b1a0be713e866f7` / `4a2d744c5cc1fb10` | `e63b580fa9ac5e6b` / `098fe1f21f591775` / `d2768fdc1e974d89` |
+| decode検査の `token_sha256` count / prose / code | `cbe6552f4f1efcca` / `065a835f86734482` / `c4dfca7b73492c81` | `f6afacd228e848bc` / `32a387104a712248` / `9f6e8043c234c19d` |
+| 同じタスクの受理の長さ | 3.276 / 1.796 / 2.971 | 3.362 / 1.947 / 2.823 |
+| `bench --kinds edit` | `c419bce559d86b66` を190 roundで、固定したcheckpointと同じ応答 | 同じ |
+| scoreもgrammarも無い要求（「The capital of France is」、8 token）の `token_sha256` | `09a15f0582e7…`、固定したcheckpointのもの | `a094669ab5de…` |
+| teacher-forced NLL、ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
+| ゲート越しのtool-eval-bench | 93、Safety Gateは通過（TC-61がfail） | 同じ |
+| 38,960 tokenのprefill / decode（tok/s） | 1,415.1 / 54.15 | 1,717.3 / 66.23 |
+| 199,307 tokenのprompt | 見つけた、151.9秒 | 見つけた、127.9秒 |
+| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken | — | 3つ中3つ、373.0秒。3つ中3つ、1,015.7秒（うち42秒は熱の待ち） |
+| 約93,000 tokenのpromptを切った後の次の要求、切らないpromptの最初のtokenとの比べ（秒） | 0.32 対 68.6 | 0.91 対 56.7 |
+| 6,000 tokenのpromptの後の40の返答（秒、rank 0のホストの最も熱いzone） | 1,250、76.5 °C | 981、85.8 °C |
+| 最低の `MemAvailable`、rankごと（GiB） | 11 / 13 | 21 / 22 / 28 |
+| 起動の中の最も熱いzone、rankごと（°C） | 84.1 / 86.3 | 92.7 / 89.7 / 84.7 |
+
+`PARALLEL=` を空にするとTP=2でエンジンは3本のstreamを取り、同じcountのhashを出しました。draftした応答はserialと同じでした（絵を含む要求も）。H.264とVP9の動画はdraftしても `"draft": false` でも同じ応答で、GIFとaudioの部分は400で断られました。TP=2では熱で待った要求はありませんでした。TP=3で待ったのは1,035,295 tokenのpromptだけで、2秒の待ちを21回でした。
+
+**TP=3の既知の振る舞い。** [応答を止める](#応答を止める)のstop文字列の要求は、4,000 tokenの上限まで走ります：数え上げが300の前で繰り返しに入るためで、上流1.1.1でも同じでした（切った応答と切ったpromptは合格）。[promptのscoreと構造化出力](#promptのscoreと構造化出力)のscoreもgrammarも無い要求は、固定したcheckpointの「… pronounced」に対して「 Paris. In French, Paris is spelled」で終わるので、そのhashは固定したcheckpointのものでなく表の値です。どちらも既知の振る舞いで（[リリースでの測定値](../README.ja.md#リリースでの測定値)）、受け入れを止める理由にはしません。

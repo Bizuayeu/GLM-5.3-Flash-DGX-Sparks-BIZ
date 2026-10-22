@@ -2,7 +2,7 @@
 
 [日本語](operations.ja.md) · [3.x overview](../README.md) · [Setup runbook](../SETUP.md) · [Validation](validation.md)
 
-What to do when a 3.x launch goes wrong, and the routine changes around it: a new container, a new image, a host that powered off, handing the hosts to 2.x. Each section says what the scripts do and which cases the reference hosts met; a case they did not meet is marked as such. Commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized.
+What to do when a 3.x launch goes wrong, and the routine changes around it: a new container, a new image, another checkpoint, a host that powered off, handing the hosts to 2.x. Each section says what the scripts do and which cases the reference hosts met; a case they did not meet is marked as such. Commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized.
 
 ## Start outcomes
 
@@ -24,7 +24,7 @@ Two watchers stop one host's engine, each on its own host only:
 - **The memory guard** (`hostwatch.sh`, started by `cluster.sh`) stops the engine with `pkill -9` inside the container when `MemAvailable` falls below 5 GiB, and writes `KILLED`.
 - **The thermal watch** ([`host/thermal-watch`](../../host/README.md#during-long-runs), started by the operator with `--container glm53-tf3 --process 'tensorfold-native serve'`) stops it after two readings in a row at or above 94 °C, and writes `ABORT`.
 
-Neither stopped an engine in the 3.0.0, 3.1.0 or 3.2.0 acceptance. Under 2.x the other ranks did not end when one did: they waited in a collective until `cluster.sh stop` ended them. After any rank stops, stop every rank, find the cause in the guard's or the watch's log, and start every rank again.
+Neither stopped an engine in the 3.0.0 to 3.3.0 acceptances. Under 2.x the other ranks did not end when one did: they waited in a collective until `cluster.sh stop` ended them. After any rank stops, stop every rank, find the cause in the guard's or the watch's log, and start every rank again.
 
 The engine's heat wait holds a prompt pass between chunks while any rank's hottest zone is above 92 °C, or would pass 93 °C if the next chunk rose as much as the last one run straight after another, until every rank is at or below 88 °C ([serving defaults](../README.md#serving-defaults)). A wait has no time limit; rank 0's log gives each wait's seconds in a `heat_wait_s` line.
 
@@ -42,7 +42,7 @@ The ranks must talk over RoCE, not TCP sockets:
 - The rank files' `NCCL_DEBUG=INFO` and `NCCL_DEBUG_SUBSYS=INIT,NET` make NCCL log each connection's transport once at start. `grep -c 'via NET/IB' <WORK>/logs/serve-r<RANK>-<LABEL>.log` counts them, and none may be `NET/Socket`.
 - When a connection is not `NET/IB`, check the rank file against the host: `NCCL_IB_HCA`, `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`, recorded in [setup §1](../SETUP.md#1-hosts-and-fabric). A GID index can move after a link drops or a host loses power ([a GID index that moves](../../docs/nccl-validation.md#a-gid-index-that-moves)).
 
-Every start in the 3.0.0, 3.1.0 and 3.2.0 acceptances ran every connection over `NET/IB`.
+Every start in the 3.0.0 to 3.3.0 acceptances ran every connection over `NET/IB`.
 
 ## Recreate the container
 
@@ -50,7 +50,7 @@ After `cluster.sh state/cluster.env stop`, on each host:
 
 ```sh
 docker rm -f glm53-tf3                                  # the container only sleeps between starts
-v3/scripts/create_container.sh glm53-tf3:3.2.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.3.0 ~/glm53-tf3
 ```
 
 `create_container.sh` names the container, so the old one must go first (or be renamed: `docker rename glm53-tf3 glm53-tf3-old`, then `docker stop`). The host directory stays: the rank file and the logs. Nothing is built in the container.
@@ -64,7 +64,15 @@ A new image is a new engine build: accept it again before routine use.
 1. Build it on one host ([setup §3](../SETUP.md#3-image)). On every host, keep the image in use under a second tag first, so that going back is a container away.
 2. Load it on the other hosts and compare the image IDs of every host; they must be equal. `/usr/share/doc/tf3/ENGINE` in each container names the engine commit and every binary's SHA-256.
 3. Stop, then recreate the container on every host from the new image ([above](#recreate-the-container)).
-4. Start, and run [validation](validation.md) from the decode check on. An image of the same engine commit must give the reference hashes. A release that moves the engine states in its validation which hashes change and why (3.1.0: TP=2 on upstream's tiled kernels); any other difference is a finding to explain, not a value to replace.
+4. Start, and run [validation](validation.md) from the decode check on. An image of the same engine commit must give the reference hashes. A release that moves the engine states in its validation which hashes change and why (3.1.0: TP=2 on upstream's tiled kernels; 3.3.0: TP=3 on them too, upstream 1.1.2); any other difference is a finding to explain, not a value to replace.
+
+## Change the checkpoint
+
+The pinned checkpoint and XSFP4 ([checkpoints](../README.md#checkpoints)) run on the same image and container; the rank files choose.
+
+1. Download and verify the other checkpoint on every host ([setup §2](../SETUP.md#2-checkout-and-checkpoint)); both can stay in the cache.
+2. Stop, then set `CHECKPOINT` in every rank file to XSFP4's snapshot, or remove the line for the pinned checkpoint. The engine refuses to start when the ranks name different checkpoints.
+3. Start, and run [validation](validation.md) against that checkpoint's reference values. The first start on a checkpoint reads it from disk, about 300 s longer at TP=2 on the reference hosts.
 
 ## A host that powered off
 

@@ -6,6 +6,46 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.3.0 — 2026-10-23
+
+上流1.1.2の上で、選べる2つ目のcheckpoint、XSFP4と、帯だけの熱の待ち。既定はNVIDIAの固定したcheckpointのままで、その上のTP=2のtextの道は3.2.0のものです。TP=3は上流のtiledのBF16のlinearで回り、3.2.0のglueのkernelとは別のtokenを返します。
+
+### XSFP4 checkpoint
+
+- [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)、[`config/xsfp4.lock.json`](config/xsfp4.lock.json) で固定：NVIDIAの `GLM-5.3-Flash-FP4-Local`（revision `76348ddb`）の派生物で、routed expert（3〜44層）とMTP層のexpertを、Z.AIのBF16の重みからXSFP4として量子化し直したもの（平滑化を重みに畳み込み、NVFP4のblockを当てはめ直す）。他のtensorはすべてFP4-Localの保存の形のままです。NVIDIA Open Model Agreement（[checkpoint](README.ja.md#checkpoint)）。
+- `download` と `verify-download` が `--checkpoint xsfp4` を取り、`state/xsfp4` に置きます。rankのファイルの `CHECKPOINT` をそのsnapshotにすると配信します（全rankで同じ）。rankのファイルの例にその行を注記で入れました。
+- TP=2でmodelはrank 0で93.44 GiB（固定したcheckpointは97.38）を取り、245,760 tokenの窓の横に8.9 GiBのprompt cache（5.2 GiB）が残ります。`PARALLEL=` を空にするとエンジンは3本のstream（2本）を取りました。
+
+### Engine
+
+- forkの `release/3.3.0`、`d2d95b11`：上流1.1.2に、上流のpull request #1050（15のcommit、上流ではopen）のcode、1.1.2の後に取り込まれた上流のpull request #1179のpatch、この系列のTP=3のためのNCCLのidのファイル。#1050はFP4-Localの形を保存のまま読みます（各projectionの形を `MIXED_PRECISION` のレシピから見分け、MXFP8と128×128 blockのFP8のprojectionをエンジンの量子化linearで計算し、FP4-Localの圧縮したexpertのscaleを読み、float32のnormの重みをfloat32のまま保つ）。#1179が無いと、1.1.2はFP4-LocalとXSFP4のindexを断ります（214のtensorがfolderの中のshardにある）。固定したcheckpointはこれまでどおり読みます。
+- 上流1.1.2は、TP=3のrankのKDAの入力のprojectionをtileせずに回します（issue #1067）。TP=3は上流の既定のBF16のlinearで配信し、TP=3のrankのファイルは `TF_GLM_MM=0` を書かなくなりました。TP=3のdecode検査のhashとNLLはそれに伴って動きます（[検証](docs/validation.ja.md)）。1.1.2では、rank 0にstreamが無い間、待つrankも眠ります（#1053）。
+- 熱の天井なし：3.1.0と3.2.0は、最も熱いzoneに直前のchunkの上がり幅を足すと93 °Cを越えるときもpromptを待たせました（`TF_HEAT_CEILING`）。3.3.0のエンジンは帯だけで待ち（92 °Cを超えたら88 °Cまで）、`serve.sh` も天井を置きません。
+
+### Documentation
+
+- READMEが2つのcheckpointと選び方を書きます（[checkpoint](README.ja.md#checkpoint)）。手順書§2がXSFP4を取得し、運用がcheckpointを替え、[検証](docs/validation.ja.md)がXSFP4自身の基準値を持ちます。
+- [ライセンスの手引き](../docs/licensing.ja.md)とリポジトリのREADMEのライセンスの表に、XSFP4のcheckpointとNVIDIA Open Model Agreementを加えました。
+
+### Accepted
+
+参照機で2026-10-22〜23に、visionのtowerを読み込み、`TF_GLM_MM` は無しで、全containerを効率coreに置き、各checkpointで5回の起動（TP=2で3回、うち1回は `PARALLEL=` を空に、TP=3で2回）。XSFP4はリリースのimage（`glm53-tf3:3.3.0`）をそれ自身の `serve.sh` で起動し、固定したcheckpointはエンジンが一つ前のcommitのimageで回し、各TPでもう1回リリースのimageで起動しました（[測定値](README.ja.md#リリースでの測定値)、[検証](docs/validation.ja.md)）：
+
+- 固定したcheckpoint：TP=2では、decode検査が2回の起動で3.1.0と同じhashを出し、`bench --kinds edit` は3.1.0と同じ返答を190 roundで出しました。TP=3ではtiledのkernelで、decode検査が2回の起動で新しいhashを出し、それが今のTP=3の基準値です。編集の返答は3.1.0のままでした。リリースのimageは両TPで同じhash、編集の返答、NLLを出し、`TF_GLM_MM=0` ではエンジンが3.1.0のTP=3のhash、編集の返答、NLLを出しました。
+- XSFP4：decode検査は各TPの2回の起動で自分のhashを出し、それが基準値になりました。`bench --kinds edit` は固定したcheckpointと同じ返答を190 roundで出しました。
+- draftした返答はserialと同じで、画像1枚の返答も含みます。PNG・JPEG・WebPの画像とH.264・VP9の動画が答え、それぞれdraftありと `"draft": false` で同じ返答でした。GIFと音声のpartは400で断られました。
+- `prompt_logprobs` と構造化出力は検査を通りました。ただしTP=3のXSFP4のplainな要求は、自分の返答を持ちます。NLLのセットは2回の採点で動きませんでした。
+- tool引数ゲート越しのtool-eval-bench、Safety Gateは合格：固定したcheckpointはTP=2で92、TP=3で95、XSFP4は93と93。
+- 6,000 tokenのpromptの後に最大1,024 tokenの返答を40本続けて、回したどの起動でも終わり、最も熱いzoneは最大85.8 °Cでした。1,035,295 tokenのprompt（3つ中3つ）は、最初のtokenまで固定したcheckpointで1,064.9秒、XSFP4で1,015.7秒で、そのうち38秒と42秒は熱の待ちでした。ほかに待った要求はありません。
+- 切った返答、stop文字列、切ったpromptは、固定したcheckpointの両TPと、XSFP4のTP=2で処理を止めました。XSFP4のTP=3では、stop文字列の要求が4,000 tokenの上限まで走りました。上流1.1.1と同じで、数え上げが300の前で繰り返しに入ります。
+- 最低の `MemAvailable` はTP=2で11 GiB、TP=3で18 GiBで、熱の見張りの停止に届いたzoneはありません。
+
+既知の振る舞い（XSFP4のTP=3のものと、1 tokenずつ数えると数を2度書くこと）は[リリースでの測定値](README.ja.md#リリースでの測定値)にあります。
+
+### Not in 3.3.0
+
+公開したAXLの重み、生成したtokenのlog確率、chat templateへの `clear_thinking` の受け渡し（[制限](README.ja.md#制限)）。
+
 ## 3.2.0 — 2026-10-20
 
 画像と動画の入力です。エンジン、checkpoint、textの経路は3.1.0のままで、配信の既定にエンジンの `--vision` が加わります。

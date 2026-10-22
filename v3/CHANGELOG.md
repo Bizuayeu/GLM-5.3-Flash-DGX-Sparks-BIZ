@@ -4,6 +4,46 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.3.0 — 2026-10-23
+
+A second checkpoint to choose, XSFP4, on upstream 1.1.2, and the heat wait by the band alone. NVIDIA's pinned checkpoint stays the default; on it the TP=2 text path is 3.2.0's, and TP=3 runs on upstream's tiled BF16 linears, which give other tokens than 3.2.0's glue kernels.
+
+### XSFP4 checkpoint
+
+- [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4), pinned in [`config/xsfp4.lock.json`](config/xsfp4.lock.json): a derivative of NVIDIA's `GLM-5.3-Flash-FP4-Local` (revision `76348ddb`) whose routed experts (layers 3 to 44) and the MTP layer's experts were requantized from Z.AI's BF16 weights as XSFP4, NVFP4 blocks fitted again with a smoothing folded into the weights; every other tensor is FP4-Local's as stored. NVIDIA Open Model Agreement ([checkpoints](README.md#checkpoints)).
+- `download` and `verify-download` take `--checkpoint xsfp4`, kept under `state/xsfp4`; a rank file serves it with `CHECKPOINT` set to its snapshot, the same on every rank. The rank file examples carry the line as a comment.
+- At TP=2 the model takes 93.44 GiB on rank 0 (97.38 on the pinned checkpoint), which leaves an 8.9 GiB prompt cache beside the 245,760-token window (5.2 GiB), and with `PARALLEL=` empty the engine took three streams (two).
+
+### Engine
+
+- `release/3.3.0` of the fork, `d2d95b11`: upstream 1.1.2 with the code of upstream pull request #1050 (fifteen commits, open upstream), which loads FP4-Local's formats as stored (each projection's format from the `MIXED_PRECISION` recipe, MXFP8 and 128×128-block FP8 projections on the engine's quantized linears, FP4-Local's compressed expert scales, float32 norm weights kept float32); the patch of upstream pull request #1179, merged after 1.1.2, without which 1.1.2 refuses FP4-Local's and XSFP4's indexes (214 of their tensors are in a shard inside a folder); and this line's NCCL id file for TP=3. The pinned checkpoint loads as before.
+- Upstream 1.1.2 runs a TP=3 rank's KDA input projections untiled (issue #1067), so TP=3 serves on upstream's default BF16 linears and the TP=3 rank files no longer set `TF_GLM_MM=0`; TP=3's decode-check hashes and NLL move with it ([validation](docs/validation.md)). In 1.1.2 the waiting ranks also sleep while rank 0 has no stream (#1053).
+- No heat ceiling: 3.1.0 and 3.2.0 also paused a prompt when the hottest zone plus the last chunk's rise would pass 93 °C (`TF_HEAT_CEILING`); 3.3.0's engine waits by the band alone, above 92 °C until 88 °C, and `serve.sh` no longer sets a ceiling.
+
+### Documentation
+
+- The README describes both checkpoints and how to choose ([checkpoints](README.md#checkpoints)); setup §2 downloads XSFP4, operations changes the checkpoint, and [validation](docs/validation.md) gives XSFP4's own reference values.
+- The [licensing guide](../docs/licensing.md) and the repository README's licensing table add the XSFP4 checkpoint and the NVIDIA Open Model Agreement.
+
+### Accepted
+
+On the reference hosts on 2026-10-22 and 23, with the vision tower loaded, `TF_GLM_MM` unset and every container on the efficiency cores, five launches on each checkpoint (three at TP=2, one of them with `PARALLEL=` empty, and two at TP=3): on XSFP4 with the release image (`glm53-tf3:3.3.0`) started by its own `serve.sh`; on the pinned checkpoint with the image one engine commit before it, and one more launch at each TP size with the release image ([measured](README.md#measured-on-the-release); [validation](docs/validation.md)):
+
+- Pinned checkpoint: at TP=2 the decode check gave 3.1.0's hashes in both launches and `bench --kinds edit` 3.1.0's reply in 190 rounds. At TP=3, on the tiled kernels, the decode check gave new hashes in both launches, now TP=3's reference values, and the edit reply stayed 3.1.0's. The release image gave the same hashes, edit reply and NLL at both TP sizes, and with `TF_GLM_MM=0` the engine gave 3.1.0's TP=3 hashes, edit reply and NLL.
+- XSFP4: the decode check gave its own hashes in both launches of each TP size, which set its reference values, and `bench --kinds edit` the pinned checkpoint's reply in 190 rounds.
+- Drafted replies equalled serial ones, a picture's included. PNG, JPEG and WebP pictures and an H.264 and a VP9 video answered, each the same drafted and with `"draft": false`, and a GIF and an audio part were refused with 400.
+- `prompt_logprobs` and structured output passed their checks, but for XSFP4's plain request at TP=3, which has its own reply; the NLL set was scored twice with no movement.
+- tool-eval-bench through the tool-argument gate, with the Safety Gate passed: 92 and 95 on the pinned checkpoint at TP=2 and TP=3, 93 and 93 on XSFP4.
+- Forty replies of up to 1,024 tokens after 6,000-token prompts, back to back, finished in every launch that ran them, the hottest zone at most 85.8 °C. The 1,035,295-token prompts (3 of 3) gave their first token after 1,064.9 s on the pinned checkpoint and 1,015.7 s on XSFP4, 38 s and 42 s of it waiting for heat; no other request waited.
+- A cut reply, a stop string and a cut prompt stopped the work at both TP sizes on the pinned checkpoint and at TP=2 on XSFP4. On XSFP4 at TP=3 the stop string's request ran to its 4,000-token limit, as on upstream 1.1.1: the count falls into a loop before 300.
+- The lowest `MemAvailable` was 11 GiB at TP=2 and 18 GiB at TP=3, and no zone reached the thermal watch's stop.
+
+The known behaviours, XSFP4's at TP=3 and a number counted twice token by token, are in [measured on the release](README.md#measured-on-the-release).
+
+### Not in 3.3.0
+
+The published AXL weights, log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.2.0 — 2026-10-20
 
 Image and video input. The engine, the checkpoint and the text path are 3.1.0's; the serving defaults add the engine's `--vision`.

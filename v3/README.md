@@ -2,25 +2,25 @@
 
 [日本語](README.ja.md) · [Repository index](../README.md) · [Setup runbook](SETUP.md) · [Validation](docs/validation.md) · [Changelog](CHANGELOG.md)
 
-**NVFP4 BIZ** serves NVIDIA's pinned GLM-5.3-Flash NVFP4 checkpoint as distributed, without retraining or requantizing it, on DGX Spark or compatible GB10 systems. The 3.x line serves it with TensorFold's native engine, the Zig and CUDA engine that took the place of the Python engine the [2.x line](../v2/README.md) runs, on two hosts at TP=2 or three hosts at TP=3. 3.0.0 was its first release, on upstream TensorFold 1.0.12; 3.1.0 moves it onto upstream 1.1.1, and 3.2.0 adds image and video input. 2.x continues beside it.
+**NVFP4 BIZ** serves NVIDIA's pinned GLM-5.3-Flash NVFP4 checkpoint as distributed, without retraining or requantizing it, on DGX Spark or compatible GB10 systems. The 3.x line serves it with TensorFold's native engine, the Zig and CUDA engine that took the place of the Python engine the [2.x line](../v2/README.md) runs, on two hosts at TP=2 or three hosts at TP=3. 3.0.0 was its first release, on upstream TensorFold 1.0.12; 3.1.0 moves it onto upstream 1.1.1, and 3.2.0 adds image and video input. 3.3.0 moves onto upstream 1.1.2 and adds a second checkpoint to choose: [XSFP4](#checkpoints), a derivative of NVIDIA's GLM-5.3-Flash-FP4-Local whose experts this repository's maintainer requantized; NVIDIA's pinned checkpoint stays the default. 2.x continues beside it.
 
 **BIZ** is the maintainer's mark and states the repository's intent; what it means and does not mean is in the [repository README](../README.md#biz).
 
 ## Summary
 
-- **Status.** 3.2.0 was accepted on the reference hosts on 2026-10-20 against the reference values of [validation](docs/validation.md), measured there, at TP=2 and TP=3 on the pinned checkpoint, with the vision tower loaded and the containers on the efficiency cores ([measured on the release](#measured-on-the-release)). The acceptance ran the release image, started by its own `serve.sh`. That is the scope of the claim; other hosts are qualified by running the same checks.
+- **Status.** 3.3.0 was accepted on the reference hosts on 2026-10-22 and 23 against the reference values of [validation](docs/validation.md), measured there, at TP=2 and TP=3 on both checkpoints, with the vision tower loaded and the containers on the efficiency cores ([measured on the release](#measured-on-the-release)); on XSFP4 at TP=3 the stop string's request runs to its limit and a short greedy reply differs from the pinned checkpoint's, known behaviours set down there. The acceptance ran the release image, started by its own `serve.sh`; the pinned checkpoint's full runs used the image one engine commit before it, and the release image gave it the same answers. That is the scope of the claim; other hosts are qualified by running the same checks.
 - **What it is.** Build steps, launch scripts and acceptance checks that serve the pinned checkpoint through a pinned commit of TensorFold's native engine as one OpenAI-compatible endpoint: two hosts at TP=2 over a direct ConnectX-7 link, or three at TP=3 in a switchless ring. The published measurements come from MSI EdgeXpert (MS-C931) systems.
 - **Repeatable.** Drafted replies equal serial ones, and a launch gives the token ids of the launch before it at the same TP size. The native engine's tokens are its own, not 2.x's: its kernels and its BF16 KV cache round differently, so the two lines compare by teacher-forced NLL, not token by token ([differences from 2.x](#differences-from-2x)).
 - **Structured output and prompt scores.** `response_format` with a JSON schema, `tool_choice` `required` or a named function (written in GLM's own tool markup) and `prompt_logprobs` on `/v1/completions` are upstream TensorFold's own on GLM's CUDA engine since 1.1.1, written after this line's pull requests #1016, #1017 and #1018 ([API](#api)).
 - **Images and videos.** Chat requests may carry PNG, JPEG and WebP images and H.264, HEVC, VP8, VP9 and MPEG-4 videos as data URLs, read by the checkpoint's vision tower on rank 0 through the engine's `--vision`, which `serve.sh` passes by default ([limits](#limits)).
-- **Precision.** W4A16 for the routed experts and the dense MLP, BF16 elsewhere, BF16 KV (2.x keeps an FP8 KV cache). NVIDIA's model card measured its checkpoint under another recipe on other hardware, so its accuracy table does not describe this serving; [validation](docs/validation.md) gives the numbers that do.
-- **Licensing.** Apache-2.0 code and engine, MIT weights that the operator downloads, xgrammar (Apache-2.0) in the image for structured output, and libjpeg-turbo, libwebp (BSD-style) and FFmpeg's decoders (LGPL-2.1) for images and videos; nothing non-commercial in the serving path ([licensing at a glance](../README.md#licensing-at-a-glance)).
+- **Precision.** On the pinned checkpoint, W4A16 for the routed experts and the dense MLP, BF16 elsewhere; on XSFP4, W4A16 for the routed experts and every other projection in the FP8 form the checkpoint stores ([checkpoints](#checkpoints)). BF16 KV on both (2.x keeps an FP8 KV cache). NVIDIA's model cards measured their checkpoints under other recipes on other hardware, so their accuracy tables do not describe this serving; [validation](docs/validation.md) gives the numbers that do.
+- **Licensing.** Apache-2.0 code and engine; weights that the operator downloads, MIT (the pinned checkpoint) or the NVIDIA Open Model Agreement (XSFP4, commercially usable); xgrammar (Apache-2.0) in the image for structured output, and libjpeg-turbo, libwebp (BSD-style) and FFmpeg's decoders (LGPL-2.1) for images and videos; nothing non-commercial in the serving path ([licensing at a glance](../README.md#licensing-at-a-glance)).
 - **Not validated.** Image and video URLs (`--vision-urls`, off), the published AXL weights, more than one request at a time (the acceptance sent one at a time), harness integration (ZCode, Claude Code), other world sizes and hardware, full application quality and production reliability ([limits](#limits)).
 
 ## What It Is
 
-- **Weights**: `nvidia/GLM-5.3-Flash-NVFP4` at revision `423acf37583782c51c142d145aef733d72943d93` ([`config/model.lock.json`](config/model.lock.json)), the same as 1.x and 2.x, derived from [Z.ai's GLM-5.3-Flash](https://huggingface.co/zai-org/GLM-5.3-Flash). The routed experts and the dense MLP run as W4A16 from the checkpoint's NVFP4 blocks; attention, the shared experts and the head stay BF16.
-- **Engine**: TensorFold's native engine (`tensorfold-native`), from the BIZ release published as the branch `release/3.1.0` of [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold): upstream TensorFold v1.1.1 plus two commits. One is the heat wait's look-ahead to a ceiling (`TF_HEAT_CEILING`, as 2.x has it). The other is kept to this line for TP=3: rank 0 hands its NCCL id to the other ranks in a file (`TF_GLM_NCCL_ID_FILE`), and each rank then takes `NCCL_COMM_ID`, through which the ranks' liveness lines reach rank 0, out of NCCL's environment, because NCCL cannot bootstrap through the ring's point-to-point `/32` addresses (until upstream's TP bootstrap, pull request #636). The image pins one commit ([`config/engine.lock.json`](config/engine.lock.json)).
+- **Weights**: by default `nvidia/GLM-5.3-Flash-NVFP4` at revision `423acf37583782c51c142d145aef733d72943d93` ([`config/model.lock.json`](config/model.lock.json)), the same as 1.x and 2.x, derived from [Z.ai's GLM-5.3-Flash](https://huggingface.co/zai-org/GLM-5.3-Flash). The routed experts and the dense MLP run as W4A16 from the checkpoint's NVFP4 blocks; attention, the shared experts and the head stay BF16. The option is `Bizuayeu/GLM-5.3-Flash-XSFP4` ([`config/xsfp4.lock.json`](config/xsfp4.lock.json), [checkpoints](#checkpoints)).
+- **Engine**: TensorFold's native engine (`tensorfold-native`), from the BIZ release published as the branch `release/3.3.0` of [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold): upstream TensorFold v1.1.2 plus the code of upstream pull request #1050, the patch of upstream pull request #1179 (merged after 1.1.2: an index may name a shard in a folder inside the model folder, which FP4-Local's and XSFP4's indexes need on 1.1.2) and one commit of this line's. #1050 (fifteen commits, open upstream) loads NVIDIA's GLM-5.3-Flash-FP4-Local as stored, and with it the XSFP4 checkpoint, which keeps FP4-Local's tensors outside the experts: it tells each projection's format from the checkpoint's `MIXED_PRECISION` recipe, runs the MXFP8 and 128×128-block FP8 projections as stored, reads FP4-Local's compressed expert scales, and keeps the float32 norm weights float32. This line's commit is kept to it for TP=3: rank 0 hands its NCCL id to the other ranks in a file (`TF_GLM_NCCL_ID_FILE`), and each rank then takes `NCCL_COMM_ID`, through which the ranks' liveness lines reach rank 0, out of NCCL's environment, because NCCL cannot bootstrap through the ring's point-to-point `/32` addresses (until upstream's TP bootstrap, pull request #636). 3.1.0 and 3.2.0's heat look-ahead to a ceiling (`TF_HEAT_CEILING`) is gone: the heat wait is upstream's band alone ([serving defaults](#serving-defaults)). The image pins one commit ([`config/engine.lock.json`](config/engine.lock.json)).
 - **Image**: [`docker/Dockerfile`](docker/Dockerfile). The engine is compiled in NVIDIA's CUDA 13.3.1 build image by the Zig compiler the lock names (checked by SHA-256), and `libtfgrammar` is built from xgrammar's release at a pinned commit; the runtime image is CUDA 13.3.1 with NCCL 2.30.7 and the RDMA userspace. Both base images are pinned by digest. `/usr/share/doc/tf3/ENGINE` names the engine commit and each binary's SHA-256, and `/usr/share/doc/tf3/engine/` holds the engine's license and notices.
 - **Launch**: shell scripts in [`scripts/`](scripts/) and one environment file per rank ([`examples/`](examples/) holds the reference hosts' files). [SETUP.md](SETUP.md) is the order. Nothing is built on the hosts: the kernels are in the binary.
 
@@ -31,7 +31,7 @@
 - **Host kernel**: as in 1.x and 2.x; the kernel current DGX OS updates install can break multi-node RoCE by default, and the reference hosts boot it with `kho=off` ([host kernel and multi-node RoCE](../docs/hosts.md#host-kernel-and-multi-node-roce)).
 - **GPU clock** capped on every host ([GPU clock cap](../docs/hosts.md#gpu-clock-cap)); [`host/`](../host/README.md) installs the cap and a telemetry logger. Every 3.x figure was measured under the cap.
 - **Docker** with NVIDIA's GPU runtime and the RDMA devices (`create_container.sh` refuses a host without `/dev/infiniband`, where NCCL would fall back to sockets).
-- **Disk**: the whole checkpoint on every host, as in 1.x and 2.x ([what you deploy](../v1/README.md#what-you-deploy-and-supported-hardware)), plus the image.
+- **Disk**: the whole checkpoint on every host, as in 1.x and 2.x ([what you deploy](../v1/README.md#what-you-deploy-and-supported-hardware)), plus the image; XSFP4 takes 186 GB beside the pinned one.
 - **A control machine** with SSH to every host, for `cluster.sh`.
 - **Python 3.11+** on the hosts for this line's tools in [`glm53_tf/`](glm53_tf/) (download, verification, tool-argument gate, checks), run from `v3/` ([setup §2](SETUP.md#2-checkout-and-checkpoint)).
 
@@ -44,11 +44,13 @@ The steps, with what to check after each, are the [setup runbook](SETUP.md); thi
 python -m glm53_tf download --background
 python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum --wait
 
+# XSFP4 instead (Checkpoints below): add --checkpoint xsfp4 to both, and CHECKPOINT to every rank file
+
 # One host builds the image, the others load it; compare the image IDs (SETUP §3)
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.2.0 .
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.3.0 .
 
 # Each host, from the checkout root (SETUP §4)
-v3/scripts/create_container.sh glm53-tf3:3.2.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.3.0 ~/glm53-tf3
 cp v3/examples/tp2-rank0.env ~/glm53-tf3/rank.env     # tp2-rank1 on the other host; then put this host's values
 
 # The control machine (SETUP §5, §8)
@@ -70,6 +72,27 @@ The model thinks before it answers: the reasoning comes back in `reasoning_conte
 
 **Security.** `serve.sh` binds rank 0 to `127.0.0.1`, and the [tool-argument gate](SETUP.md#6-tool-argument-gate-optional) also listens on loopback only; reach them through an SSH tunnel (`ssh -L 8095:127.0.0.1:8095 <rank 0>`) or a proxy that adds authentication. To serve beyond loopback (`HOST=0.0.0.0` in rank 0's file), set `API_KEY_FILE` too: a file readable by its owner only (`chmod 600`; the engine refuses another mode), one key a line (`label: key` or the key alone), which the engine rereads when it changes. Every route but `/health` then needs `Authorization: Bearer <key>` (or `x-api-key: <key>`), and `/health` answers only `{"status": "ok"}`. This line's decode check, `score-nll`, `bench` and `long-input` send the key when `TENSORFOLD_API_KEY` is set where they run, and the tool-argument gate passes the header on. Without a key, `HOST=0.0.0.0` exposes the API unauthenticated.
 
+## Checkpoints
+
+NVIDIA's pinned checkpoint is the default; 3.3.0 accepts XSFP4 beside it. Every rank serves the same one.
+
+| | Pinned (default) | XSFP4 (from 3.3.0) |
+|---|---|---|
+| Weights | `nvidia/GLM-5.3-Flash-NVFP4` ([`config/model.lock.json`](config/model.lock.json)) | [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4) ([`config/xsfp4.lock.json`](config/xsfp4.lock.json)) |
+| Made by | NVIDIA, from Z.ai's BF16 weights | this repository's maintainer, from NVIDIA's [`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local) (revision `76348ddb`) and Z.ai's BF16 weights |
+| Routed experts | NVFP4, served W4A16 | XSFP4, served W4A16: NVFP4 blocks fitted again from the BF16 weights with a smoothing folded into them, so no kernel applies anything at run time; the MTP layer's experts too |
+| Everything else | dense MLP NVFP4 (W4A16); attention, shared experts and head BF16 | FP4-Local's tensors as stored: MXFP8 (dense MLP, KDA, `lm_head`, the MTP layer's attention and shared expert), FP8 in 128×128 blocks (MLA and the shared experts), float32 norms; the vision tower's MXFP8 and NVFP4 |
+| Model on rank 0 at TP=2 / TP=3 (load line) | 97.38 / 79.30 GiB | 93.44 / 76.36 GiB |
+| Next token against the BF16 weights on this engine at TP=2 (128 documents, 144,285 positions): top-1 agreement / NLL above BF16 / KL, lower bound | 92.68% / +1.37% / 0.0510 | 93.26% / +0.85% / 0.0431 |
+| The same at TP=3 | 92.71% / +1.38% / 0.0511 | 93.30% / +0.85% / 0.0436 |
+| License | MIT | NVIDIA Open Model Agreement (a derivative of FP4-Local; `LICENSE` and `NOTICE` in the repository) |
+| Download (SETUP §2) | `download`, `verify-download` | the same with `--checkpoint xsfp4`, into `state/xsfp4` |
+| Rank files | nothing: `serve.sh`'s default | `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<revision>`, the lock's revision, on every rank |
+
+Each document went to the engine as token ids with `prompt_logprobs` of 20. The KL bound counts one by one the tokens whose probability both sides report (the engine's best 20, BF16's best 20 and the text's token) and the rest as one bucket, so it is lower than the KL over the whole vocabulary and does not compare with KL measured outside the engine; XSFP4's [model card](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4) gives both. XSFP4 is closer to BF16 than the pinned checkpoint by all three at both TP sizes, the per-document 95% intervals of the differences holding no zero. For reference, FP4-Local itself, loaded as stored by the same engine, gave 92.82% / +1.11% / 0.0510 at TP=2 and 92.75% / +1.07% / 0.0514 at TP=3.
+
+The two give different tokens, so each has its own reference values in [validation](docs/validation.md). XSFP4 leaves more memory beside the window: at TP=2 rank 0 kept an 8.9 GiB prompt cache against 5.2 GiB, and with `PARALLEL=` empty the engine took three streams against two. Its speeds are not the pinned checkpoint's: the drafts' acceptance and the layers' forms differ, so the [measured](#measured-on-the-release) figures belong to each checkpoint and compare only with themselves. FP4-Local's chat template, which XSFP4 keeps, differs from the pinned one in three places (a message without content renders nothing, a tool call's name is joined with `~`, and the check that sorts tool arguments stops early).
+
 ## Serving Defaults
 
 [`scripts/serve.sh`](scripts/serve.sh) holds them, the same on every rank:
@@ -80,12 +103,12 @@ The model thinks before it answers: the reasoning comes back in `reasoning_conte
 | Drafts | the checkpoint's MTP head (the engine's default) | same |
 | Window (`--context`) | 245,760 tokens: about the most one stream fits beside the model on each rank | 1,048,576 tokens (the model's limit) |
 | Requests decoded at once (`--parallel`) | 1 (`PARALLEL=1`); an empty `PARALLEL=` leaves it to the engine, which sizes the streams and the prompt cache from the memory free at start | same |
-| Prompt cache (kept prompt states, at the starts of 2,048-token chunks) | what the window leaves: 4.4 to 5.4 GiB on the reference hosts with the vision tower loaded (rank 0's load line; 5.2 to 6.3 GiB with `VISION=`, moving with the memory free at the start; 4.4 to 4.5 GiB with 3.0.0's engine) | 16.0 GiB on the reference ring |
+| Prompt cache (kept prompt states, at the starts of 2,048-token chunks) | what the window leaves: on the reference hosts with the vision tower loaded, 5.2 GiB on the pinned checkpoint and 8.9 GiB on XSFP4 (rank 0's load line; it moves with the memory free at the start: the earlier 3.x engines kept 4.4 to 5.4 GiB, 5.2 to 6.3 GiB with `VISION=`) | 16.0 GiB on the reference ring |
 | Reply limit when a request names none | 32,768 tokens (`--max-tokens`) | same |
 | Reasoning effort when a request names none | `high` (`--reasoning-effort`) | same |
 | NCCL | two rails per link, four channels, the IB transport named, from each rank's file; rank 0's address and port as `NCCL_COMM_ID` | two rails, four channels, the IB transport named, subnet-aware routing; rank 0's address and port as `NCCL_COMM_ID` for the ranks' liveness lines alone, and rank 0's NCCL id handed over in a file |
-| BF16 linears | upstream's tiled kernels (the engine's default) | the engine's glue kernels (`TF_GLM_MM=0` in the rank files): the tiled ones refuse a TP=3 rank's KDA width (upstream issue #1067) |
-| Prefill pause for heat | before each prompt chunk, every rank together, while any rank's hottest ACPI zone is above 92 °C, until all are at or below 88 °C (`TF_HEAT_HIGH`, `TF_HEAT_LOW`); also while that zone plus the rise of the last chunk run straight after another would pass 93 °C (`TF_HEAT_CEILING`) | same |
+| BF16 linears | upstream's tiled kernels (the engine's default) | same: since upstream 1.1.2 (issue #1067) they leave a TP=3 rank's KDA input untiled, where 3.1.0 and 3.2.0 needed the glue kernels (`TF_GLM_MM=0`) |
+| Prefill pause for heat | before each prompt chunk, every rank together, while any rank's hottest ACPI zone is above 92 °C, until all are at or below 88 °C (`TF_HEAT_HIGH`, `TF_HEAT_LOW`; 3.1.0 and 3.2.0 also paused ahead of a 93 °C ceiling, which 3.3.0's engine does not have) | same |
 | Image and video input | on (`VISION=1`, the engine's `--vision`): the checkpoint's vision tower on rank 0, PNG, JPEG and WebP images and videos as data URLs, at the engine's limits ([limits](#limits)); `VISION=` for text alone, every rank the same | same |
 | Container cores | the cores with the lowest maximum frequency: a GB10's efficiency cores, 0-4 and 10-14 (`create_container.sh`, `CPUSET`) | same |
 
@@ -112,9 +135,9 @@ Three places set a deployment. Copy the two files from [`examples/`](examples/),
 | | `MODEL_NAME`, `HOST`, `PORT` | `glm-tf`, `127.0.0.1`, `8095` | rank 0's model id and listener |
 | | `REASONING_EFFORT` | `high` | rank 0's effort for a request that names none (`low`, `medium`, `high`, `xhigh`, `max`; empty: the chat template's own) |
 | | `API_KEY_FILE` | none | rank 0's key file for serving beyond loopback (above) |
-| | `CHECKPOINT` | the pinned snapshot under `/hub` | the checkpoint directory inside the container, the same on every rank |
-| | `TF_HEAT_HIGH`, `TF_HEAT_LOW`, `TF_HEAT_CEILING` | `92`, `88`, `93` (°C) | the prefill heat wait and its look-ahead; the ceiling needs both bands; empty values for none; the same on every rank |
-| | `TF_GLM_MM` | unset (the tiled kernels); `0` in the TP=3 examples | `0` runs the BF16 linears on the engine's glue kernels, which TP=3 needs until upstream fixes issue #1067; the same on every rank |
+| | `CHECKPOINT` | the pinned snapshot under `/hub` | the checkpoint directory inside the container, the same on every rank; XSFP4's snapshot for that checkpoint ([checkpoints](#checkpoints)) |
+| | `TF_HEAT_HIGH`, `TF_HEAT_LOW` | `92`, `88` (°C) | the prefill heat wait's band; empty values for none; the same on every rank |
+| | `TF_GLM_MM` | unset (the tiled kernels) | `0` runs the BF16 linears on the engine's glue kernels instead, which give other tokens ([validation](docs/validation.md)); the same on every rank |
 | `serve.sh` arguments | after `TP RANK RANK_ENV` | none | passed to `tensorfold-native serve` after the defaults, so they win (`--context 131072`) |
 | Cluster file (`cluster.sh`) | `TP`, `HOSTS`, `CHECKOUT` | none, required | the TP size, SSH names in rank order, this repository's root on every host |
 | | `SSH`, `CONTAINER`, `WORK` | `ssh -o ConnectTimeout=20`, `glm53-tf3`, `$HOME/glm53-tf3` | how to reach the hosts, the container, the host directory at `/work` |
@@ -153,7 +176,8 @@ The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through t
 | `prompt_logprobs` | accepted | accepted on non-streamed `/v1/completions` |
 | `clear_thinking` | honoured | not passed to the chat template ([limits](#limits)) |
 | Reply fields | `tensorfold` with `accepted`, `drafted`, `rounds`, `cached`, `prefill_s`, `heat_wait_s`, `sha256` | `tensorfold` and `speculative` (above); cached tokens in `usage`; heat waits only in the log |
-| Heat settings | `TF_GLM_HEAT_HIGH`, `TF_GLM_HEAT_LOW`, `TF_GLM_HEAT_CEILING` | `TF_HEAT_HIGH`, `TF_HEAT_LOW`, `TF_HEAT_CEILING`, the same values |
+| Heat settings | `TF_GLM_HEAT_HIGH`, `TF_GLM_HEAT_LOW`, `TF_GLM_HEAT_CEILING` | `TF_HEAT_HIGH`, `TF_HEAT_LOW`, the same band; no ceiling |
+| XSFP4 checkpoint | not served | optional (`CHECKPOINT`) |
 | Image and container | `glm53-tf`, extensions built per container (`build_ext.sh`) | `glm53-tf3`, nothing built on the hosts |
 | Container cores | every core | the efficiency cores unless `CPUSET` says otherwise |
 | Tool-argument gate | the gate in front of the engine | the same gate, this line's copy run from `v3/` |
@@ -161,6 +185,31 @@ The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through t
 The two lines' containers both claim every GPU: run one line's engine at a time ([operations](docs/operations.md#hand-the-hosts-to-2x)).
 
 ## Measured on the Release
+
+**3.3.0** (2026-10-23, engine `d2d95b11`, upstream 1.1.2 with pull requests #1050 and #1179, image `glm53-tf3:3.3.0`). Launches started by the release's own `serve.sh` (the vision tower loaded, its default) and `cluster.sh`, every container on the efficiency cores, `TF_GLM_MM` unset at both TP sizes: three at TP=2, one of them with `PARALLEL=` empty, and two at TP=3, on each checkpoint. XSFP4's ran the release image. The pinned checkpoint's ran the image one engine commit before it (`aa12d8df`, without #1179's patch, which only lets an index name a shard in a folder), and in one more launch at each TP size the release image gave the pinned checkpoint the same decode-check hashes, edit reply and NLL. Nothing stopped them.
+
+| 3.3.0 | Pinned TP=2 | Pinned TP=3 | XSFP4 TP=2 | XSFP4 TP=3 |
+|---|---|---|---|---|
+| Start (s): the launch of every check / a second launch | 366 / 301 | 260 / 246 | 377 / 334 | 318 / 258 |
+| Decode check count / prose / code (tok/s) | 38.98 / 28.13 / 33.89 | 67.12 / 34.01 / 46.37 | 49.03 / 34.15 / 45.27 | 64.78 / 45.64 / 55.71 |
+| MTP acceptance length, same tasks | 3.066 / 1.882 / 2.621 | 4.645 / 1.858 / 2.954 | 3.276 / 1.796 / 2.971 | 3.362 / 1.947 / 2.823 |
+| `bench --kinds decode` (tok/s, median) | 44.00 | 56.03 | 54.15 | 66.23 |
+| `bench --kinds edit` (tok/s, median) | 71.33 | 90.99 | 82.76 | 106.43 |
+| Prefill of 38,960 tokens (tok/s, median of three) | 1,411.2 | 1,559.7 | 1,415.1 | 1,717.3 |
+| 199,307-token prompt (s) | 155.0 | 140.3 | 151.9 | 127.9 |
+| 499,254 and 1,035,295-token prompts, first token (s) | — | 399.5 / 1,064.9 | — | 373.0 / 1,015.7 |
+| A prompt of about 93,000 tokens cut 3 s in: the next request answered after (s), against the uncut prompt's first token | 0.36 against 68.8 | 1.29 against 62.8 | 0.32 against 68.6 | 0.91 against 56.7 |
+| Teacher-forced NLL, ja / en / code / math | 2.5412 / 2.9293 / 1.3145 / 0.6261 | 2.5285 / 2.9129 / 1.3158 / 0.6262 | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
+| tool-eval-bench through the gate | 92 | 95 | 93 | 93 |
+| Forty replies of up to 1,024 tokens after 6,000-token prompts (s, hottest zone) | 1,505, 75.2 °C | 1,233, 85.1 °C | 1,250, 76.5 °C | 981, 85.8 °C |
+| Hottest zone of a launch, by rank (°C) | 82.6 / 84.1 | 93.0 / 90.0 / 86.0 | 84.1 / 86.3 | 92.7 / 89.7 / 84.7 |
+| Lowest `MemAvailable`, by rank (GiB) | 11 / 13 | 18 / 20 / 26 | 11 / 13 | 21 / 22 / 28 |
+
+- **Against 3.2.0.** At TP=2 the pinned checkpoint's text path is 3.2.0's: 3.1.0's decode-check hashes, edit reply in 190 rounds and NLL, text by text, and the launch with `PARALLEL=` empty the same count hash. Decode, prefill and the edit reply moved by at most 0.7%, and rank 0 keeps a 5.2 GiB prompt cache (4.7). At TP=3 the BF16 linears run on upstream's tiled kernels, which upstream 1.1.2 opened to a TP=3 rank (issue #1067), in place of 3.2.0's glue kernels: the decode-check hashes and the NLL are new ([validation](docs/validation.md#decode-check)); the edit reply is 3.2.0's in 190 rounds, 1.3% faster (90.99 tok/s against 89.83), and the prefill 2.7% faster (1,559.7 against 1,518.2).
+- **Images.** Drafted equalled serial on a picture in every launch of every check.
+- **XSFP4.** Its decode-check hashes, edit reply and NLL are its own reference values ([validation](docs/validation.md#xsfp4)); a second launch gave the same at each TP size. Its speeds belong to its own text (see [checkpoints](#checkpoints)).
+- **Known behaviours of XSFP4.** At TP=3 the stop string's request of [validation](docs/validation.md#stopping-a-reply) (the numbers 1 to 1,000 at temperature 0, stopped at `\n300\n`) falls into a loop before 300 and runs to its 4,000-token limit, as on upstream 1.1.1; it stops at 300 at TP=2, and on the pinned checkpoint at both sizes. Generated token by token, such a count sometimes writes one number twice, at a place that moves with the TP size and with where generation starts; from a prefilled context at the same place the engine picks the right number (checked at one place). The pinned checkpoint did not repeat in the same checks, MTP drafts change nothing, and the cause is not established. At TP=3 XSFP4's 8-token greedy reply to "The capital of France is" ends "Paris is spelled" where the pinned checkpoint's ends "Paris is pronounced", so the plain request of the prompt-score and structured-output checks has its own hash there ([validation](docs/validation.md#xsfp4)).
+- **Heat.** With no ceiling, a prompt waits only while the hottest zone is above 92 °C, until 88 °C. Only the 1,035,295-token prompts waited, at TP=3: on the pinned checkpoint, in the afternoon, 38 s in 19 pauses of 2 s, its first token after 1,064.9 s (1,026.9 s without the waits, against 3.2.0's 1,022.9 s), and on XSFP4, at night, 42 s in 21 pauses. No zone reached the thermal watch's stop.
 
 **3.2.0** (2026-10-20, engine `1a8f1efd`, upstream 1.1.1, image `glm53-tf3:3.2.0`). Five launches on the pinned checkpoint with the release image, started by its own `serve.sh` (the vision tower loaded, its default) and this release's `cluster.sh`: three at TP=2, one of them with `PARALLEL=` empty, and two at TP=3, every container on the efficiency cores, `TF_GLM_MM=0` at TP=3; nothing stopped them.
 
@@ -252,8 +301,9 @@ v3/
   CHANGELOG.md      the 3.x releases; a v3.* tag publishes its section
   glm53_tf/         the Python tools: download, verify-download, tool-gate,
                     decode-check, decode-divergence, score-nll, bench, long-input
-  config/           model.lock.json (the pinned checkpoint), engine.lock.json (the engine commit, the Zig
-                    compiler and xgrammar), axl.lock.json (the published AXL weights), nll_set.json (the NLL set)
+  config/           model.lock.json (the pinned checkpoint), xsfp4.lock.json (the XSFP4 checkpoint),
+                    engine.lock.json (the engine commit, the Zig compiler and xgrammar), axl.lock.json
+                    (the published AXL weights), nll_set.json (the NLL set)
   requirements/     huggingface.lock.txt: the Hugging Face client for the download and its verification
   docker/           Dockerfile: the image, with the engine pinned by ENGINE_REF
   scripts/          create_container.sh  the serving container on each host
@@ -273,15 +323,17 @@ v3/
 
 - **BIZ is an intent, not a promise** ([repository README](../README.md#biz)).
 - **The acceptance is the reference hosts'.** A launch elsewhere, or on another image ID, is accepted by running [validation](docs/validation.md) there.
+- **XSFP4 is this repository's maintainer's checkpoint**, a derivative of NVIDIA's FP4-Local under the NVIDIA Open Model Agreement; it is not an NVIDIA or Z.ai release.
 - **The engine is this line's fork of upstream.** What serves other users goes to upstream TensorFold as pull requests (#1016, #1017 and #1018 became upstream's own in 1.1.1); the release branch keeps the rest.
 
 ## Next Action
 
 Each item is a trigger and what this line then does.
 
-- Upstream fixes issue #1067 (the tiled BF16 linears at a TP=3 rank's KDA width) in a release → move onto it, drop `TF_GLM_MM=0` from the TP=3 rank files and accept TP=3 again on the default kernels.
 - Upstream's TP bootstrap (pull request #636) lands → start TP=3 on it and drop the NCCL id file from the release branch.
-- Upstream takes pull request #1053 (the waiting ranks sleep while rank 0 has no stream) → follow it in a 3.x release and measure again whether the container still needs the efficiency cores.
+- Upstream takes pull request #1050 (FP4-Local's loader) in a release → move onto it and drop its commits from the release branch; accept both checkpoints again.
+- Upstream releases pull request #1179 (an index may name a shard in a folder inside the model folder; merged after 1.1.2) → move onto it and drop its patch from the release branch.
+- 3.3.0's engine has upstream's pull request #1053 (the waiting ranks sleep while rank 0 has no stream, in 1.1.2) → measure again whether the container still needs the efficiency cores.
 - `chat_template_kwargs.clear_thinking` → pass it to the chat template as 2.x does, and offer it upstream.
 - The published AXL weights on the native engine → accept them as 2.x did.
 
