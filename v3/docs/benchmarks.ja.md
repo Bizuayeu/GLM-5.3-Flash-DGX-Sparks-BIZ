@@ -11,7 +11,7 @@
 - **エンジンとimage。** 各版の[リリースでの測定値](../README.ja.md#リリースでの測定値)の項が名指すimageとエンジンを、`serve.sh` の既定で：1本のstream、TP=2で3.4.0までは245,760 token（3.5.0から524,288）・TP=3で1,048,576 tokenの窓、92 °C／88 °Cの熱の待ち。TP=2の各checkpointで1回の起動は空の `PARALLEL=`（エンジン自身によるstreamの選択）で走らせ、そのことを書いています。
 - **core。** 全containerを効率coreの0-4と10-14に。`create_container.sh` が作るとおりです。
 - **見張り。** メモリの見張りを全ホストで、熱の見張りを起動の全ホストで動かしました。
-- **クライアント。** 要求はすべてrank 0からloopbackのエンジンへ一つずつ、検査が別に言わない限りtemperature 0、推論のeffortはlowです。道具はcontainerの中でcheckoutの `v3/` から動かしました。
+- **クライアント。** 要求はすべてrank 0からloopbackのエンジンへ一つずつ、検査が別に言わない限りtemperature 0、推論のeffortはlowです。道具はcontainerの中で、作業directory（`/work`）の下のcheckoutの `v3/` から動かしました。
 
 ## 長い要求の合間の冷却
 

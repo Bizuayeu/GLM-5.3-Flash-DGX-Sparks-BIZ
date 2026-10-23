@@ -129,12 +129,13 @@ Three places set a deployment. Copy the two files from [`examples/`](examples/),
 |---|---|---|---|
 | Rank file (`/work/rank.env`, sourced by `serve.sh`) | `MASTER` | none, required | rank 0's address on the link, the same on every rank |
 | | `NCCL_PORT` | `29583` | rank 0's port on `MASTER` in `NCCL_COMM_ID`: NCCL's bootstrap at TP=2; the ranks' liveness lines take the port after it at both TP sizes |
-| | `ID_FILE` (TP=3) | `/work/nccl-id` | where rank 0 writes its NCCL id and the other ranks read it (`cluster.sh` copies it between the hosts) |
+| | `ID_FILE` (TP=3) | `/work/nccl-id` | where rank 0 writes its NCCL id and the other ranks read it (`cluster.sh` copies `/work/nccl-id` alone between the hosts) |
 | | `NCCL_IB_HCA`, `NCCL_IB_GID_INDEX`, `NCCL_SOCKET_IFNAME` | the reference hosts' values | the RDMA devices on the links (both rails), the RoCE v2 GID index, the bootstrap interface |
 | | `NCCL_NET`, `NCCL_IB_DISABLE`, `NCCL_IB_ROCE_VERSION_NUM`, `NCCL_IB_ADDR_FAMILY`, `NCCL_SOCKET_FAMILY`, `NCCL_MIN_NCHANNELS`, `NCCL_MAX_NCHANNELS` | NCCL's IB transport over RoCE v2 and IPv4, four channels | as in 2.x ([2.x decisions](../v2/docs/decisions.md#fabric)); TP=3 adds subnet-aware routing and `NCCL_NET_PLUGIN=none` ([`tp3-rank0.env`](examples/tp3-rank0.env)) |
 | | `NCCL_DEBUG`, `NCCL_DEBUG_SUBSYS` | `INFO`, `INIT,NET` | NCCL logs each connection's transport once at start, which [setup §5](SETUP.md#5-start) reads |
 | | `PARALLEL` | `1` | requests decoded at once; empty for the engine's own choice ([serving defaults](#serving-defaults)); the same on every rank |
 | | `CONTEXT` | `524288` at TP=2, `1048576` at TP=3 | the window; the same on every rank (the rank file examples give NVIDIA's NVFP4 `245760` at TP=2) |
+| | `VISION` | `1` | image and video input, read by the checkpoint's vision tower on rank 0 (`--vision`); empty for text alone; the same on every rank |
 | | `MODEL_NAME`, `HOST`, `PORT` | `glm-tf`, `127.0.0.1`, `8095` | rank 0's model id and listener |
 | | `REASONING_EFFORT` | `high` | rank 0's effort for a request that names none (`low`, `medium`, `high`, `xhigh`, `max`; empty: the chat template's own) |
 | | `API_KEY_FILE` | none | rank 0's key file for serving beyond loopback (above) |
@@ -343,7 +344,7 @@ Each item is a trigger and what this line then does.
 - Upstream's TP bootstrap (pull request #636) lands → start TP=3 on it and drop the NCCL id file from the release branch.
 - Upstream takes pull request #1050 (FP4-Local's loader) in a release → move onto it and drop its commits from the release branch; accept both checkpoints again.
 - Upstream releases pull request #1179 (an index may name a shard in a folder inside the model folder; merged after 1.1.2) → move onto it and drop its patch from the release branch.
-- 3.3.0's engine has upstream's pull request #1053 (the waiting ranks sleep while rank 0 has no stream, in 1.1.2) → measure again whether the container still needs the efficiency cores.
+- 3.3.0's engine has upstream's pull request #1053 (the waiting ranks sleep while rank 0 has no stream, in 1.1.2); the releases since ran on the efficiency cores, so it is still open → measure again whether the container still needs them.
 - `chat_template_kwargs.clear_thinking` → pass it to the chat template as 2.x does, and offer it upstream.
 - The published AXL weights on the native engine → accept them as 2.x did.
 

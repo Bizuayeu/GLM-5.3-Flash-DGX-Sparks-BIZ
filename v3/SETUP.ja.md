@@ -70,7 +70,7 @@ rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、NVI
 
 ## 6. tool引数ゲート（任意）
 
-ゲートは2.x系の中継で、各tool callの引数をtoolの必須項目と突き合わせ、外れたらmodelにもう一度だけ尋ねます（[2.x系の手順7](../v2/SETUP.ja.md#7-tool引数ゲート任意)）。エンジンには依存しません。rank 0で、`v3/` から仮想環境で、またはcontainerの中でcheckoutから：
+ゲートは2.x系の中継で、各tool callの引数をtoolの必須項目と突き合わせ、外れたらmodelにもう一度だけ尋ねます（[2.x系の手順7](../v2/SETUP.ja.md#7-tool引数ゲート任意)）。エンジンには依存しません。rank 0で、`v3/` から仮想環境で、またはcontainerの中で作業directoryの下のcheckoutから（containerがmountするのはそれとcacheだけ）：
 
 ```sh
 python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log ../records/<run>/gate.jsonl

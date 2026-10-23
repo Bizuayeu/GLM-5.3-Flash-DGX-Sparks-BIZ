@@ -128,12 +128,13 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 |---|---|---|---|
 | rankのファイル（`/work/rank.env`、`serve.sh` が読む） | `MASTER` | なし（必須） | リンク上のrank 0のアドレス。全rankで同じ |
 | | `NCCL_PORT` | `29583` | `NCCL_COMM_ID` の `MASTER` 上のrank 0のport：TP=2ではNCCLのbootstrap。rankどうしの生存の線は、どちらのTPでもその次のportを使う |
-| | `ID_FILE`（TP=3） | `/work/nccl-id` | rank 0がNCCLのidを書き、他のrankがそれを読む場所（`cluster.sh` がホストの間で写す） |
+| | `ID_FILE`（TP=3） | `/work/nccl-id` | rank 0がNCCLのidを書き、他のrankがそれを読む場所（`cluster.sh` がホストの間で写すのは `/work/nccl-id` だけ） |
 | | `NCCL_IB_HCA`・`NCCL_IB_GID_INDEX`・`NCCL_SOCKET_IFNAME` | 参照機の値 | リンクのRDMAデバイス（両rail）、RoCE v2のGIDのindex、bootstrapのinterface |
 | | `NCCL_NET`・`NCCL_IB_DISABLE`・`NCCL_IB_ROCE_VERSION_NUM`・`NCCL_IB_ADDR_FAMILY`・`NCCL_SOCKET_FAMILY`・`NCCL_MIN_NCHANNELS`・`NCCL_MAX_NCHANNELS` | RoCE v2とIPv4の上のNCCLのIBのtransport、4 channel | 2.x系と同じ（[2.x系の決定](../v2/docs/decisions.ja.md#fabric)）。TP=3はsubnet-aware routingと `NCCL_NET_PLUGIN=none` が加わります（[`tp3-rank0.env`](examples/tp3-rank0.env)） |
 | | `NCCL_DEBUG`・`NCCL_DEBUG_SUBSYS` | `INFO`・`INIT,NET` | NCCLが起動時に各接続のtransportを一度だけ書き、[手順書 §5](SETUP.ja.md#5-起動)がそれを読みます |
 | | `PARALLEL` | `1` | 同時にdecodeする要求。空ならエンジン自身の選択（[配信の既定](#配信の既定)）。全rankで同じ |
 | | `CONTEXT` | TP=2で `524288`、TP=3で `1048576` | 窓。全rankで同じ（rankのファイルの例は、TP=2のNVIDIAのNVFP4に `245760` を渡す） |
+| | `VISION` | `1` | 画像と動画の入力。rank 0でcheckpointのvision towerが読む（`--vision`）。空ならtextだけ。全rankで同じ |
 | | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け |
 | | `REASONING_EFFORT` | `high` | effortを指定しない要求にrank 0が使うeffort（`low`・`medium`・`high`・`xhigh`・`max`。空：chat template自身のもの） |
 | | `API_KEY_FILE` | なし | loopbackの外で配信するときのrank 0のkeyのファイル（上記） |
@@ -342,7 +343,7 @@ v3/
 - 上流のTPのbootstrap（pull request #636）が入る → TP=3をその上で起動し、リリースのbranchからNCCLのidのファイルを外す。
 - 上流がpull request #1050（FP4-Localの読み込み）をリリースに入れる → その上へ移り、リリースのbranchからそのcommitを外す。2つのcheckpointをもう一度受け入れる。
 - 上流がpull request #1179（indexがmodelのfolderの中のfolderにあるshardを名指せる。1.1.2の後に取り込まれた）をリリースに入れる → その上へ移り、リリースのbranchからそのpatchを外す。
-- 3.3.0のエンジンは上流のpull request #1053（rank 0にstreamが無い間、待つrankが眠る。1.1.2に入った）を持つ → containerにまだ効率coreが要るかを測り直す。
+- 3.3.0のエンジンは上流のpull request #1053（rank 0にstreamが無い間、待つrankが眠る。1.1.2に入った）を持つ。その後のリリースは効率coreで回したので、まだ開いている → containerにまだ効率coreが要るかを測り直す。
 - `chat_template_kwargs.clear_thinking` → 2.x系と同じくchat templateに渡し、上流にも出す。
 - ネイティブエンジンでの公開したAXLの重み → 2.x系と同じく受け入れる。
 

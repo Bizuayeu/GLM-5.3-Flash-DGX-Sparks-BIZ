@@ -70,7 +70,7 @@ Rank 0 serves the OpenAI-compatible API on loopback. On NVIDIA's NVFP4 with 3.2.
 
 ## 6. Tool-argument gate (optional)
 
-The gate is 2.x's relay that checks each tool call's arguments against the tool's required fields and asks the model once more when one fails ([2.x step 7](../v2/SETUP.md#7-tool-argument-gate-optional)). It does not depend on the engine. On rank 0, from `v3/` with its virtual environment, or in the container from the checkout:
+The gate is 2.x's relay that checks each tool call's arguments against the tool's required fields and asks the model once more when one fails ([2.x step 7](../v2/SETUP.md#7-tool-argument-gate-optional)). It does not depend on the engine. On rank 0, from `v3/` with its virtual environment, or in the container from a checkout under the work directory (the container mounts only that and the cache):
 
 ```sh
 python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log ../records/<run>/gate.jsonl
