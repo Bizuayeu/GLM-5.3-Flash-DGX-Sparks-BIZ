@@ -101,7 +101,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | 設定 | TP=2（2台） | TP=3（3台） |
 |---|---|---|
 | checkpoint | XSFP4、lockのrevision（`CHECKPOINT` を書かない。NVIDIAのNVFP4は `CHECKPOINT` で、[checkpoint](#checkpoint)） | 同じ |
-| KV cache | latentとindexのkeyをBF16（エンジンが持つ唯一の形） | 同じ |
+| KV cache | latentとindexのkeyをBF16（エンジンの既定。`--kv-cache fp8` で選べるFP8のlatent cacheは受け入れの外：[制限](#制限)） | 同じ |
 | draft | checkpointのMTP head（エンジンの既定） | 同じ |
 | 窓（`--context`） | 524,288 token：各rankでXSFP4の隣に1本のstreamとprompt cacheが入る。NVIDIAのNVFP4もこの窓で起動するが（prompt cacheは1.0 GiB）、rankのファイルの例は `CONTEXT=245760` を渡す | 1,048,576 token（モデルの上限） |
 | 同時にdecodeする要求（`--parallel`） | 1（`PARALLEL=1`）。空の `PARALLEL=` ではエンジンに任せ、エンジンは起動時の空きメモリからstreamとprompt cacheの大きさを決める | 同じ |

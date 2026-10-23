@@ -102,7 +102,7 @@ The two give different tokens, so each has its own reference values in [validati
 | Setting | TP=2 (two hosts) | TP=3 (three hosts) |
 |---|---|---|
 | Checkpoint | XSFP4 at its lock's revision (`CHECKPOINT` unset; NVIDIA's NVFP4 with `CHECKPOINT`, [checkpoints](#checkpoints)) | same |
-| KV cache | BF16 latent and index keys (the engine's only form) | same |
+| KV cache | BF16 latent and index keys (the engine's default; `--kv-cache fp8` opts into its FP8 latent cache, outside the acceptance: [limits](#limits)) | same |
 | Drafts | the checkpoint's MTP head (the engine's default) | same |
 | Window (`--context`) | 524,288 tokens: one stream and a prompt cache beside XSFP4 on each rank; NVIDIA's NVFP4 starts at it too, with a 1.0 GiB prompt cache, and the rank file examples give it `CONTEXT=245760` | 1,048,576 tokens (the model's limit) |
 | Requests decoded at once (`--parallel`) | 1 (`PARALLEL=1`); an empty `PARALLEL=` leaves it to the engine, which sizes the streams and the prompt cache from the memory free at start | same |
