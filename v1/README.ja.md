@@ -1,6 +1,6 @@
-# GLM-5.3-Flash-NVFP4-DGX-Sparks-BIZ
+# GLM-5.3-Flash-DGX-Sparks-BIZ
 
-**略称：NVFP4 BIZ**（引用は「NVFP4 BIZ 1.31.1」の形）。この配信スタックの呼び名で、NVIDIAの固定checkpointを配布のまま配信します。公開している任意設定の重みは **NVFP4 BIZ AXL**（AXL：attention projectionと `lm_head` をW4A16にしたもの。Hugging Faceの [Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16) で、リポジトリ名は中身の記述）。リポジトリ名はどちらもそのままです。
+**略称：GLM-5.3-Flash BIZ**（引用は「GLM-5.3-Flash BIZ 1.31.1」の形）。この配信スタックの呼び名で、NVIDIAの固定checkpointを配布のまま配信します。公開している任意設定の重みは **NVFP4 BIZ AXL**（AXL：attention projectionと `lm_head` をW4A16にしたもの。Hugging Faceの [Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16) で、リポジトリ名は中身の記述）。
 
 **BIZ**は保守者の印で、リポジトリの意図を示す語です。意味することと意味しないことは[リポジトリのREADME](../README.ja.md#biz)にあります。
 
@@ -84,7 +84,7 @@ python -m glm53_setup build-reference
 
 TP=2の行は1.19.0〜1.22.0での測定で、TP=3は表の後にあります。GB10×2、TP=2、prefillはFA2、expert内のtoken順を固定、indexerのtop-kの同点を決定、MTP k=3。二つのprofile：**配布既定**（固定のNVIDIA重み。テンプレートが配信するもの）と、**公開した任意設定**（attention projectionと `lm_head` をW4A16 NVFP4に再パックし、KDAのinput projectionを分割して宣言した `runtime.derived_checkpoint` で配信。重みは[Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16)）。任意設定の列は参照対が配信するprofile＝[同時2系列のAXL profile](examples/server.axl.example.toml)です。**両列とも2026-09-28に1.19.0で、同じ枠で測りました**：配信中の任意設定→配布既定→任意設定の同時1系列（反復性のため）→配信中の任意設定の順に切り替え、同じdriverを使い、両profileとも両rankを高性能コアに置きました（[1.19.0での測定](docs/benchmarks.ja.md#両profileを同じ枠でgpuクロックの上限つきで2026-09-28)）。tool引数ゲートの行だけは2026-09-29に1.22.0で測りました。その後に測ったimageは1.29.9まで、両profileのdecode検査のtoken idを再現しました（[1.29.9での測定](docs/benchmarks.ja.md#1299での測定)）。どのテンプレートも設定する共有メモリの読み手のspinで、任意設定のcountingのdecodeは1.4%遅くなります。**対と隣の機体はGPUクロックを2,200 MHzに制限した状態で測り**、各段の前に温度が下がるのを待ちました。GB10は持続負荷の下で電源ごと落ちることがあるためで、上限の代価はprefillで約2%、長い入力で1〜5%です（[GPUクロックの上限](../docs/hosts.ja.md#gpuクロックの上限)）。3回または9回の中央値で、幅・条件・旧版はすべて[ベンチマーク](docs/benchmarks.ja.md)にあります。文種は常に 数え上げ／散文／コード の順に並べます。
 
-| 分類 | 測定 | 配布既定（固定の重みでのNVFP4 BIZ） | 公開した任意設定（NVFP4 BIZ AXL、配信中の同時2系列profile） |
+| 分類 | 測定 | 配布既定（固定の重みでのGLM-5.3-Flash BIZ） | 公開した任意設定（NVFP4 BIZ AXL、配信中の同時2系列profile） |
 |---|---|---|---|
 | prefill | prefill（38,962 tokenのprompt） | 1,233.4 tok/s | **1,259.1 tok/s** |
 | decode | decode（2,048 tokenのpromptの後）：数え上げ／散文／コード | 32.59／21.12／28.21 tok/s | **46.73／30.06／39.48 tok/s**（もう一方が走っている間は数え上げ32.87／散文22.43） |

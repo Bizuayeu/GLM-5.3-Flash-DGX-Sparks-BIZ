@@ -208,11 +208,11 @@ class RecipeCitationTests(unittest.TestCase):
 class CitationTests(unittest.TestCase):
     def test_short_name_citation_carries_the_project_version(self):
         self.assertEqual(
-            citation_problems("README.md", 'cite as "NVFP4 BIZ 1.9.2"', "1.9.2"), []
+            citation_problems("README.md", 'cite as "GLM-5.3-Flash BIZ 1.9.2"', "1.9.2"), []
         )
         self.assertEqual(
             citation_problems(
-                "README.ja.md", "（引用は「NVFP4 BIZ 1.9.1」の形）", "1.9.2"
+                "README.ja.md", "（引用は「GLM-5.3-Flash BIZ 1.9.1」の形）", "1.9.2"
             ),
             ["stale short-name citation: README.ja.md cites 1.9.1, version is 1.9.2"],
         )

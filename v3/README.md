@@ -1,4 +1,4 @@
-# NVFP4 BIZ 3.x (TensorFold native)
+# GLM-5.3-Flash BIZ 3.x (TensorFold native)
 
 [日本語](README.ja.md) · [Repository index](../README.md) · [Setup runbook](SETUP.md) · [Validation](docs/validation.md) · [Changelog](CHANGELOG.md)
 

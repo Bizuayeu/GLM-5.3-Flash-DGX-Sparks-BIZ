@@ -1,4 +1,4 @@
-# NVFP4 BIZ 3.x（TensorFoldネイティブ）
+# GLM-5.3-Flash BIZ 3.x（TensorFoldネイティブ）
 
 [English](README.md) · [リポジトリの索引](../README.ja.md) · [配備の手順書](SETUP.ja.md) · [検証](docs/validation.ja.md) · [変更履歴](CHANGELOG.ja.md)
 

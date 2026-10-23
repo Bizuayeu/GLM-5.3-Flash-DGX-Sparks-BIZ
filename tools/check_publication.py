@@ -142,8 +142,8 @@ def recipe_problems(readme, documents):
 
 # The README cites the stack by short name and version; pyproject.toml owns the version.
 CITATIONS = {
-    "README.md": rf'cite as "NVFP4 BIZ {VERSION}"',
-    "README.ja.md": rf"引用は「NVFP4 BIZ {VERSION}」",
+    "README.md": rf'cite as "GLM-5\.3-Flash BIZ {VERSION}"',
+    "README.ja.md": rf"引用は「GLM-5\.3-Flash BIZ {VERSION}」",
 }
 
 

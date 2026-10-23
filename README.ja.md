@@ -1,4 +1,4 @@
-# GLM-5.3-Flash-NVFP4-DGX-Sparks-BIZ
+# GLM-5.3-Flash-DGX-Sparks-BIZ
 
 ![GLM-5.3-Flash BIZ：DGX Spark互換のGB10機2〜3台で動かすローカルAI](assets/banner.png)
 
