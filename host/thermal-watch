@@ -9,7 +9,9 @@ the GPU temperature, power and clock of the latest gb10-telemetry row to LOG (re
 at or above --threshold stop the engine. The engine runs as root inside its container,
 so it is found and stopped through `docker exec`: a pkill from the host user fails on
 it. Ends when the stop file (LOG with .stop in place of its suffix) exists or the
-engine is gone. Verified with the 2.x engine: container glm53-tf, `tensorfold serve`.
+engine is gone. The defaults are 2.x's engine (container glm53-tf, `tensorfold serve`),
+with which it was verified; on a 3.x host they find no engine and the watch ends at
+once, so 3.x gives --container glm53-tf3 --process 'tensorfold-native serve'.
 """
 
 import argparse

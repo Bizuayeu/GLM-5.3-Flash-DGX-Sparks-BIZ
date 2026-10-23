@@ -1,7 +1,7 @@
 # The repository tools and their tests at the checkout root; each line keeps its own settings in its pyproject.toml.
 target-version = "py311"
 line-length = 88
-extend-exclude = ["v1", "v2", "records", "state", "upstream", "dist"]
+extend-exclude = ["v1", "v2", "v3", "records", "state", "upstream", "dist"]
 
 [lint]
 select = ["E4", "E7", "E9", "F", "I", "BLE", "PLW1510"]

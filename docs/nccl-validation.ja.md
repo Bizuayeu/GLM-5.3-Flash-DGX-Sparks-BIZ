@@ -43,7 +43,7 @@ NVIDIAの[Spark移植ガイド](https://docs.nvidia.com/dgx/dgx-spark-porting-gu
 
 ## 3台のリング
 
-リング（[ネットワーク](qsfp-network.ja.md#8-3台をリングにつなぐ)）では、まず3台すべてで`--world-size 3`を指定し、起動と同じfabric環境、`--head`にheadのアドレスを与えて1回実行します。rank 2と1をrank 0より先に起動します。続いて各リンクを`--world-size 2`で単独に検査します。1.x系の`server plan`は各rankのリンクを`link_probes`に出し、組のhead、診断でのrank、そのリンクだけを指定する環境変数を示します。3ノード以上では1.x系のランチャーが`NCCL_IB_SUBNET_AWARE_ROUTING=1`を設定し（2.x系はTP=3のrankのファイルが同じ設定を持ちます）、NCCLは各peerへそのサブネットに届くリンクで送ります。
+リング（[ネットワーク](qsfp-network.ja.md#8-3台をリングにつなぐ)）では、まず3台すべてで`--world-size 3`を指定し、起動と同じfabric環境、`--head`にheadのアドレスを与えて1回実行します。rank 2と1をrank 0より先に起動します。続いて各リンクを`--world-size 2`で単独に検査します。1.x系の`server plan`は各rankのリンクを`link_probes`に出し、組のhead、診断でのrank、そのリンクだけを指定する環境変数を示します。3ノード以上では1.x系のランチャーが`NCCL_IB_SUBNET_AWARE_ROUTING=1`を設定し（2.x系と3.x系はTP=3のrankのファイルが同じ設定を持ちます）、NCCLは各peerへそのサブネットに届くリンクで送ります。
 
 合格条件は上と同じで、全rankに適用します。参照の結果（GB10 3台、NCCL実ランタイム2.30.7、2026-09-29）：3 rankで11項目すべて合格。NCCLは各機の2つのHCAを1つの仮想NICにまとめ、0→1→2のringを組み、全チャネルが`NET/IB`で、socketへのfallbackはありませんでした。AllReduceのbus bandwidthはFP32で16 MiB 7.87 GB/s、256 MiB 7.01 GB/s、BF16で8.56と6.94 GB/sです。これはbus bandwidthであり、診断ツールの1 rankあたり`payload_GB_per_s`ではありません。GPUDirect RDMAはpairと同じく無効のままでした。
 

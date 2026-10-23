@@ -1,6 +1,6 @@
 # QSFP direct-link hands-on — NetworkManager
 
-[日本語](qsfp-network.ja.md) · [Host preparation](hosts.md) · [1.x setup](../v1/SETUP.md) · [2.x setup](../v2/SETUP.md)
+[日本語](qsfp-network.ja.md) · [Host preparation](hosts.md) · [1.x setup](../v1/SETUP.md) · [2.x setup](../v2/SETUP.md) · [3.x setup](../v3/SETUP.md)
 
 Create a fixed IPv4 path between two hosts while retaining the management Wi-Fi default route. **Physical link, IP reachability, RoCE configuration and actual NCCL transport are separate checks. Completing this guide does not qualify TP=2.** For three hosts cabled as a ring (TP=3), set up each link this way, then follow [section 8](#8-three-hosts-in-a-ring).
 
@@ -125,7 +125,7 @@ Do not reuse that size for a different MTU without checking. Raising MTU to 9000
 
 Use `ibdev2netdev` to identify the HCA for the selected interface. Under `/sys/class/infiniband/<HCA>/ports/1/`, compare the same index in `gids/`, `gid_attrs/types/` and `gid_attrs/ndevs/`.
 
-Select an index whose type is RoCE v2, net device is the selected interface, and IPv4-mapped GID matches the local fixed IPv4. Measure the index on each host; do not assume the commonly seen value `3`. Pass these observations to the line's settings: 1.x's [site configuration](../v1/docs/operations.md#network-and-site-configuration), 2.x's [rank files](../v2/SETUP.md#4-container-and-rank-file-on-each-host). An ACTIVE link or an available GID does not prove NCCL used that transport.
+Select an index whose type is RoCE v2, net device is the selected interface, and IPv4-mapped GID matches the local fixed IPv4. Measure the index on each host; do not assume the commonly seen value `3`. Pass these observations to the line's settings: 1.x's [site configuration](../v1/docs/operations.md#network-and-site-configuration), 2.x's and 3.x's rank files ([2.x](../v2/SETUP.md#4-container-and-rank-file-on-each-host), [3.x](../v3/SETUP.md#4-container-and-rank-file-on-each-host)). An ACTIVE link or an available GID does not prove NCCL used that transport.
 
 ## 7. Persistence, recovery and completion
 
@@ -165,7 +165,7 @@ sudo nmcli connection modify <LINK_TO_THIRD> +ipv4.routes "10.40.0.3/32 10.53.2.
 sudo nmcli device reapply <INTERFACE_OF_EACH_LINK>
 ```
 
-`glm53-host` and `glmhost` are example names: the reference ring's dummy interface is `tp3host0` (connection `tp3-host`), the name 2.x's TP=3 rank files give `NCCL_SOCKET_IFNAME` ([`tp3-rank0.env`](../v2/examples/tp3-rank0.env)). Use your own name there and, for 1.x, in `host_interface`. `device reapply` applies the saved routes without taking the link down. Repeat on the other two hosts with their own /32 and peers. Check from each host:
+`glm53-host` and `glmhost` are example names: the reference ring's dummy interface is `tp3host0` (connection `tp3-host`), the name 2.x's and 3.x's TP=3 rank files give `NCCL_SOCKET_IFNAME` ([2.x](../v2/examples/tp3-rank0.env), [3.x](../v3/examples/tp3-rank0.env)). Use your own name there and, for 1.x, in `host_interface`. `device reapply` applies the saved routes without taking the link down. Repeat on the other two hosts with their own /32 and peers. Check from each host:
 
 ```sh
 ip route get 10.40.0.2

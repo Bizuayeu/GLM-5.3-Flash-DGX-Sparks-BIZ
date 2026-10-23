@@ -2,7 +2,7 @@
 
 [日本語](licensing.ja.md) · [Provenance and notices](../THIRD_PARTY_NOTICES.md)
 
-This guide covers both serving lines. **Original repository code and documentation are Apache-2.0: commercial use, modification, and paid or free redistribution are permitted subject to its conditions. Weights, containers and harnesses retain separate terms.** This is an operational summary; the applicable license text and artifact version govern.
+This guide covers every serving line. **Original repository code and documentation are Apache-2.0: commercial use, modification, and paid or free redistribution are permitted subject to its conditions. Weights, containers and harnesses retain separate terms.** This is an operational summary; the applicable license text and artifact version govern.
 
 ## Permissions by artifact
 
@@ -29,7 +29,7 @@ Both are permissive: commercial use, modification, redistribution and inclusion 
 | Changed files | Keep the copyright and permission notice | Additionally mark each modified file as changed (this project's vLLM patching writes that comment into the patched source) |
 | Trademarks | Not addressed | No trademark rights are granted |
 
-Original code here is Apache-2.0 because the express patent grant and the change-marking rule make review easier for adopting organizations. The weights are MIT because that is what the upstream Z.ai model and the NVIDIA model card state; this project does not relicense them.
+Original code here is Apache-2.0 because the express patent grant and the change-marking rule make review easier for adopting organizations. NVIDIA's NVFP4 weights and their published AXL repack are MIT because that is what the upstream Z.ai model and the NVIDIA model card state, and XSFP4 keeps its source's NVIDIA Open Model Agreement ([weight notices](#weight-notices)); this project does not relicense them.
 
 ## Distributing Apache-covered material
 

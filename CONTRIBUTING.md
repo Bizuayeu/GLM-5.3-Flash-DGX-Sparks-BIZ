@@ -26,7 +26,7 @@ ruff format --check tools tests host/nccl_probe.py host/gb10-telemetry host/cool
 python tools/check_publication.py
 ```
 
-The audit applies its line rules to every line (version, license, model pin, a changelog section for the version; 1.x also its document map, architecture page and README citations). `python tools/check_publication.py --duplicates` also lists measured-looking numbers found on more than one page of a line; it is a warning for whoever edits the documents, since a number has one owner page but may be cited deliberately.
+The audit applies its line rules to every line (version, license, model pin; 2.x and 3.x also a changelog section for the version, which `tests/test_lines.py` checks for every line; 1.x also its document map, architecture page and README citations). `python tools/check_publication.py --duplicates` also lists measured-looking numbers found on more than one page of a line; it is a warning for whoever edits the documents, since a number has one owner page but may be cited deliberately.
 
 An optional CI job also runs 1.x's tests with torch built for CPU (`v1/requirements/cpu-torch.lock.txt`, installed after 1.x's test lock), so the tests that need torch but no GPU run too; those that need CUDA or the pinned vLLM image still skip there and run on the GPU hosts only. GPU checks are separate from CPU tests. Use the pinned image and record effective arguments, output completeness, numerical differences and failures. The validation procedures are each line's: [1.x](v1/docs/validation.md), [2.x](v2/docs/validation.md) and [3.x](v3/docs/validation.md).
 

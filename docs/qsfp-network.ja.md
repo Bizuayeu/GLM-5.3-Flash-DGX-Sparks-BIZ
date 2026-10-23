@@ -1,6 +1,6 @@
 # QSFP直結のハンズオン — NetworkManager
 
-[English](qsfp-network.md) · [ホストの準備](hosts.ja.md) · [1.x系のセットアップ](../v1/SETUP.ja.md) · [2.x系のセットアップ](../v2/SETUP.ja.md)
+[English](qsfp-network.md) · [ホストの準備](hosts.ja.md) · [1.x系のセットアップ](../v1/SETUP.ja.md) · [2.x系のセットアップ](../v2/SETUP.ja.md) · [3.x系のセットアップ](../v3/SETUP.ja.md)
 
 目的は、2台間の固定IPv4経路を作り、管理用Wi-Fiの既定経路を維持することです。**物理リンク、IP疎通、RoCE設定、NCCL実通信は別々に確認します。この手順の完了はTP=2合格ではありません。**3台をリングにつなぐ場合（TP=3）は、各リンクをこの手順で設定してから[8節](#8-3台をリングにつなぐ)に進みます。
 
@@ -127,7 +127,7 @@ MTUが異なる場合は値を流用しません。9000へ上げるのは、両�
 
 `ibdev2netdev`で対象interfaceに対応するHCAを特定します。そのHCAの`/sys/class/infiniband/<HCA>/ports/1/`にある`gids/`、`gid_attrs/types/`、`gid_attrs/ndevs/`を同じindexで照合します。
 
-選ぶのは、typeがRoCE v2、ndevが対象interface、GIDのIPv4-mapped部分が自機の固定IPv4であるindexです。番号はホストごとに実測し、よくある`3`を決め打ちしません。これを系ごとの設定へ引き継ぎます。1.x系は[サイト設定](../v1/docs/operations.ja.md#ネットワークとサイト設定)、2.x系は[rankのファイル](../v2/SETUP.ja.md#4-各ホストのcontainerとrankのファイル)です。RDMA linkのACTIVEやGIDの存在だけでは、NCCLがその経路で通信した証明にはなりません。
+選ぶのは、typeがRoCE v2、ndevが対象interface、GIDのIPv4-mapped部分が自機の固定IPv4であるindexです。番号はホストごとに実測し、よくある`3`を決め打ちしません。これを系ごとの設定へ引き継ぎます。1.x系は[サイト設定](../v1/docs/operations.ja.md#ネットワークとサイト設定)、2.x系と3.x系はrankのファイル（[2.x](../v2/SETUP.ja.md#4-各ホストのcontainerとrankのファイル)、[3.x](../v3/SETUP.ja.md#4-各ホストのcontainerとrankのファイル)）です。RDMA linkのACTIVEやGIDの存在だけでは、NCCLがその経路で通信した証明にはなりません。
 
 ## 7. 再接続・復旧・完了判定
 
@@ -167,7 +167,7 @@ sudo nmcli connection modify <LINK_TO_THIRD> +ipv4.routes "10.40.0.3/32 10.53.2.
 sudo nmcli device reapply <INTERFACE_OF_EACH_LINK>
 ```
 
-`glm53-host` と `glmhost` は例の名前です。参照機のリングのdummy interfaceは `tp3host0`（接続名 `tp3-host`）で、2.x系のTP=3のrankのファイルは `NCCL_SOCKET_IFNAME` にこの名前を書いています（[`tp3-rank0.env`](../v2/examples/tp3-rank0.env)）。そこと、1.x系では `host_interface` に、自分の名前を書きます。`device reapply`は保存した経路を、リンクを落とさずに反映します。残り2台でも、それぞれの/32と相手で同じ操作をします。各機から確認します。
+`glm53-host` と `glmhost` は例の名前です。参照機のリングのdummy interfaceは `tp3host0`（接続名 `tp3-host`）で、2.x系と3.x系のTP=3のrankのファイルは `NCCL_SOCKET_IFNAME` にこの名前を書いています（[2.x](../v2/examples/tp3-rank0.env)、[3.x](../v3/examples/tp3-rank0.env)）。そこと、1.x系では `host_interface` に、自分の名前を書きます。`device reapply`は保存した経路を、リンクを落とさずに反映します。残り2台でも、それぞれの/32と相手で同じ操作をします。各機から確認します。
 
 ```sh
 ip route get 10.40.0.2

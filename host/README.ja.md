@@ -14,8 +14,9 @@
 | `install.sh` | 2つのunitを据え付けて有効にし、入れ直しでも新しいプログラムで動くよう記録係を再起動し、状態、固定したクロック、記録の最後の1行を表示する |
 | `cool-gate` | 記録を読み、ホストが冷えるまで待つ |
 | `thermal-watch` | 記録を読み、ホストが熱いままならエンジンを止める |
+| `nccl_probe.py` | モデルの重みなしで、2台か3台のrankの間のNCCLを確かめる。NCCLつきのPyTorchが要る（[NCCL診断](../docs/nccl-validation.ja.md)） |
 
-Pythonのツールは標準ライブラリだけを使います。`cool-gate` と `thermal-watch` は `/var/log/gb10-telemetry`、または `GB10_TELEMETRY_DIR` のディレクトリを読みます。記録係もそこへ書きます。
+`gb10-telemetry`・`cool-gate`・`thermal-watch` は、Pythonの標準ライブラリだけを使います。`cool-gate` と `thermal-watch` は `/var/log/gb10-telemetry`、または `GB10_TELEMETRY_DIR` のディレクトリを読みます。記録係もそこへ書きます。
 
 ## 記録の項目
 
@@ -49,7 +50,7 @@ rootでなければ実行を断ります。記録係のunitにユーザーを書
 
 ## 長い運転の間
 
-2.x系のエンジンは、要求の中でもprompt chunkの合間に熱で待ちます（`TF_GLM_HEAT_HIGH`・`TF_GLM_HEAT_LOW`、[2.x README](../v2/README.ja.md)）。この2つのツールは要求の外で働きます。
+2.x系と3.x系のエンジンは、要求の中でもprompt chunkの合間に熱で待ちます（2.x系は `TF_GLM_HEAT_HIGH`・`TF_GLM_HEAT_LOW`、[2.x README](../v2/README.ja.md)。3.x系は `TF_HEAT_HIGH`・`TF_HEAT_LOW`、[3.x README](../v3/README.ja.md#配信の既定)）。この2つのツールは要求の外で働きます。
 
 **冷却gate。** 長い要求の前ごとに、各ホストでcheckoutのルートから：
 
@@ -62,11 +63,13 @@ ACPIの最高温度が `--band`（既定60 °C）以下になるか、`--cap` �
 **熱の見張り。** エンジンが配信している間、各ホストで：
 
 ```bash
-python3 host/thermal-watch ~/glm53-tf/logs/therm-<label>.log &
+python3 host/thermal-watch ~/glm53-tf/logs/therm-<label>.log &      # 2.x：コンテナとプロセスは既定値
+python3 host/thermal-watch ~/glm53-tf3/logs/therm-<label>.log \
+  --container glm53-tf3 --process 'tensorfold-native serve' &       # 3.x
 ```
 
 2秒ごとに、時刻、記録の行のepoch、ACPIの最高温度、GPUの温度・電力・クロックをlogに足します。94.0 °C以上が2回続くと、コンテナの中の `pkill -f` でエンジンを止めます。この規則は参照機の記録から来ています。決めた時点で電源断なしに終わった最高の値は93.7 °Cで、2026-10-15の暖かい午後には1台が95.0 °Cまで読み（94 °C以上が2回、どれも続けてではない）、電源は落ちませんでした。`--threshold` と `--readings` で変えられます。エンジン自身の熱の待ちはprefillのchunkの合間だけで働くので、長く続くdecode（たとえばtool-eval-benchの実行）の熱を守るのはこの見張りだけです。エンジンはコンテナの中でrootとして動くので、見張りは `docker exec` を通して探し、止めます。止めるのはコンテナの中で起動したプロセスです（`cluster.sh` は `docker exec` でエンジンを起動します）。コンテナのPID 1は止まりません。PID 1は既定でこのsignalを無視するためです。`therm-<label>.stop`（logの名前の末尾を `.stop` にしたもの）ができるか、エンジンがいなくなると終わります。
 
-見張りは2.x系のエンジン、つまり既定値のコンテナ `glm53-tf` とプロセス `tensorfold serve` で確かめました。`--container` と `--process` で別のコンテナとプロセスを指定できます。たとえば別の `CONTAINER` で作ったコンテナです。
+既定値は2.x系のコンテナ `glm53-tf` とプロセス `tensorfold serve` で、見張りはこれで確かめました（下）。3.x系のホストではこの既定値ではエンジンが見つからず、見張りは一度も読まずにすぐ終わります。上のとおり3.x系のコンテナとプロセスを渡します（[3.x系の運用](../v3/docs/operations.ja.md#一つのrankが止まり他は待つ)）。`--container` と `--process` で別のコンテナとプロセスも指定できます。たとえば別の `CONTAINER` で作ったコンテナです。
 
 **確かめたこと。** 2026-10-04に参照機の一台（GB10）で、sudoなしで確かめました。記録係は一時ディレクトリへ2秒ごとに1行を書きました。`cool-gate` は生きた記録で `cool`・終了コード0を、記録が無いと `telemetry stale`・終了コード2を返しました。`thermal-watch` は `--threshold 0` で、`docker exec` で起動したプロセスを2回目の読みで止め、コンテナが無いときはすぐに終わりました。`install.sh` は実行していません（rootでなければ断るため）。
