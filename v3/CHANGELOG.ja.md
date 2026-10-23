@@ -12,7 +12,7 @@ TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` の
 
 ### XSFP4 checkpoint
 
-- [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)、[`config/xsfp4.lock.json`](config/xsfp4.lock.json) で固定：NVIDIAの `GLM-5.3-Flash-FP4-Local`（revision `76348ddb`）の派生物で、routed expert（3〜44層）とMTP層のexpertを、Z.AIのBF16の重みからXSFP4として量子化し直したもの（平滑化を重みに畳み込み、NVFP4のblockを当てはめ直す）。他のtensorはすべてFP4-Localの保存の形のままです。NVIDIA Open Model Agreement（[checkpoint](README.ja.md#checkpoint)）。
+- [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)、[`config/xsfp4.lock.json`](config/xsfp4.lock.json) で固定：NVIDIAの `GLM-5.3-Flash-FP4-Local`（revision `76348ddb`）の派生物で、routed expert（3〜44層）とMTP層のexpertを、Z.AIのBF16の重みからXSFP4として量子化し直したもの（平滑化を重みに畳み込み、NVFP4のblockを当てはめ直す）。他のtensorはすべてFP4-Localの保存の形のままです。FP4-Localと同じく、3〜44層のblockのスケールは可逆に圧縮してあり（`csf_32x2_v1`）、全体で178 GBです。エンジンが読み込みの時に元に戻すので、memoryと速さは素のスケールと同じです。NVIDIA Open Model Agreement（[checkpoint](README.ja.md#checkpoint)）。
 - `download` と `verify-download` が `--checkpoint xsfp4` を取り、`state/xsfp4` に置きます。rankのファイルの `CHECKPOINT` をそのsnapshotにすると配信します（全rankで同じ）。rankのファイルの例にその行を注記で入れました。
 - TP=2でmodelはrank 0で93.44 GiB（固定したcheckpointは97.38）を取り、245,760 tokenの窓の横に8.9 GiBのprompt cache（5.2 GiB）が残ります。`PARALLEL=` を空にするとエンジンは3本のstream（2本）を取りました。
 
@@ -32,7 +32,7 @@ TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` の
 参照機で2026-10-22〜23に、visionのtowerを読み込み、`TF_GLM_MM` は無しで、全containerを効率coreに置き、各checkpointで5回の起動（TP=2で3回、うち1回は `PARALLEL=` を空に、TP=3で2回）。XSFP4はリリースのimage（`glm53-tf3:3.3.0`）をそれ自身の `serve.sh` で起動し、固定したcheckpointはエンジンが一つ前のcommitのimageで回し、各TPでもう1回リリースのimageで起動しました（[測定値](README.ja.md#リリースでの測定値)、[検証](docs/validation.ja.md)）：
 
 - 固定したcheckpoint：TP=2では、decode検査が2回の起動で3.1.0と同じhashを出し、`bench --kinds edit` は3.1.0と同じ返答を190 roundで出しました。TP=3ではtiledのkernelで、decode検査が2回の起動で新しいhashを出し、それが今のTP=3の基準値です。編集の返答は3.1.0のままでした。リリースのimageは両TPで同じhash、編集の返答、NLLを出し、もう1回の起動で `TF_GLM_MM=0` にすると、エンジンは3.1.0のTP=3のhash、編集の返答、NLLを出しました。
-- XSFP4：decode検査は各TPの2回の起動で自分のhashを出し、それが基準値になりました。`bench --kinds edit` は固定したcheckpointと同じ返答を190 roundで出しました。
+- XSFP4：decode検査は各TPの2回の起動で自分のhashを出し、それが基準値になりました。`bench --kinds edit` は固定したcheckpointと同じ返答を190 roundで出しました。これらの起動が読んだのは、同じtensorで素のblockのスケールを持つrevisionで、hubにはもうありません。公開するrevisionは、各TPでもう1回の起動で、decode検査のhash・編集の返答・NLL・rank 0のmodelの大きさが同じでした。
 - draftした返答はserialと同じで、画像1枚の返答も含みます。PNG・JPEG・WebPの画像とH.264・VP9の動画が答え、それぞれdraftありと `"draft": false` で同じ返答でした。GIFと音声のpartは400で断られました。
 - `prompt_logprobs` と構造化出力は検査を通りました。ただしTP=3のXSFP4のplainな要求は、自分の返答を持ちます。NLLのセットは2回の採点で動きませんでした。
 - tool引数ゲート越しのtool-eval-bench、Safety Gateは合格：固定したcheckpointはTP=2で92、TP=3で95、XSFP4は93と93。

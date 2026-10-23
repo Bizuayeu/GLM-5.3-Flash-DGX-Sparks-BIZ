@@ -31,7 +31,7 @@
 - **ホストカーネル**：1.x系・2.x系と同じです。今のDGX OSの更新が入れるカーネルは、既定のままでは複数ノードのRoCEを壊すことがあり、参照機は `kho=off` で起動しています（[ホストカーネルと複数ノードRoCE](../docs/hosts.ja.md#ホストカーネルと複数ノードroce)）。
 - **GPUクロック**は全ホストで上限を設けます（[GPUクロックの上限](../docs/hosts.ja.md#gpuクロックの上限)）。上限と温度の記録は[`host/`](../host/README.ja.md)が据え付けます。3.x系の数字は全部この上限の下で測りました。
 - **Docker**：NVIDIAのGPU runtimeとRDMAデバイスが要ります（`/dev/infiniband` が無いホストでは、NCCLがsocketに落ちるので `create_container.sh` が断ります）。
-- **disk**：全ホストにcheckpointを丸ごと（1.x系・2.x系と同じ。[導入するものと対応機体](../v1/README.ja.md#導入するものと対応機体)）と、image。XSFP4は固定したcheckpointの横に186 GBを取ります。
+- **disk**：全ホストにcheckpointを丸ごと（1.x系・2.x系と同じ。[導入するものと対応機体](../v1/README.ja.md#導入するものと対応機体)）と、image。XSFP4は固定したcheckpointの横に178 GBを取ります。
 - **操作する機械**：全ホストへSSHでき、`cluster.sh` を動かす機械一台。
 - **Python 3.11以上**：各ホストで、この系列の道具（[`glm53_tf/`](glm53_tf/)：ダウンロード、検証、tool引数ゲート、検査）を `v3/` から動かします（[手順書 §2](SETUP.ja.md#2-checkoutとcheckpoint)）。
 
@@ -79,7 +79,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 |---|---|---|
 | 重み | `nvidia/GLM-5.3-Flash-NVFP4`（[`config/model.lock.json`](config/model.lock.json)） | [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)（[`config/xsfp4.lock.json`](config/xsfp4.lock.json)） |
 | 作り手 | NVIDIA、Z.aiのBF16の重みから | 本リポジトリの管理者、NVIDIAの[`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)（revision `76348ddb`）とZ.aiのBF16の重みから |
-| routed expert | NVFP4、W4A16で配信 | XSFP4、W4A16で配信：平滑化を重みに畳み込み、BF16の重みからNVFP4のblockを当てはめ直したもので、実行時にkernelが何も掛けません。MTP層のexpertも同じ |
+| routed expert | NVFP4、W4A16で配信 | XSFP4、W4A16で配信：平滑化を重みに畳み込み、BF16の重みからNVFP4のblockを当てはめ直したもので、実行時にkernelが何も掛けません。MTP層のexpertも同じ。3〜44層はblockのスケールを可逆に圧縮して持ち（`csf_32x2_v1`、FP4-Localと同じ）、エンジンが読み込みの時にホストで元に戻します |
 | その他 | dense MLPはNVFP4（W4A16）、attention・shared expert・headはBF16 | FP4-Localのtensorを保存の形のまま：MXFP8（dense MLP、KDA、`lm_head`、MTP層のattentionとshared expert）、128×128 blockのFP8（MLAとshared expert）、BF16（KDAの小さいprojection、MLAの `kv_b` とindexer、router、embeddings）、BF16とF32のnorm。vision towerはMXFP8とNVFP4 |
 | TP=2・TP=3のrank 0のmodel（読み込みの行） | 97.38・79.30 GiB | 93.44・76.36 GiB |
 | このエンジンのTP=2でBF16の重みと比べた次token（128文書、144,285位置）：top-1の一致 / BF16に対するNLLの上がり / KLの下限 | 92.68% / +1.37% / 0.0510 | 93.26% / +0.85% / 0.0431 |

@@ -31,7 +31,7 @@
 - **Host kernel**: as in 1.x and 2.x; the kernel current DGX OS updates install can break multi-node RoCE by default, and the reference hosts boot it with `kho=off` ([host kernel and multi-node RoCE](../docs/hosts.md#host-kernel-and-multi-node-roce)).
 - **GPU clock** capped on every host ([GPU clock cap](../docs/hosts.md#gpu-clock-cap)); [`host/`](../host/README.md) installs the cap and a telemetry logger. Every 3.x figure was measured under the cap.
 - **Docker** with NVIDIA's GPU runtime and the RDMA devices (`create_container.sh` refuses a host without `/dev/infiniband`, where NCCL would fall back to sockets).
-- **Disk**: the whole checkpoint on every host, as in 1.x and 2.x ([what you deploy](../v1/README.md#what-you-deploy-and-supported-hardware)), plus the image; XSFP4 takes 186 GB beside the pinned one.
+- **Disk**: the whole checkpoint on every host, as in 1.x and 2.x ([what you deploy](../v1/README.md#what-you-deploy-and-supported-hardware)), plus the image; XSFP4 takes 178 GB beside the pinned one.
 - **A control machine** with SSH to every host, for `cluster.sh`.
 - **Python 3.11+** on the hosts for this line's tools in [`glm53_tf/`](glm53_tf/) (download, verification, tool-argument gate, checks), run from `v3/` ([setup §2](SETUP.md#2-checkout-and-checkpoint)).
 
@@ -80,7 +80,7 @@ NVIDIA's pinned checkpoint is the default; 3.3.0 accepts XSFP4 beside it. Every 
 |---|---|---|
 | Weights | `nvidia/GLM-5.3-Flash-NVFP4` ([`config/model.lock.json`](config/model.lock.json)) | [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4) ([`config/xsfp4.lock.json`](config/xsfp4.lock.json)) |
 | Made by | NVIDIA, from Z.ai's BF16 weights | this repository's maintainer, from NVIDIA's [`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local) (revision `76348ddb`) and Z.ai's BF16 weights |
-| Routed experts | NVFP4, served W4A16 | XSFP4, served W4A16: NVFP4 blocks fitted again from the BF16 weights with a smoothing folded into them, so no kernel applies anything at run time; the MTP layer's experts too |
+| Routed experts | NVFP4, served W4A16 | XSFP4, served W4A16: NVFP4 blocks fitted again from the BF16 weights with a smoothing folded into them, so no kernel applies anything at run time; the MTP layer's experts too. Layers 3 to 44 store their block scales compressed losslessly (`csf_32x2_v1`, as FP4-Local does), and the engine restores them on the host at load |
 | Everything else | dense MLP NVFP4 (W4A16); attention, shared experts and head BF16 | FP4-Local's tensors as stored: MXFP8 (dense MLP, KDA, `lm_head`, the MTP layer's attention and shared expert), FP8 in 128×128 blocks (MLA and the shared experts), BF16 (KDA's small projections, MLA's `kv_b` and indexer, the router, the embeddings), BF16 and F32 norms; the vision tower's MXFP8 and NVFP4 |
 | Model on rank 0 at TP=2 / TP=3 (load line) | 97.38 / 79.30 GiB | 93.44 / 76.36 GiB |
 | Next token against the BF16 weights on this engine at TP=2 (128 documents, 144,285 positions): top-1 agreement / NLL above BF16 / KL, lower bound | 92.68% / +1.37% / 0.0510 | 93.26% / +0.85% / 0.0431 |
