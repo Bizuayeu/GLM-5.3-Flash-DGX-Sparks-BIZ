@@ -4,7 +4,7 @@
 
 文書ごとに役割を一つ決め、他の文書は内容を複製せずリンクで参照します。利用者向けの文書はすべて英日の対（`name.md`／`name.ja.md`）です。エージェント向け指示・ライセンスと通知の本文・overlayの台帳（hashの所有者を一つにする出所記録）だけは意図して英語のみとします。Changelogも英日の対です。正典は英語版で、GitHub Releaseは英語版から作られます。利用者に見える手順を変える際は両方を更新します（[Contributing](../../CONTRIBUTING.ja.md)）。
 
-本書は1.x系の文書と、1.x系の事実ごとの正典を並べます。リポジトリそのものの文書、全系共通のホストとfabricの文書、2.x系の文書は[リポジトリの文書一覧](../../docs/README.ja.md)にあります。
+本書は1.x系の文書と、1.x系の事実ごとの正典を並べます。リポジトリそのものの文書、全系共通のホストとfabricの文書、2.x系と3.x系の文書は[リポジトリの文書一覧](../../docs/README.ja.md)にあります。
 
 ## 入口
 
@@ -91,6 +91,6 @@
 - リポジトリの `tools/check_publication.py`（checkoutのルート）は本書と構成の頁を実体に合わせて保つ：READMEの略称の引用は `pyproject.toml` の版を持ち、`docs/*.md` はすべて本書のリンク先であり（日本語の頁は日本語の本書）、`glm53_setup/` と `tools/` の全モジュールは[構成](architecture.ja.md)にファイル名か `benchmark_*.py` のような型で名前がある。
 - 文種は常に 数え上げ／散文／コード の順、教師強制の文は 日本語／英語／コード／数学 の順に並べる。複数を並べる表と文のすべてに適用する。
 - 版数は `pyproject.toml` が所有し、版ごとの内容は[Changelog](../CHANGELOG.md)に書く。`python tools/check_publication.py` は素のsemantic versionを必須とし、`records/`・計画書・リポジトリ外へのリンクを拒否する。
-- `v1.Y.Z` のタグをpushするとGitHub Releaseが公開される。`.github/workflows/release.yml` がこの系列のChangelogのその版の節（checkoutのルートで `python tools/release_notes.py 1.Y.Z`。`v2.*` のタグは `v2/` を読む）を本文にし、`pyproject.toml` と食い違うタグや節の無い版は拒否する。
+- `v1.Y.Z` のタグをpushすると、この系列のChangelogのその版の節からGitHub Releaseが公開される。規則は全系列で共通（[リポジトリの約束事](../../docs/README.ja.md#約束事)）。
 - GitHubのリポジトリdescriptionとtopicsは、READMEの要約を略称つき・実測値と版数なしで言い直したもの。`tools/check_publication.py` の目が届かないので、要約を変えたら `gh repo edit` で揃える。
 - 本リポジトリ外の関連研究（Euryaleの投機draft研究など）は配布物に含まれないため、READMEでリンクなしに説明する。他の文書では言及に留める。

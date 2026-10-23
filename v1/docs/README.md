@@ -4,7 +4,7 @@
 
 Every document has one role; other documents link to it instead of repeating its content. Every user-facing page comes as an English/Japanese pair (`name.md` / `name.ja.md`); only the agent instructions, the license/notice texts and the overlay manifest (a provenance record whose hashes have one owner) are English-only by design. The changelog is a pair too: the English file is canonical and the GitHub Release is made from it. Update both when user-visible instructions change ([Contributing](../../CONTRIBUTING.md)).
 
-This map lists the 1.x line's documents and the owner of each 1.x fact. The repository's own pages, the host and fabric pages every line shares and the 2.x pages are in the [repository's document map](../../docs/README.md).
+This map lists the 1.x line's documents and the owner of each 1.x fact. The repository's own pages, the host and fabric pages every line shares and the 2.x and 3.x pages are in the [repository's document map](../../docs/README.md).
 
 ## Entry points
 
@@ -91,6 +91,6 @@ This map lists the 1.x line's documents and the owner of each 1.x fact. The repo
 - The repository's `tools/check_publication.py` (at the checkout root) also keeps this map and the architecture page in step with the tree: the README's short-name citation must carry the version in `pyproject.toml`, every `docs/*.md` must be a link target of this map (Japanese pages of the Japanese map), and every module of `glm53_setup/` and `tools/` must be named in [architecture](architecture.md), either by file name or by a pattern such as `benchmark_*.py`.
 - Task types are always listed in the order counting / prose / code, and teacher-forced texts in the order Japanese / English / code / mathematics, in every table and sentence that names more than one.
 - The release version is owned by `pyproject.toml` and each version is described in the [Changelog](../CHANGELOG.md); `python tools/check_publication.py` requires a plain semantic version there and rejects links to `records/`, plan files or paths outside the repository.
-- Pushing a `v1.Y.Z` tag publishes the GitHub Release: `.github/workflows/release.yml` takes that version's section from this line's Changelog (`python tools/release_notes.py 1.Y.Z` at the checkout root; a `v2.*` tag reads `v2/` instead) and refuses a tag that disagrees with `pyproject.toml` or has no section.
+- Pushing a `v1.Y.Z` tag publishes the GitHub Release from that version's section of this line's Changelog, by the rules every line shares ([repository conventions](../../docs/README.md#conventions)).
 - The GitHub repository description and topics restate the README summary with the short name and without any measured number or version, because `tools/check_publication.py` cannot see them; when the summary changes, edit them with `gh repo edit`.
 - Related research outside this repository, such as the Euryale draft-proposer project, is described in the README without links, because it is not part of this distribution; other documents mention it only in passing.
