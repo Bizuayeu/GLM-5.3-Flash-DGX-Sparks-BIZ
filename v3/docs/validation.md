@@ -124,7 +124,7 @@ Reference: the lowest `MemAvailable` of a launch was 15 GiB on both ranks at TP=
 
 ## XSFP4
 
-The XSFP4 checkpoint ([checkpoints](../README.md#checkpoints)) gives other tokens than the pinned one, so it has its own reference values, set in 3.3.0's acceptance on 2026-10-22 and held in a second launch at each TP size. The checks are the ones above, with the same **accepted when**, against these values, but for two known behaviours at TP=3 below; `score-nll` takes XSFP4's own `tokenizer.json` (byte for byte the pinned one's). The speeds belong to this checkpoint and compare only with themselves ([checkpoints](../README.md#checkpoints)).
+The XSFP4 checkpoint ([checkpoints](../README.md#checkpoints)) gives other tokens than the pinned one, so it has its own reference values, set in 3.3.0's acceptance on 2026-10-22; a second launch at each TP size gave the same decode-check hashes and edit reply. The checks are the ones above, with the same **accepted when**, against these values, but for two known behaviours at TP=3 below; `score-nll` takes XSFP4's own `tokenizer.json` (byte for byte the pinned one's). The speeds belong to this checkpoint and compare only with themselves ([checkpoints](../README.md#checkpoints)).
 
 | Check | TP=2 | TP=3 |
 |---|---|---|

@@ -8,14 +8,14 @@
 
 - **ホスト。** 参照機のMSI EdgeXpert（GB10）。TP=2は直結の対、TP=3はリングの3台で、GPUには他に何も載せていません（2.x系のcontainerは停止）。
 - **GPUクロック**は[ホストのツール](../../host/README.ja.md)の起動時のunitで2,200 MHzを上限にしました（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）。
-- **エンジンとimage。** 窓が動かしたimage `glm53-tf3:3x-bc82bc4`（エンジン `3d3d61d5`。リリースのimageはbinaryが同じ）を `serve.sh` の既定で：1本のstream、TP=2で245,760 token・TP=3で1,048,576 tokenの窓、92 °C／88 °Cの熱の待ちと93 °Cへの見込み。1回の起動は空の `PARALLEL=`（エンジン自身によるstreamの選択）で走らせ、そのことを書いています。
+- **エンジンとimage。** 各版の[リリースでの測定値](../README.ja.md#リリースでの測定値)の項が名指すimageとエンジンを、`serve.sh` の既定で：1本のstream、TP=2で245,760 token・TP=3で1,048,576 tokenの窓、92 °C／88 °Cの熱の待ち。1回の起動は空の `PARALLEL=`（エンジン自身によるstreamの選択）で走らせ、そのことを書いています。
 - **core。** 全containerを効率coreの0-4と10-14に。`create_container.sh` が作るとおりです。
 - **見張り。** メモリの見張りを全ホストで、熱の見張りを起動の全ホストで動かしました。
 - **クライアント。** 要求はすべてrank 0からloopbackのエンジンへ一つずつ、検査が別に言わない限りtemperature 0、推論のeffortはlowです。道具はcontainerの中でcheckoutの `v3/` から動かしました。
 
 ## 長い要求の合間の冷却
 
-各起動と測定のまとまりの前ごとに冷却gateを回しました。rank 0のホストのACPIの最も熱いzoneが55.8 °C以下になるか、936秒たつまで待ちます。[`host/cool-gate`](../../host/README.ja.md#長い運転の間)の規則で、2.x系がそのホストで較正した値です。他のrankのホストは記録し、待ちませんでした：それらのエンジンは待つ間も2本のCPUのthreadを空回りさせ続け（[効率coreにする理由](../README.ja.md#配信の既定)）、全coreではrank 1のホストは約70 °Cで待機し、2.x系が使ったどの帯よりも上でした。
+各起動と測定のまとまりの前ごとに冷却gateを回しました。rank 0のホストのACPIの最も熱いzoneが55.8 °C以下になるか、2.x系がそのホストで較正した上限の時間（3.3.0の受け入れではTP=2で600秒、TP=3で936秒）がたつまで待ちます。[`host/cool-gate`](../../host/README.ja.md#長い運転の間)の規則です。他のrankのホストは記録し、待ちませんでした：それらのエンジンは待つ間も2本のCPUのthreadを空回りさせ続け（[効率coreにする理由](../README.ja.md#配信の既定)）、全coreではrank 1のホストは約70 °Cで待機し、2.x系が使ったどの帯よりも上でした。
 
 ## decode検査
 
@@ -48,7 +48,7 @@ NLL採点セットと採点は[検証](validation.ja.md#teacher-forced-nll)の�
 
 ## draftとserialの一致、promptのscore、構造化出力と停止
 
-- **draftした応答とserialの一致**：prose、code、countのpromptで最大256 token、`"draft": false` の有りと無しを、文章全体で比べます。同じ実行の中で、1×1のPNGの画像のpartを持つ要求を送り、400で断られます。
+- **draftした応答とserialの一致**：prose、code、countのpromptで最大256 token、`"draft": false` の有りと無しを、文章全体で比べます。visionのtowerを読み込んだ起動では、小さなPNGを説明させる要求（最大64 token）も同じように比べます。
 - **promptのscoreと構造化出力**：[検証](validation.ja.md#promptのscoreと構造化出力)が挙げる検査を、要求を一つずつ送って。
 - **応答を止める**：思考を切って。1から1,000までの数を1行ずつ書かせる要求を、最大4,000 token、streamで送り、5秒後にクライアントが閉じます。`live` blockに接続が無くなるまで15秒の間、毎秒 `/health` を読み、その後短い要求の時間を測ります。同じ要求にstop文字列 `"\n300\n"` を付けて、streamなしで。6,000行（約93,000 token）の台帳をstreamで送って3秒後に閉じ、直後に短い要求の時間を測り、同じ台帳をもう一度全部流して最初のtokenまでの時間を測ります。
 

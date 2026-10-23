@@ -13,7 +13,7 @@
 - **反復性。** draftした応答はserialと同じで、起動は同じTPの前の起動のtoken idを出します。ネイティブエンジンのtokenはそれ自身のもので、2.x系のものではありません：kernelとBF16のKV cacheの丸めが違うので、二つの系列はtokenごとではなくteacher-forced NLLで比べます（[2.x系との違い](#2x系との違い)）。
 - **構造化出力とpromptのscore。** JSON schemaつきの `response_format`、`required` か名指しの関数の `tool_choice`（GLM自身のtoolのmarkupで書く）、`/v1/completions` の `prompt_logprobs` は、1.1.1からGLMのCUDAのエンジンで上流のTensorFold自身のものです。この系列のpull request #1016・#1017・#1018の後に上流が書きました（[API](#api)）。
 - **画像と動画。** chatの要求は、PNG・JPEG・WebPの画像と、H.264・HEVC・VP8・VP9・MPEG-4の動画をdata URLで持てます。rank 0にあるcheckpointのvision towerが、エンジンの `--vision` で読みます。`serve.sh` は既定でこれを渡します（[制限](#制限)）。
-- **精度。** 固定したcheckpointではrouted expertとdense MLPはW4A16、他はBF16です。XSFP4ではrouted expertはW4A16、他のprojectionはcheckpointが保存する形のままで、多くは8 bit、vision towerのMLPはNVFP4です（[checkpoint](#checkpoint)）。KVはどちらもBF16です（2.x系はFP8のKV cacheを持ちます）。NVIDIAのmodel cardは別のレシピ・別の機材でcheckpointを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
+- **精度。** 固定したcheckpointではrouted expertとdense MLPはW4A16、他はBF16です。XSFP4ではrouted expertはW4A16、他のprojectionはcheckpointが保存する形のままで、多くは8 bit、vision towerのMLPとmergerはNVFP4です（[checkpoint](#checkpoint)）。KVはどちらもBF16です（2.x系はFP8のKV cacheを持ちます）。NVIDIAのmodel cardは別のレシピ・別の機材でcheckpointを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
 - **ライセンス。** コードとエンジンはApache-2.0、重みは運用者がダウンロードし、MIT（固定したcheckpoint）かNVIDIA Open Model Agreement（XSFP4、商用に使える）です。imageには構造化出力のためにxgrammar（Apache-2.0）、画像と動画のためにlibjpeg-turbo・libwebp（BSD系）とFFmpegのdecoder（LGPL-2.1）が入ります。配信の経路に非商用の条件はありません（[ライセンスの早見表](../README.ja.md#ライセンスの早見表)）。
 - **未検証。** 画像と動画のURL（`--vision-urls`、無効）、公開したAXLの重み、同時に2つ以上の要求（受け入れは一度に一つずつ送りました）、ハーネス連携（ZCode・Claude Code）、他のrank数と機材、アプリケーション全体の品質と本番の信頼性（[制限](#制限)）。
 
@@ -168,7 +168,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 | 出力の反復性 | エンジンの契約として、draftした応答はserialと同じ、再開したpromptは最初からと同じ、chunkの切り方で結果が変わらない | draftした応答はserialと同じで、起動はtoken idを繰り返す。tokenは2.x系のものと違う（別のkernel、BF16 KV）ので、系列の間はNLLで比べる |
 | KVと窓 | latentとindexのkeyをFP8。TP=2で300,000 token、TP=3で1,048,576 | BF16。TP=2で245,760 token、TP=3で1,048,576 |
 | 同時の要求 | 1 | 既定で1。`PARALLEL` で、窓が残すメモリの中で、エンジンがdecodeのroundをより多くの要求に分ける |
-| prompt cache | 8本、3 GiB（`TF_GLM_CACHE_*`） | 窓の残りに、chunkの始まりの状態を保つ（TP=2でvision towerありは5.1〜5.2 GiB、TP=3で16.0 GiB）。本数の上限は無い |
+| prompt cache | 8本、3 GiB（`TF_GLM_CACHE_*`） | 窓の残りに、chunkの始まりの状態を保つ（固定したcheckpointで、TP=2でvision towerありは5.1〜5.2 GiB、TP=3で16.0 GiB）。本数の上限は無い |
 | 画像入力 | 受ける（`VISION=1`） | 受け、動画も（`VISION=1`、既定） |
 | 公開したAXLの重み | 任意で使える | 未検証 |
 | 構造化出力、必須のtool呼び出し | 受ける。imageにxgrammar | 受ける。imageにxgrammarの `libtfgrammar`。必須のtool呼び出しはGLMのmarkupで |
@@ -185,7 +185,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 ## リリースでの測定値
 
-**3.3.0**（2026-10-23、エンジン `d2d95b11`、上流1.1.2にpull request #1050と#1179、image `glm53-tf3:3.3.0`）。リリースの `serve.sh`（既定でvisionのtowerを読み込みます）と `cluster.sh` で起動し、全containerを効率coreに置き、両TPで `TF_GLM_MM` は無しです：各checkpointでTP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回。XSFP4の起動はリリースのimageで回しました。固定したcheckpointの起動は、エンジンが一つ前のcommitのimage（`aa12d8df`。#1179のpatchが無く、違いはindexがfolderの中のshardを名指せるかだけ）で回し、各TPでもう1回リリースのimageで起動すると、固定したcheckpointに同じdecode検査のhash、編集の返答、NLLを返しました。止まった起動はありません。
+**3.3.0**（2026-10-23、エンジン `d2d95b11`、上流1.1.2にpull request #1050と#1179、image `glm53-tf3:3.3.0`）。リリースの `serve.sh`（既定でvisionのtowerを読み込みます）と `cluster.sh` で起動し、全containerを効率coreに置き、両TPで `TF_GLM_MM` は無しです：各checkpointでTP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回。XSFP4の起動はリリースのimageで回しました。固定したcheckpointの起動は、エンジンが一つ前のcommitのimage（`aa12d8df`。indexがfolderの中のshardを名指せるようにする#1179のpatchが無い）で回し、各TPでもう1回リリースのimageで起動すると、固定したcheckpointに同じdecode検査のhash、編集の返答、NLLを返しました。止まった起動はありません。
 
 | 3.3.0 | 固定 TP=2 | 固定 TP=3 | XSFP4 TP=2 | XSFP4 TP=3 |
 |---|---|---|---|---|

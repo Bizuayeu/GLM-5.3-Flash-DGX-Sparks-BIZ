@@ -18,7 +18,7 @@ TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` の
 
 ### Engine
 
-- forkの `release/3.3.0`、`d2d95b11`：上流1.1.2に、上流のpull request #1050（15のcommit、上流ではopen）のcode、1.1.2の後に取り込まれた上流のpull request #1179のpatch、この系列のTP=3のためのNCCLのidのファイル。#1050はFP4-Localの形を保存のまま読みます（各projectionの形を `MIXED_PRECISION` のレシピから見分け、MXFP8と128×128 blockのFP8のprojectionをエンジンの量子化linearで計算し、FP4-Localの圧縮したexpertのscaleを読み、float32のnormの重みをfloat32のまま保つ）。#1179が無いと、1.1.2はFP4-LocalとXSFP4のindexを断ります（214のtensorがfolderの中のshardにある）。固定したcheckpointはこれまでどおり読みます。
+- forkの `release/3.3.0`、`d2d95b11`：上流1.1.2に、上流のpull request #1050のcode（15のcommit。pull requestは上流でopen）、1.1.2の後に取り込まれた上流のpull request #1179のpatch、この系列のTP=3のためのNCCLのidのファイル。#1050はFP4-Localの形を保存のまま読みます（各projectionの形を `MIXED_PRECISION` のレシピから見分け、MXFP8と128×128 blockのFP8のprojectionをエンジンの量子化linearで計算し、FP4-Localの圧縮したexpertのscaleを読み、float32のnormの重みをfloat32のまま保つ）。#1179が無いと、1.1.2はFP4-LocalとXSFP4のindexを断ります（214のtensorがfolderの中のshardにある）。固定したcheckpointはこれまでどおり読みます。
 - 上流1.1.2は、TP=3のrankのKDAの入力のprojectionをtileせずに回します（issue #1067）。TP=3は上流の既定のBF16のlinearで配信し、TP=3のrankのファイルは `TF_GLM_MM=0` を書かなくなりました。TP=3のdecode検査のhashとNLLはそれに伴って動きます（[検証](docs/validation.ja.md)）。1.1.2では、rank 0にstreamが無い間、待つrankも眠ります（#1053）。
 - 熱の天井なし：3.1.0と3.2.0は、最も熱いzoneに直前のchunkの上がり幅を足すと93 °Cを越えるときもpromptを待たせました（`TF_HEAT_CEILING`）。3.3.0のエンジンは帯だけで待ち（92 °Cを超えたら88 °Cまで）、`serve.sh` も天井を置きません。
 

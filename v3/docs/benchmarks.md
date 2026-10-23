@@ -8,14 +8,14 @@ How the 3.x figures were taken: those of [measured on the release](../README.md#
 
 - **Hosts.** The reference hosts, MSI EdgeXpert (GB10): the pair over a direct link for TP=2, three hosts in a ring for TP=3, nothing else on their GPUs (2.x's containers stopped).
 - **GPU clock** capped at 2,200 MHz by the boot unit of the [host tools](../../host/README.md) ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)).
-- **Engine and image.** The image the window ran, `glm53-tf3:3x-bc82bc4` (engine `3d3d61d5`; the release image has the same binaries), with `serve.sh`'s defaults: one stream, the windows of 245,760 tokens at TP=2 and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C with the look-ahead to 93 °C. One launch ran with an empty `PARALLEL=`, the engine's own choice of streams, and says so.
+- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) names them, with `serve.sh`'s defaults: one stream, the windows of 245,760 tokens at TP=2 and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. One launch ran with an empty `PARALLEL=`, the engine's own choice of streams, and says so.
 - **Cores.** Every container on the efficiency cores 0-4 and 10-14, as `create_container.sh` creates it.
 - **Watchers.** The memory guard on every host and the thermal watch on every host of the launch.
 - **Clients.** Every request from rank 0 to the engine on loopback, one at a time, temperature 0 and reasoning effort low unless a check says otherwise; the tools ran in the container from the checkout's `v3/`.
 
 ## Cooling between long requests
 
-A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or 936 s, the rule of [`host/cool-gate`](../../host/README.md#during-long-runs) with 2.x's calibration of that host. The other ranks' hosts were recorded and not waited for: their engines keep two CPU threads spinning while they wait ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
+A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or at most the time that 2.x's calibration of that host gives (in 3.3.0's acceptance 600 s at TP=2 and 936 s at TP=3), the rule of [`host/cool-gate`](../../host/README.md#during-long-runs). The other ranks' hosts were recorded and not waited for: their engines keep two CPU threads spinning while they wait ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
 
 ## Decode check
 
@@ -48,7 +48,7 @@ The NLL set and the scorer as [validation](validation.md#teacher-forced-nll) des
 
 ## Drafted equals serial, prompt scores, structured output and stopping
 
-- **Drafted equals serial**: prose, code and counting prompts, up to 256 tokens, with and without `"draft": false`, compared as whole texts. In the same run, a request with a 1×1 PNG image part, refused with 400.
+- **Drafted equals serial**: prose, code and counting prompts, up to 256 tokens, with and without `"draft": false`, compared as whole texts. With the vision tower loaded, a small PNG with a request to describe it, up to 64 tokens, compared the same way.
 - **Prompt scores and structured output**: the checks [validation](validation.md#prompt-scores-and-structured-output) lists, each request sent on its own.
 - **Stopping a reply**: thinking off. A request to write the numbers from 1 to 1,000, one per line, up to 4,000 tokens, streamed and closed by the client after 5 s; `/health` is read every second for 15 s until its `live` block has no connection, then a short request is timed. The same request with the stop string `"\n300\n"`, not streamed. A ledger of 6,000 lines (about 93,000 tokens) streamed and closed after 3 s, a short request timed right after, and the same ledger again in full for its time to the first token.
 
