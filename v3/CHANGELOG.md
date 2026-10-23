@@ -4,6 +4,20 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.5.1 — 2026-10-24
+
+Documents only. No file of the image changes; it stays 3.5.0's (`glm53-tf3:3.5.0`, `sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`).
+
+### Documentation
+
+- The engine's known behaviour in [measured on the release](README.md#measured-on-the-release) is reworded: no single wrong value has been found, and whether it is a bug is asked upstream in [TensorFold #1214](https://github.com/ashhart/TensorFold/issues/1214), where 3.4.0 said it looked like one. Neither generation nor the prefill always keeps the count, it happens at TP=3 too, and its places also move with the build.
+- The limits give the opt-in FP8 latent cache's one trial at TP=2: one stream fit a 1,048,576-token window and the 1,035,295-token prompt found its three passphrases. `serve.sh` keeps BF16.
+- 3.5.0's paragraph adds an A/B of edit's speed on the same image: medians of 82.4 to 82.8 tok/s at both 245,760 and 524,288 tokens.
+
+### Not in 3.5.1
+
+The published AXL weights, log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.5.0 — 2026-10-23
 
 TP=2's default window becomes 524,288 tokens, on 3.4.0's engine.
