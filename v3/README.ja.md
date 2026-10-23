@@ -80,7 +80,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | 重み | `nvidia/GLM-5.3-Flash-NVFP4`（[`config/model.lock.json`](config/model.lock.json)） | [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)（[`config/xsfp4.lock.json`](config/xsfp4.lock.json)） |
 | 作り手 | NVIDIA、Z.aiのBF16の重みから | 本リポジトリの管理者、NVIDIAの[`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)（revision `76348ddb`）とZ.aiのBF16の重みから |
 | routed expert | NVFP4、W4A16で配信 | XSFP4、W4A16で配信：平滑化を重みに畳み込み、BF16の重みからNVFP4のblockを当てはめ直したもので、実行時にkernelが何も掛けません。MTP層のexpertも同じ |
-| その他 | dense MLPはNVFP4（W4A16）、attention・shared expert・headはBF16 | FP4-Localのtensorを保存の形のまま：MXFP8（dense MLP、KDA、`lm_head`、MTP層のattentionとshared expert）、128×128 blockのFP8（MLAとshared expert）、BF16とF32のnorm。vision towerはMXFP8とNVFP4 |
+| その他 | dense MLPはNVFP4（W4A16）、attention・shared expert・headはBF16 | FP4-Localのtensorを保存の形のまま：MXFP8（dense MLP、KDA、`lm_head`、MTP層のattentionとshared expert）、128×128 blockのFP8（MLAとshared expert）、BF16（KDAの小さいprojection、MLAの `kv_b` とindexer、router、embeddings）、BF16とF32のnorm。vision towerはMXFP8とNVFP4 |
 | TP=2・TP=3のrank 0のmodel（読み込みの行） | 97.38・79.30 GiB | 93.44・76.36 GiB |
 | このエンジンのTP=2でBF16の重みと比べた次token（128文書、144,285位置）：top-1の一致 / BF16に対するNLLの上がり / KLの下限 | 92.68% / +1.37% / 0.0510 | 93.26% / +0.85% / 0.0431 |
 | 同じものをTP=3で | 92.71% / +1.38% / 0.0511 | 93.30% / +0.85% / 0.0436 |
@@ -115,7 +115,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 
 **TP=2を245,760にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取るので、対が持てる窓は2.x系の300,000 tokenより短くなります。245,760は、参照対で1本のstreamが収まるほぼ最大です。全rankのファイルの `CONTEXT` で別の値を選びます。
 
-**効率coreにする理由。** エンジンは全rankで2本のCPUのthreadを空回りさせ続けます。rank 0ではdecodeの間、他のrankでは待つ間です：一つはGPUを待ち、もう一つはそのkernel時間から見てNCCLのものである見込みが高いthreadです。全coreでは、これらがCPUのthermal zone（GB10の7つのzoneのうち5つ）を温めました：約6,000 tokenのpromptの後の1,024 tokenの返答を40本続けると、3.0.0のエンジンでは、TP=2でrank 0の最も熱いzoneが94.7 °Cに達し、熱の見張りが7本目でエンジンを止めました。3.1.0のエンジンは全coreでも効率coreと同じ1,535秒で40本を終えましたが、rank 0のホストは93.0 °Cに達し（止める温度まで1 °C）、効率coreでは74.9 °Cでした。全coreで2つの要求を同時に回すと88.5 °Cでした。熱の待ちはprompt chunkの合間に働くので、これを抑えられません。効率coreでは40本の返答がそのzone 85.1 °Cで終わり、rank 1のホストは約70 °Cではなく57〜63 °Cで待ちました。その代わり速さの1〜3%を失い、起動は約25秒長くなりました（[リリースでの測定値](#リリースでの測定値)）。熱の帯を下げる（86/82/87）と、待ったpromptが26〜89%遅くなり、1,048,576 tokenのpromptの最高温度は下がりませんでした。空回りせずに眠るCUDAのcontextはdecodeが12%遅く、もう一つのthreadは空回りしたままでした。1.1.1から、上流の[runbook](https://github.com/ashhart/TensorFold/blob/v1.1.1/RUNBOOK.md)もこれらの測定からGB10の各rankに同じcoreを挙げています。`CPUSET=` でcontainerに全coreを与えます。
+**効率coreにする理由。** エンジンは要求を回す間、全rankで2本のCPUのthreadを空回りさせ続けます。rank 0ではdecodeの間、他のrankではそれを待つ間です（上流1.1.2のエンジンより前は、他のrankは要求の無い間も空回りしました。#1053は、rank 0にstreamが無い間それらを眠らせます）：一つはGPUを待ち、もう一つはそのkernel時間から見てNCCLのものである見込みが高いthreadです。全coreでは、これらがCPUのthermal zone（GB10の7つのzoneのうち5つ）を温めました：約6,000 tokenのpromptの後の1,024 tokenの返答を40本続けると、3.0.0のエンジンでは、TP=2でrank 0の最も熱いzoneが94.7 °Cに達し、熱の見張りが7本目でエンジンを止めました。3.1.0のエンジンは全coreでも効率coreと同じ1,535秒で40本を終えましたが、rank 0のホストは93.0 °Cに達し（止める温度まで1 °C）、効率coreでは74.9 °Cでした。全coreで2つの要求を同時に回すと88.5 °Cでした。熱の待ちはprompt chunkの合間に働くので、これを抑えられません。効率coreでは40本の返答がそのzone 85.1 °Cで終わり、rank 1のホストは約70 °Cではなく57〜63 °Cで待ちました。その代わり速さの1〜3%を失い、起動は約25秒長くなりました（[リリースでの測定値](#リリースでの測定値)）。熱の帯を下げる（86/82/87）と、待ったpromptが26〜89%遅くなり、1,048,576 tokenのpromptの最高温度は下がりませんでした。空回りせずに眠るCUDAのcontextはdecodeが12%遅く、もう一つのthreadは空回りしたままでした。1.1.1から、上流の[runbook](https://github.com/ashhart/TensorFold/blob/v1.1.1/RUNBOOK.md)もこれらの測定からGB10の各rankに同じcoreを挙げています。`CPUSET=` でcontainerに全coreを与えます。
 
 ## 設定
 
@@ -158,7 +158,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 - **`/health`**（`live`：接続、待っている要求、直近の数秒のdecodeとprefillの速さ）、**`/v1/models`**、**`/tokenize`**、**`/metrics`**（Prometheus。decodeのroundやクライアントの切断を含む）。
 - **停止**：クライアントの切断かstop文字列で応答が終わります。rank 0はroundの合間に接続を確かめ、他のrankはrank 0が送る段だけを走らせます。
 
-エンジンは `/v1/responses` とAnthropicの `/v1/messages` にも、同じchatの経路で答えます。受け入れではこれらを確かめていません。GLMのCUDAのエンジンでは、生成したtokenの `logprobs` と `top_logprobs`（400）、`serve.sh` のように `--vision` 無しで起動したときの画像・音声・動画のpart（400）、`/v1/decisions`（400）を断ります。
+エンジンは `/v1/responses` とAnthropicの `/v1/messages` にも、同じchatの経路で答えます。受け入れではこれらを確かめていません。GLMのCUDAのエンジンでは、生成したtokenの `logprobs` と `top_logprobs`（400）、音声のpart（400）、`--vision` 無しで起動したとき（rankのファイルで空の `VISION=`）の画像と動画のpart（400）、`/v1/decisions`（400）を断ります。
 
 ## 2.x系との違い
 
@@ -207,7 +207,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 - **3.2.0との差。** TP=2では、固定したcheckpointのtextの道は3.2.0のものです：decode検査のhash、190 roundの編集の返答、NLL（textごと）が3.1.0と同じで、`PARALLEL=` を空にした起動もcountで同じhashを出しました。decode、prefill、編集の返答の速さの動きは最大0.7%で、rank 0のprompt cacheは5.2 GiB（4.7）です。TP=3では、BF16のlinearが3.2.0のglueのkernelに代わって上流のtiledのkernelで回ります（上流1.1.2がTP=3のrankに開いた、issue #1067）：decode検査のhashとNLLは新しく（[検証](docs/validation.ja.md#decode検査)）、編集の返答は190 roundで3.2.0のままで1.3%速く（89.83に対して90.99 tok/s）、prefillは2.7%速くなりました（1,518.2に対して1,559.7）。
 - **画像。** 全項目のどの起動でも、画像1枚のdraftありと逐次が同じでした。
 - **XSFP4。** decode検査のhash、編集の返答、NLLはXSFP4自身の基準値です（[検証](docs/validation.ja.md#xsfp4)）。各TPで2回目の起動もhashと編集の返答が同じでした。速さはXSFP4自身の文の上の数です（[checkpoint](#checkpoint)）。
-- **XSFP4の既知の振る舞い。** TP=3では、[検証](docs/validation.ja.md#応答を止める)のstop文字列の要求（1から1,000の数をtemperature 0で、`\n300\n` で止める）が、300の前で繰り返しに入り、4,000 tokenの上限まで走ります。上流1.1.1でも同じでした。TP=2と、固定したcheckpointの両TPでは300で止まります。1 tokenずつ生成させると、この数え上げは時々1つの数を2度書き、その場所はTPと書き始めの位置で変わります。同じ位置をprefillした文脈からは、エンジンは正しい数を選びます（確かめたのは1か所）。同じ確かめで固定したcheckpointは繰り返さず、MTPのdraftは何も変えず、原因は分かっていません。TP=3では、「The capital of France is」へのXSFP4の8 tokenのgreedyの返答が、固定したcheckpointの「Paris is pronounced」に対して「Paris is spelled」で終わるので、prompt scoreとstructured outputの検査のplainな要求は、そこで自分のhashを持ちます（[検証](docs/validation.ja.md#xsfp4)）。
+- **XSFP4の既知の振る舞い。** TP=3では、[検証](docs/validation.ja.md#応答を止める)のstop文字列の要求（1から1,000の数をtemperature 0で、`\n300\n` で止める）が、300の前で繰り返しに入り、4,000 tokenの上限まで走ります。上流1.1.1でも同じでした。TP=2と、固定したcheckpointの両TPでは300で止まります。1 tokenずつ生成させると、この数え上げは時々1つの数を2度書き、その場所はTPと書き始めの位置で変わります。同じ位置をprefillした文脈からは、エンジンは正しい数を選びます（確かめたのは1か所）。同じ確かめで固定したcheckpointはこの繰り返しを見せず（157の後に空白と157をもう一度書くのは、固定したcheckpoint・FP4-Local・XSFP4に共通で、その空白はprefillも選びます）、MTPのdraftは何も変えず、原因は分かっていません。TP=3では、「The capital of France is」へのXSFP4の8 tokenのgreedyの返答が、固定したcheckpointの「Paris is pronounced」に対して「Paris is spelled」で終わるので、prompt scoreとstructured outputの検査のplainな要求は、そこで自分のhashを持ちます（[検証](docs/validation.ja.md#xsfp4)）。
 - **熱。** 天井が無いので、promptは最も熱いzoneが92 °Cを越えている間だけ、88 °Cまで待ちます。待ったのはTP=3の1,035,295 tokenのpromptだけです：固定したcheckpointは午後に、2秒の待ちを19回、計38秒待ち、最初のtokenは1,064.9秒（待ちを除くと1,026.9秒。3.2.0は1,022.9秒）。XSFP4は夜に、21回、計42秒待ちました。熱の見張りの停止に届いたzoneはありません。
 
 **3.2.0**（2026-10-20、エンジン `1a8f1efd`、上流1.1.1、image `glm53-tf3:3.2.0`）。固定したcheckpointで、リリースのimageを、それ自身の `serve.sh`（既定でvisionのtowerを読み込みます）とこのリリースの `cluster.sh` で5回起動しました：TP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回。全containerを効率coreに置き、TP=3では `TF_GLM_MM=0` で、止まった起動はありません。
@@ -285,7 +285,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 - **画像と動画はエンジンの制限の中で。** 画像は1要求に最大4枚で、送られた履歴にある画像を全部数えます（前のturnを画像ごと送り直すclientはそこに届きます）。4枚で4,096 tokenを分け合い、1枚10 MiB・1要求20 MiBまで。PNG・JPEG・WebPのdata URLで、GIFと動く絵は断ります。動画はuserのmessageだけで、1要求に2本（1本16 MB・合わせて20 MB・1時間まで）、1秒に2 frameで最大256 frameを取り、16,384 tokenを分け合います。0.5秒より短いclipは断ります。画像と動画のtokenは窓から取られます。HTTPSのURLには `serve.sh` が渡さない `--vision-urls` が要ります。音声のpartは400で断ります。
 - **生成したtokenのlog確率は無い。** `logprobs` と `top_logprobs` は400で断ります。`prompt_logprobs` はstreamでない `/v1/completions` でだけ配信します。
 - **`clear_thinking` はchat templateに渡りません。** ネイティブのserverがtemplateに渡すのは `enable_thinking`、`thinking_mode`、`reasoning_effort` だけです。固定のtemplateは `clear_thinking` が無ければfalseとして扱い、クライアントが送り返した前のturnの推論を残します。前のturnを推論なしで送るクライアントには違いはありません。
-- **どのrankも2つのCPUのcoreを空回りさせ続けます。** rank 0はdecodeの間、他のrankは待つ間です。containerの既定のcoreは、3.0.0のエンジンでは速さの1〜3%と引き換えに（3.1.0のエンジンでは40本の返答は同じ時間で、起動は約40秒長い）、CPUのzoneを熱の見張りが止める温度より下に保ちます。全coreでは、返答の長い連続が3.0.0のエンジンではそこに達し、3.1.0のエンジンでは1 °C手前まで来ました（[効率coreにする理由](#配信の既定)）。
+- **要求を回す間、どのrankも2つのCPUのcoreを空回りさせ続けます。** rank 0はdecodeの間、他のrankはそれを待つ間です（上流1.1.2のエンジンからは、#1053により、rank 0にstreamが無い間は他のrankは眠ります）。containerの既定のcoreは、3.0.0のエンジンでは速さの1〜3%と引き換えに（3.1.0のエンジンでは40本の返答は同じ時間で、起動は約40秒長い）、CPUのzoneを熱の見張りが止める温度より下に保ちます。全coreでは、返答の長い連続が3.0.0のエンジンではそこに達し、3.1.0のエンジンでは1 °C手前まで来ました（[効率coreにする理由](#配信の既定)）。
 - **BF16 KV** は、GiBあたり2.x系のFP8のcacheより短い窓しか持てず、2.x系のFP8の経路はこのエンジンにありません。
 - **ConnectX-7のリンクでつないだ2台か3台**で、1.x系・2.x系と同じです。他のrank数や他の機材は測定の範囲外です。
 
