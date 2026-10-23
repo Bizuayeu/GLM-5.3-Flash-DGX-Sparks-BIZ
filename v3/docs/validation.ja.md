@@ -124,7 +124,7 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 ## XSFP4
 
-XSFP4のcheckpoint（[checkpoint](../README.ja.md#checkpoint)）は固定したcheckpointと別のtokenを出すので、自分の基準値を持ちます。3.3.0の受け入れ（2026-10-22）で決めました。各TPの2回目の起動も、decode検査のhashと編集の返答が同じでした。受け入れが読んだのは素のblockのスケールのrevisionです。公開するrevisionは同じtensorで、3〜44層のblockのスケールを可逆に圧縮して持ち、各TPでもう1回の起動で、decode検査のhash・編集の返答・NLLが同じでした。検査は上と同じで、**合格の条件**も同じく、これらの値に照らします。ただし下のTP=3の二つの既知の振る舞いは除きます。`score-nll` にはXSFP4自身の `tokenizer.json`（固定したcheckpointのものとbyteまで同じ）を渡します。速さはこのcheckpointのもので、自分とだけ比べられます（[checkpoint](../README.ja.md#checkpoint)）。
+XSFP4のcheckpoint（[checkpoint](../README.ja.md#checkpoint)）は固定したcheckpointと別のtokenを出すので、自分の基準値を持ちます。3.3.0の受け入れ（2026-10-22）で決めました。各TPの2回目の起動も、decode検査のhashと編集の返答が同じでした。受け入れが読んだのは素のblockのスケールのrevisionです。公開するrevisionは同じtensorで、3〜44層のrouted expertのblockのスケールを可逆に圧縮して持ち、各TPでもう1回の起動で、decode検査のhash・編集の返答・NLLが同じでした。検査は上と同じで、**合格の条件**も同じく、これらの値に照らします。ただし下のTP=3の二つの既知の振る舞いは除きます。`score-nll` にはXSFP4自身の `tokenizer.json`（固定したcheckpointのものとbyteまで同じ）を渡します。速さはこのcheckpointのもので、自分とだけ比べられます（[checkpoint](../README.ja.md#checkpoint)）。
 
 | 検査 | TP=2 | TP=3 |
 |---|---|---|

@@ -185,7 +185,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 ## リリースでの測定値
 
-**3.3.0**（2026-10-23、エンジン `d2d95b11`、上流1.1.2にpull request #1050と#1179、image `glm53-tf3:3.3.0`）。リリースの `serve.sh`（既定でvisionのtowerを読み込みます）と `cluster.sh` で起動し、全containerを効率coreに置き、両TPで `TF_GLM_MM` は無しです：各checkpointでTP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回。XSFP4の起動はリリースのimageで回しました。固定したcheckpointの起動は、エンジンが一つ前のcommitのimage（`aa12d8df`。indexがfolderの中のshardを名指せるようにする#1179のpatchが無い）で回し、各TPでもう1回リリースのimageで起動すると、固定したcheckpointに同じdecode検査のhash、編集の返答、NLLを返しました。止まった起動はありません。
+**3.3.0**（2026-10-23、エンジン `d2d95b11`、上流1.1.2にpull request #1050と#1179、image `glm53-tf3:3.3.0`）。リリースの `serve.sh`（既定でvisionのtowerを読み込みます）と `cluster.sh` で起動し、全containerを効率coreに置き、両TPで `TF_GLM_MM` は無しです：各checkpointでTP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回。XSFP4の起動はリリースのimageで回し、読んだのは素のblockのスケールのrevisionです。公開するrevisionは、各TPでもう1回の起動で、decode検査のhash、編集の返答、NLL、rank 0のmodelが同じでした。固定したcheckpointの起動は、エンジンが一つ前のcommitのimage（`aa12d8df`。indexがfolderの中のshardを名指せるようにする#1179のpatchが無い）で回し、各TPでもう1回リリースのimageで起動すると、固定したcheckpointに同じdecode検査のhash、編集の返答、NLLを返しました。止まった起動はありません。
 
 | 3.3.0 | 固定 TP=2 | 固定 TP=3 | XSFP4 TP=2 | XSFP4 TP=3 |
 |---|---|---|---|---|

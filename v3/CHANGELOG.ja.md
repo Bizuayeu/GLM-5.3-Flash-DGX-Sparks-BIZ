@@ -12,7 +12,7 @@ TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` の
 
 ### XSFP4 checkpoint
 
-- [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)、[`config/xsfp4.lock.json`](config/xsfp4.lock.json) で固定：NVIDIAの `GLM-5.3-Flash-FP4-Local`（revision `76348ddb`）の派生物で、routed expert（3〜44層）とMTP層のexpertを、Z.AIのBF16の重みからXSFP4として量子化し直したもの（平滑化を重みに畳み込み、NVFP4のblockを当てはめ直す）。他のtensorはすべてFP4-Localの保存の形のままです。FP4-Localと同じく、3〜44層のblockのスケールは可逆に圧縮してあり（`csf_32x2_v1`）、全体で178 GBです。エンジンが読み込みの時に元に戻すので、GPUのmemoryと速さは素のスケールと同じです。NVIDIA Open Model Agreement（[checkpoint](README.ja.md#checkpoint)）。
+- [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)、[`config/xsfp4.lock.json`](config/xsfp4.lock.json) で固定：NVIDIAの `GLM-5.3-Flash-FP4-Local`（revision `76348ddb`）の派生物で、routed expert（3〜44層）とMTP層のexpertを、Z.AIのBF16の重みからXSFP4として量子化し直したもの（平滑化を重みに畳み込み、NVFP4のblockを当てはめ直す）。他のtensorはすべてFP4-Localの保存の形のままです。FP4-Localと同じく、3〜44層のrouted expertのblockのスケールは可逆に圧縮してあり（`csf_32x2_v1`）、全体で178 GBです。エンジンが読み込みの時に元に戻すので、GPUのメモリと速さは素のスケールと同じです。NVIDIA Open Model Agreement（[checkpoint](README.ja.md#checkpoint)）。
 - `download` と `verify-download` が `--checkpoint xsfp4` を取り、`state/xsfp4` に置きます。rankのファイルの `CHECKPOINT` をそのsnapshotにすると配信します（全rankで同じ）。rankのファイルの例にその行を注記で入れました。
 - TP=2でmodelはrank 0で93.44 GiB（固定したcheckpointは97.38）を取り、245,760 tokenの窓の横に8.9 GiBのprompt cache（5.2 GiB）が残ります。`PARALLEL=` を空にするとエンジンは3本のstream（2本）を取りました。
 

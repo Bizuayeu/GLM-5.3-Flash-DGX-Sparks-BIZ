@@ -15,7 +15,7 @@ How the 3.x figures were taken: those of [measured on the release](../README.md#
 
 ## Cooling between long requests
 
-A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or for at most 936 s at TP=3 and 600 s at TP=2 (3.3.0's acceptance), the rule of [`host/cool-gate`](../../host/README.md#during-long-runs). The band and the 936 s are 2.x's calibration of the ring's rank 0 host; the TP=2 pair has no calibration of its own, so its rank 0 waited for the same band with `cool-gate`'s default cap. The other ranks' hosts were recorded and not waited for: up to 3.2.0's engine they kept two CPU threads spinning even while no request ran ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
+A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or for at most 936 s at TP=3 and 600 s at TP=2 (3.3.0's acceptance), the rule of [`host/cool-gate`](../../host/README.md#during-long-runs). The band and the 936 s were calibrated on the ring's rank 0 host during 1.x's measurements, and 2.x used them too; the TP=2 pair has no calibration of its own, so its rank 0 waited for the same band with `cool-gate`'s default cap. The other ranks' hosts were recorded and not waited for: up to 3.2.0's engine they kept two CPU threads spinning even while no request ran ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
 
 ## Decode check
 
