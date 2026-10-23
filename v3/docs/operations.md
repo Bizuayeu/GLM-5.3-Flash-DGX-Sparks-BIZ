@@ -50,7 +50,7 @@ After `cluster.sh state/cluster.env stop`, on each host:
 
 ```sh
 docker rm -f glm53-tf3                                  # the container only sleeps between starts
-v3/scripts/create_container.sh glm53-tf3:3.4.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.5.0 ~/glm53-tf3
 ```
 
 `create_container.sh` names the container, so the old one must go first (or be renamed: `docker rename glm53-tf3 glm53-tf3-old`, then `docker stop`). The host directory stays: the rank file and the logs. Nothing is built in the container.

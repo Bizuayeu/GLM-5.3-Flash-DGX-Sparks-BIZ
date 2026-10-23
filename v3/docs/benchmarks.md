@@ -8,7 +8,7 @@ How the 3.x figures were taken: those of [measured on the release](../README.md#
 
 - **Hosts.** The reference hosts, MSI EdgeXpert (GB10): the pair over a direct link for TP=2, three hosts in a ring for TP=3, nothing else on their GPUs (2.x's containers stopped).
 - **GPU clock** capped at 2,200 MHz by the boot unit of the [host tools](../../host/README.md) ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)).
-- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) names them, with `serve.sh`'s defaults: one stream, the windows of 245,760 tokens at TP=2 and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. At TP=2 one launch on each checkpoint ran with an empty `PARALLEL=`, the engine's own choice of streams, and says so.
+- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) names them, with `serve.sh`'s defaults: one stream, the windows of 245,760 tokens at TP=2 until 3.4.0 (524,288 from 3.5.0) and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. At TP=2 one launch on each checkpoint ran with an empty `PARALLEL=`, the engine's own choice of streams, and says so.
 - **Cores.** Every container on the efficiency cores 0-4 and 10-14, as `create_container.sh` creates it.
 - **Watchers.** The memory guard on every host and the thermal watch on every host of the launch.
 - **Clients.** Every request from rank 0 to the engine on loopback, one at a time, temperature 0 and reasoning effort low unless a check says otherwise; the tools ran in the container from the checkout's `v3/`.

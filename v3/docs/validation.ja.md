@@ -4,7 +4,7 @@
 
 3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値はネイティブエンジン自身のもので、参照機で、そのリリースの `serve.sh` の既定（3.3.0まではNVIDIAのNVFP4）、全containerを効率coreにして測りました。TP=2の値は2026-10-19〜20の3.1.0の受け入れで、`1a8f1efd`（上流1.1.1とこの系列の二つのcommit）からbuildしたエンジンにより、上流のtiledのBF16のlinearで決めました。2026-10-20の3.2.0の受け入れ（visionのtowerを読み込んで）と、2026-10-22の3.3.0の受け入れ（上流1.1.2の上で）も、同じdecode checkのhash、editの返答、NLL、tool-eval-benchの点を出しました。TP=3の値は3.3.0の受け入れで決めました：上流1.1.2はTP=3のrankにもtiledのkernelを開き（issue #1067）、それがTP=3に新しいdecode checkのhashとNLLを出します。3.0.0〜3.2.0はTP=3をglueのkernel（`TF_GLM_MM=0`）で回し、その値は下の各節に参考として載せます（[配信の既定](../README.ja.md#配信の既定)）。後の受け入れで速さ、メモリ、熱が違った所は、下の各節に書きます。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
 
-3.4.0から既定のcheckpointはXSFP4で、その基準値は[XSFP4](#xsfp4)にあります。その前の節は、3.3.0まで既定だったNVIDIAのNVFP4のものです。3.4.0のリリースのimageを、rankのファイルに `CHECKPOINT` を書かずにそれ自身の `serve.sh` で起動すると、両TPでXSFP4のdecode検査のhash、編集の返答、NLLを返しました。
+3.4.0から既定のcheckpointはXSFP4で、その基準値は[XSFP4](#xsfp4)にあります。その前の節は、3.3.0まで既定だったNVIDIAのNVFP4のものです。3.4.0のリリースのimageを、rankのファイルに `CHECKPOINT` を書かずにそれ自身の `serve.sh` で起動すると、両TPでXSFP4のdecode検査のhash、編集の返答、NLLを返しました。3.5.0のものは、TP=2の524,288 tokenの窓で、TP=2で同じものを返し、199,307 tokenのpromptに3.3.0と同じ返答を返し、499,254 tokenのpromptで3つの合言葉を全部見つけました。
 
 道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、またはPythonと `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)を動かしたままにします。
 
@@ -90,7 +90,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値（NVIDIAのNVFP4）：199,307 tokenで合言葉を、TP=2で153.4秒（3.3.0：155.0秒）、TP=3で140.3秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで399.5秒、1,035,295 tokenで3つ中3つ、1,064.9秒で、そのうちpromptは熱で2秒の待ちを19回、計38秒待ちました（午後に回しました）。どれも保持したpromptから再開しませんでした（`cached` 0）。glueのkernel（3.1.0、夜）では、TP=3の3つが140.4・398.1・1,022.7秒で、熱では待ちませんでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は245,760 tokenです。
+目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値（NVIDIAのNVFP4）：199,307 tokenで合言葉を、TP=2で153.4秒（3.3.0：155.0秒）、TP=3で140.3秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで399.5秒、1,035,295 tokenで3つ中3つ、1,064.9秒で、そのうちpromptは熱で2秒の待ちを19回、計38秒待ちました（午後に回しました）。どれも保持したpromptから再開しませんでした（`cached` 0）。glueのkernel（3.1.0、夜）では、TP=3の3つが140.4・398.1・1,022.7秒で、熱では待ちませんでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は3.5.0から524,288 tokenです（それより前とNVIDIAのNVFP4では245,760）。
 
 ## tool引数ゲート越しのtool
 
@@ -139,12 +139,12 @@ XSFP4のcheckpoint（[checkpoint](../README.ja.md#checkpoint)）はNVIDIAのNVFP
 | ゲート越しのtool-eval-bench | 93、Safety Gateは通過（TC-61がfail） | 同じ |
 | 38,960 tokenのprefill / decode（tok/s） | 1,415.1 / 54.15 | 1,717.3 / 66.23 |
 | 199,307 tokenのprompt | 見つけた、151.9秒 | 見つけた、127.9秒 |
-| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken | — | 3つ中3つ、373.0秒。3つ中3つ、1,015.7秒（うち42秒は熱の待ち） |
+| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken | 499,254：3つ中3つ、431.5秒、熱の待ちなし（3.5.0、524,288 tokenの窓） | 3つ中3つ、373.0秒。3つ中3つ、1,015.7秒（うち42秒は熱の待ち） |
 | 約93,000 tokenのpromptを切った後の次の要求、切らないpromptの最初のtokenとの比べ（秒） | 0.32 対 68.6 | 0.91 対 56.7 |
 | 6,000 tokenのpromptの後の40の返答（秒、rank 0のホストの最も熱いzone） | 1,250、76.5 °C | 981、85.8 °C |
 | 最低の `MemAvailable`、rankごと（GiB） | 11 / 13 | 21 / 22 / 28 |
 | 起動の中の最も熱いzone、rankごと（°C） | 84.1 / 86.3 | 92.7 / 89.7 / 84.7 |
 
-`PARALLEL=` を空にするとTP=2でエンジンは3本のstreamを取り、同じcountのhashを出しました。draftした応答はserialと同じでした（絵を含む要求も）。H.264とVP9の動画はdraftしても `"draft": false` でも同じ応答で、GIFとaudioの部分は400で断られました。TP=2では熱で待った要求はありませんでした。TP=3で待ったのは1,035,295 tokenのpromptだけで、2秒の待ちを21回でした。
+`PARALLEL=` を空にすると、TP=2の245,760 tokenの窓でエンジンは3本のstream（3.5.0の524,288では1本）を取り、同じcountのhashを出しました。draftした応答はserialと同じでした（絵を含む要求も）。H.264とVP9の動画はdraftしても `"draft": false` でも同じ応答で、GIFとaudioの部分は400で断られました。TP=2では熱で待った要求はありませんでした。TP=3で待ったのは1,035,295 tokenのpromptだけで、2秒の待ちを21回でした。
 
 **TP=3の既知の振る舞い。** [応答を止める](#応答を止める)のstop文字列の要求は、4,000 tokenの上限まで走ります：数え上げが300の前で繰り返しに入るためで、上流1.1.1でも同じでした（切った応答と切ったpromptは合格）。[promptのscoreと構造化出力](#promptのscoreと構造化出力)のscoreもgrammarも無い要求は、NVIDIAのNVFP4の「… pronounced」に対して「 Paris. In French, Paris is spelled」で終わるので、そのhashはNVIDIAのNVFP4のものでなく表の値です。どちらも既知の振る舞いで（[リリースでの測定値](../README.ja.md#リリースでの測定値)）、受け入れを止める理由にはしません。
