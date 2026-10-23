@@ -44,7 +44,7 @@ cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # このホスト�
 
 `create_container.sh` はcontainerに割り当てるcoreを出します。`CPUSET` が無ければ最大周波数の最も低いcoreで、GB10では効率coreの `cpuset 0-4,10-14` です。エンジンのthreadが空回りする間も、CPUの温度を低く保ちます（[配信の既定](README.ja.md#配信の既定)）。前に `CPUSET=` を付けると全core、`CPUSET=<list>` で書いたcoreです。
 
-`~/glm53-tf3/rank.env` をこのホストの値に直します：`MASTER`（リンク上のrank 0のアドレス、全rankで同じ）、`NCCL_IB_HCA`（リンクのRDMAデバイス、2本のrail）、`NCCL_IB_GID_INDEX`、`NCCL_SOCKET_IFNAME`。29583が使われていれば `NCCL_PORT` も。exampleは参照機のファイルで、各行が何と測られたかを書いています。このファイルは `bash` が読み込むもので、`docker --env-file` には渡しません。exampleがコメントにしている行は、全rankで同じに既定を変えます：`PARALLEL`、`CONTEXT`、`VISION`、`CHECKPOINT`、熱の帯、`API_KEY_FILE`（[設定](README.ja.md#設定)）。
+`~/glm53-tf3/rank.env` をこのホストの値に直します：`MASTER`（リンク上のrank 0のアドレス、全rankで同じ）、`NCCL_IB_HCA`（リンクのRDMAデバイス、2本のrail）、`NCCL_IB_GID_INDEX`、`NCCL_SOCKET_IFNAME`。29583が使われていれば `NCCL_PORT` も。exampleは参照機のファイルで、各行が何と測られたかを書いています。このファイルは `bash` が読み込むもので、`docker --env-file` には渡しません。exampleがコメントにしている行は既定を変えます：`PARALLEL`、`CONTEXT`、`VISION`、`CHECKPOINT`、熱の帯は全rankで同じに、`API_KEY_FILE` はrank 0だけで（[設定](README.ja.md#設定)）。
 
 エンジンにはホストでのbuildの段がありません。kernelはbinaryの中にあります。
 

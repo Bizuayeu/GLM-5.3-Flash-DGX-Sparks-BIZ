@@ -17,7 +17,7 @@
 - **画像と動画。** chatの要求は、PNG・JPEG・WebPの画像と、H.264・HEVC・VP8・VP9・MPEG-4の動画をdata URLで持てます。rank 0にあるcheckpointのvision towerが、エンジンの `--vision` で読みます。`serve.sh` は既定でこれを渡します（[制限](#制限)）。
 - **精度。** XSFP4ではrouted expertはW4A16、他のprojectionはcheckpointが保存する形のままで、多くは8 bit、vision towerのMLPとmergerはNVFP4です。NVIDIAのNVFP4ではrouted expertとdense MLPはW4A16、他はBF16です（[checkpoint](#checkpoint)）。KVはどちらもBF16です（2.x系はFP8のKV cacheを持ちます）。NVIDIAのmodel cardは別のレシピ・別の機材でcheckpointを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
 - **ライセンス。** コードとエンジンはApache-2.0、重みは運用者がダウンロードし、NVIDIA Open Model Agreement（XSFP4、商用に使える）かMIT（NVIDIAのNVFP4）です。imageには構造化出力のためにxgrammar（Apache-2.0）、画像と動画のためにlibjpeg-turbo・libwebp（BSD系）とFFmpegのdecoder（LGPL-2.1）が入ります。配信の経路に非商用の条件はありません（[ライセンスの早見表](../README.ja.md#ライセンスの早見表)）。
-- **未検証。** 画像と動画のURL（`--vision-urls`、無効）、公開したAXLの重み、同時に2つ以上の要求（受け入れは一度に一つずつ送りました）、ハーネス連携（ZCode・Claude Code）、他のrank数と機材、アプリケーション全体の品質と本番の信頼性（[制限](#制限)）。
+- **未検証。** 画像と動画のURL（`--vision-urls`、無効）、同時に2つ以上の要求（受け入れは一度に一つずつ送りました）、他のrank数と機材（[制限](#制限)）。公開したAXLの重み（[2.x系との違い](#2x系との違い)）。ハーネス連携（ZCode・Claude Code）、アプリケーション全体の品質と本番の信頼性。
 
 ## 何であるか
 
@@ -83,7 +83,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | 作り手 | 本リポジトリの管理者、NVIDIAの[`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)（revision `76348ddb`）とZ.aiのBF16の重みから | NVIDIA、Z.aiのBF16の重みから |
 | routed expert | XSFP4、W4A16で配信：平滑化を重みに畳み込み、BF16の重みからNVFP4のblockを当てはめ直したもので、実行時にkernelが何も掛けません。MTP層のexpertも同じ。3〜44層はblockのスケールを可逆に圧縮して持ち（`csf_32x2_v1`、FP4-Localと同じ）、エンジンが読み込みの時にホストで元に戻します | NVFP4、W4A16で配信 |
 | その他 | FP4-Localのtensorを保存の形のまま：MXFP8（dense MLP、KDA、`lm_head`、MTP層のattentionとshared expert）、128×128 blockのFP8（MLAとshared expert）、BF16（KDAの小さいprojection、MLAの `kv_b` とindexer、router、embeddings）、BF16とF32のnorm。vision towerはMXFP8とNVFP4 | dense MLPはNVFP4（W4A16）、attention・shared expert・headはBF16 |
-| TP=2・TP=3のrank 0のmodel（読み込みの行） | 93.44・76.36 GiB | 97.38・79.30 GiB |
+| TP=2（245,760 tokenの窓）・TP=3のrank 0のmodel（読み込みの行） | 93.44・76.36 GiB | 97.38・79.30 GiB |
 | このエンジンのTP=2でBF16の重みと比べた次token（128文書、144,285位置）：top-1の一致 / BF16に対するNLLの上がり / KLの下限 | 93.26% / +0.85% / 0.0431 | 92.68% / +1.37% / 0.0510 |
 | 同じものをTP=3で | 93.30% / +0.85% / 0.0436 | 92.71% / +1.38% / 0.0511 |
 | ライセンス | NVIDIA Open Model Agreement（FP4-Localの派生物。repositoryに `LICENSE` と `NOTICE`） | MIT |
@@ -105,7 +105,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | draft | checkpointのMTP head（エンジンの既定） | 同じ |
 | 窓（`--context`） | 524,288 token：各rankでXSFP4の隣に1本のstreamとprompt cacheが入る。NVIDIAのNVFP4もこの窓で起動するが（prompt cacheは1.0 GiB）、rankのファイルの例は `CONTEXT=245760` を渡す | 1,048,576 token（モデルの上限） |
 | 同時にdecodeする要求（`--parallel`） | 1（`PARALLEL=1`）。空の `PARALLEL=` ではエンジンに任せ、エンジンは起動時の空きメモリからstreamとprompt cacheの大きさを決める | 同じ |
-| prompt cache（保持するpromptの状態、2,048 tokenのchunkの始まりごと） | 窓の残り（rank 0のloadの行。起動時の空きメモリで動きます）：参照機で、vision towerを読み込んで、XSFP4は524,288 tokenで5.2〜5.5 GiB（245,760では8.9 GiB）、NVIDIAのNVFP4は245,760で5.2 GiB（それまでの3.xのエンジンはそこで4.4〜5.4 GiB、`VISION=` で5.2〜6.3 GiB。524,288では1.0 GiB） | 参照リングで、どちらのcheckpointも16.0 GiB |
+| prompt cache（保持するpromptの状態、2,048 tokenのchunkの始まりごと） | 窓の残り（rank 0のloadの行。起動時の空きメモリで動きます）：参照機で、vision towerを読み込んで、XSFP4は524,288 tokenで5.2〜5.5 GiB（245,760では8.9 GiB）、NVIDIAのNVFP4は245,760で5.1〜5.2 GiB（それまでの3.xのエンジンはそこで4.4〜5.4 GiB、`VISION=` で5.2〜6.3 GiB。524,288では1.0 GiB） | 参照リングで、どちらのcheckpointも16.0 GiB |
 | 要求が指定しないときの応答の上限 | 32,768 token（`--max-tokens`） | 同じ |
 | 要求が指定しないときの推論のeffort | `high`（`--reasoning-effort`） | 同じ |
 | NCCL | 各リンク2本のrail・4 channel・IBのtransportを明示、rankごとのファイルから。rank 0のアドレスとportを `NCCL_COMM_ID` に | 2本のrail・4 channel・IBのtransportを明示・subnet-aware routing。rank 0のアドレスとportを `NCCL_COMM_ID` に（rankどうしの生存の線のためだけ）、rank 0のNCCLのidをファイルで渡す |
@@ -289,7 +289,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 ## 制限
 
-- **既定では一度に一要求。** それ以上には `PARALLEL` と、TP=2では小さい窓が要ります：524,288 tokenの窓には1本のstreamだけが入り（`PARALLEL=` を空にした時も1本）、`CONTEXT=245760` なら、NVIDIAのNVFP4では半分のprompt cacheで2本、XSFP4では3本が入ります（[配信の既定](#配信の既定)）。
+- **既定では一度に一要求。** それ以上には `PARALLEL` と、TP=2では小さい窓が要ります：524,288 tokenの窓には1本のstreamだけが入り（`PARALLEL=` を空にした時も1本）、`CONTEXT=245760` なら、NVIDIAのNVFP4では2本（prompt cacheは1本のときの5.2 GiBに対して1.5 GiB）、XSFP4では3本が入ります（[配信の既定](#配信の既定)）。
 - **画像と動画はエンジンの制限の中で。** 画像は1要求に最大4枚で、送られた履歴にある画像を全部数えます（前のturnを画像ごと送り直すclientはそこに届きます）。4枚で4,096 tokenを分け合い、1枚10 MiB・1要求20 MiBまで。PNG・JPEG・WebPのdata URLで、GIFと動く絵は断ります。動画はuserのmessageだけで、1要求に2本（1本16 MB・合わせて20 MB・1時間まで）、1秒に2 frameで最大256 frameを取り、16,384 tokenを分け合います。0.5秒より短いclipは断ります。画像と動画のtokenは窓から取られます。HTTPSのURLには `serve.sh` が渡さない `--vision-urls` が要ります。音声のpartは400で断ります。
 - **生成したtokenのlog確率は無い。** `logprobs` と `top_logprobs` は400で断ります。`prompt_logprobs` はstreamでない `/v1/completions` でだけ配信します。
 - **`clear_thinking` はchat templateに渡りません。** ネイティブのserverがtemplateに渡すのは `enable_thinking`、`thinking_mode`、`reasoning_effort` だけです。どちらのcheckpointのchat templateも `clear_thinking` が無ければfalseとして扱い、クライアントが送り返した前のturnの推論を残します。前のturnを推論なしで送るクライアントには違いはありません。
@@ -313,6 +313,7 @@ v3/
                     （公開したAXLの重み）、nll_set.json（NLL採点セット）
   requirements/     huggingface.lock.txt：ダウンロードとその検証に使うHugging Faceのclient
   docker/           Dockerfile：image。エンジンは ENGINE_REF で固定
+                    Dockerfile.build：build用のimage。エンジンをbuildし、そのGPUのテストを回す
   scripts/          create_container.sh  各ホストの配信用container
                     cpuset.sh            そのcore（CPUSET）：既定は最大周波数の最も低いもの
                     serve.sh             1 rank、配信の既定つき
@@ -322,6 +323,7 @@ v3/
   docs/             validation.md  受け入れの検査と基準値
                     benchmarks.md  リリースの値の取り方
                     operations.md  失敗と日常の作業：止まったrank、新しいimage、ホストを2.x系へ渡す
+  assets/           banner.webp：このページのbanner
   tests/            glm53_tf/と、これらの頁が引く事実のCPUテスト
   pyproject.toml    3.x系の版
 ```

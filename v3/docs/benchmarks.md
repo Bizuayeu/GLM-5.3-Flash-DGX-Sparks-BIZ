@@ -38,7 +38,7 @@ Before anything was timed, a prefill of about 3,000 tokens (`bench --kinds prefi
 Every long prompt is a ledger of numbered lines, `Ledger <i>: the river barge delivered sacks of barley to the northern granary at dusk.`, after the system message `You are a careful archivist. Read the ledger.`, at temperature 0 and effort low, its line count fitted to the target with the engine's `/tokenize`. Each row's `cached` gives the tokens a prompt resumed from the prompt cache; in the acceptance every long prompt was read whole (`cached` 0), TP=3's three in a row included.
 
 - **One passphrase at 199,652 tokens**, in the middle. Not streamed, up to 512 tokens; correct when the reply contains it. At both TP sizes.
-- **Three passphrases** (one twentieth from the start, the middle, one twentieth from the end) **at 499,622 and 1,036,859 tokens**, TP=3. Streamed, up to 256 tokens; the client times the first streamed token; correct when the reply lists all three.
+- **Three passphrases** (one twentieth from the start, the middle, one twentieth from the end) **at 499,622 and 1,036,859 tokens**, TP=3, and from 3.5.0 the 499,622-token one at TP=2 too. Streamed, up to 256 tokens; the client times the first streamed token; correct when the reply lists all three.
 
 The heat waits of a prompt are read from rank 0's `heat_wait_s` lines between the request's start and end.
 

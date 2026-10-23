@@ -17,7 +17,7 @@
 - **Images and videos.** Chat requests may carry PNG, JPEG and WebP images and H.264, HEVC, VP8, VP9 and MPEG-4 videos as data URLs, read by the checkpoint's vision tower on rank 0 through the engine's `--vision`, which `serve.sh` passes by default ([limits](#limits)).
 - **Precision.** On XSFP4, W4A16 for the routed experts and every other projection in the form the checkpoint stores: mostly 8-bit, with NVFP4 in the vision tower's MLP and merger; on NVIDIA's NVFP4, W4A16 for the routed experts and the dense MLP, BF16 elsewhere ([checkpoints](#checkpoints)). BF16 KV on both (2.x keeps an FP8 KV cache). NVIDIA's model cards measured their checkpoints under other recipes on other hardware, so their accuracy tables do not describe this serving; [validation](docs/validation.md) gives the numbers that do.
 - **Licensing.** Apache-2.0 code and engine; weights that the operator downloads, the NVIDIA Open Model Agreement (XSFP4, commercially usable) or MIT (NVIDIA's NVFP4); xgrammar (Apache-2.0) in the image for structured output, and libjpeg-turbo, libwebp (BSD-style) and FFmpeg's decoders (LGPL-2.1) for images and videos; nothing non-commercial in the serving path ([licensing at a glance](../README.md#licensing-at-a-glance)).
-- **Not validated.** Image and video URLs (`--vision-urls`, off), the published AXL weights, more than one request at a time (the acceptance sent one at a time), harness integration (ZCode, Claude Code), other world sizes and hardware, full application quality and production reliability ([limits](#limits)).
+- **Not validated.** Image and video URLs (`--vision-urls`, off), more than one request at a time (the acceptance sent one at a time) and other world sizes and hardware ([limits](#limits)); the published AXL weights ([differences from 2.x](#differences-from-2x)); harness integration (ZCode, Claude Code), full application quality and production reliability.
 
 ## What It Is
 
@@ -84,7 +84,7 @@ XSFP4 is the default from 3.4.0; NVIDIA's NVFP4 checkpoint, the default until 3.
 | Made by | this repository's maintainer, from NVIDIA's [`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local) (revision `76348ddb`) and Z.ai's BF16 weights | NVIDIA, from Z.ai's BF16 weights |
 | Routed experts | XSFP4, served W4A16: NVFP4 blocks fitted again from the BF16 weights with a smoothing folded into them, so no kernel applies anything at run time; the MTP layer's experts too. Layers 3 to 44 store their block scales compressed losslessly (`csf_32x2_v1`, as FP4-Local does), and the engine restores them on the host at load | NVFP4, served W4A16 |
 | Everything else | FP4-Local's tensors as stored: MXFP8 (dense MLP, KDA, `lm_head`, the MTP layer's attention and shared expert), FP8 in 128×128 blocks (MLA and the shared experts), BF16 (KDA's small projections, MLA's `kv_b` and indexer, the router, the embeddings), BF16 and F32 norms; the vision tower's MXFP8 and NVFP4 | dense MLP NVFP4 (W4A16); attention, shared experts and head BF16 |
-| Model on rank 0 at TP=2 / TP=3 (load line) | 93.44 / 76.36 GiB | 97.38 / 79.30 GiB |
+| Model on rank 0 at TP=2 (245,760-token window) / TP=3 (load line) | 93.44 / 76.36 GiB | 97.38 / 79.30 GiB |
 | Next token against the BF16 weights on this engine at TP=2 (128 documents, 144,285 positions): top-1 agreement / NLL above BF16 / KL, lower bound | 93.26% / +0.85% / 0.0431 | 92.68% / +1.37% / 0.0510 |
 | The same at TP=3 | 93.30% / +0.85% / 0.0436 | 92.71% / +1.38% / 0.0511 |
 | License | NVIDIA Open Model Agreement (a derivative of FP4-Local; `LICENSE` and `NOTICE` in the repository) | MIT |
@@ -106,7 +106,7 @@ The two give different tokens, so each has its own reference values in [validati
 | Drafts | the checkpoint's MTP head (the engine's default) | same |
 | Window (`--context`) | 524,288 tokens: one stream and a prompt cache beside XSFP4 on each rank; NVIDIA's NVFP4 starts at it too, with a 1.0 GiB prompt cache, and the rank file examples give it `CONTEXT=245760` | 1,048,576 tokens (the model's limit) |
 | Requests decoded at once (`--parallel`) | 1 (`PARALLEL=1`); an empty `PARALLEL=` leaves it to the engine, which sizes the streams and the prompt cache from the memory free at start | same |
-| Prompt cache (kept prompt states, at the starts of 2,048-token chunks) | what the window leaves (rank 0's load line; it moves with the memory free at the start): on the reference hosts with the vision tower loaded, 5.2 to 5.5 GiB on XSFP4 at 524,288 tokens (8.9 GiB at 245,760) and 5.2 GiB on NVIDIA's NVFP4 at 245,760 (the earlier 3.x engines kept 4.4 to 5.4 GiB there, 5.2 to 6.3 GiB with `VISION=`; 1.0 GiB at 524,288) | 16.0 GiB on the reference ring, on both checkpoints |
+| Prompt cache (kept prompt states, at the starts of 2,048-token chunks) | what the window leaves (rank 0's load line; it moves with the memory free at the start): on the reference hosts with the vision tower loaded, 5.2 to 5.5 GiB on XSFP4 at 524,288 tokens (8.9 GiB at 245,760) and 5.1 to 5.2 GiB on NVIDIA's NVFP4 at 245,760 (the earlier 3.x engines kept 4.4 to 5.4 GiB there, 5.2 to 6.3 GiB with `VISION=`; 1.0 GiB at 524,288) | 16.0 GiB on the reference ring, on both checkpoints |
 | Reply limit when a request names none | 32,768 tokens (`--max-tokens`) | same |
 | Reasoning effort when a request names none | `high` (`--reasoning-effort`) | same |
 | NCCL | two rails per link, four channels, the IB transport named, from each rank's file; rank 0's address and port as `NCCL_COMM_ID` | two rails, four channels, the IB transport named, subnet-aware routing; rank 0's address and port as `NCCL_COMM_ID` for the ranks' liveness lines alone, and rank 0's NCCL id handed over in a file |
@@ -290,7 +290,7 @@ The two lines' containers both claim every GPU: run one line's engine at a time 
 
 ## Limits
 
-- **One request at a time by default.** More need `PARALLEL` and, at TP=2, a smaller window: the 524,288-token window holds one stream (an empty `PARALLEL=` took one), and `CONTEXT=245760` holds two on NVIDIA's NVFP4, with half the prompt cache, and three on XSFP4 ([serving defaults](#serving-defaults)).
+- **One request at a time by default.** More need `PARALLEL` and, at TP=2, a smaller window: the 524,288-token window holds one stream (an empty `PARALLEL=` took one), and `CONTEXT=245760` holds two on NVIDIA's NVFP4, with a 1.5 GiB prompt cache against one stream's 5.2 GiB, and three on XSFP4 ([serving defaults](#serving-defaults)).
 - **Images and videos within the engine's limits.** At most 4 images a request, counting every image the submitted history holds (a client that resends earlier turns with their images reaches it), sharing 4,096 image tokens; 10 MiB an image and 20 MiB a request; PNG, JPEG and WebP data URLs, GIF and animated pictures refused. Videos in user messages only, 2 a request (16 MB each, 20 MB together, an hour of footage), sampled at 2 frames a second up to 256 frames, sharing 16,384 video tokens; a clip under half a second is refused. Images and videos take their tokens from the window. HTTPS URLs need `--vision-urls`, which `serve.sh` does not pass. Audio parts are refused with 400.
 - **No log-probabilities of generated tokens.** `logprobs` and `top_logprobs` are refused with 400; `prompt_logprobs` is served on non-streamed `/v1/completions` only.
 - **`clear_thinking` is not passed to the chat template.** The native server passes the template only `enable_thinking`, `thinking_mode` and `reasoning_effort`; both checkpoints' chat templates take a missing `clear_thinking` as false and keep the reasoning of earlier turns that a client sends back. A client that sends earlier turns without their reasoning sees no difference.
@@ -314,6 +314,7 @@ v3/
                     (the published AXL weights), nll_set.json (the NLL set)
   requirements/     huggingface.lock.txt: the Hugging Face client for the download and its verification
   docker/           Dockerfile: the image, with the engine pinned by ENGINE_REF
+                    Dockerfile.build: the build image, where the engine is built and its GPU tests run
   scripts/          create_container.sh  the serving container on each host
                     cpuset.sh            its cores (CPUSET): by default the lowest maximum frequency
                     serve.sh             one rank, with the serving defaults
@@ -323,6 +324,7 @@ v3/
   docs/             validation.md  the acceptance checks and reference values
                     benchmarks.md  how the release figures were taken
                     operations.md  failures and routine changes: a rank that stops, a new image, handing hosts to 2.x
+  assets/           banner.webp: this page's banner
   tests/            CPU tests of glm53_tf/ and of the facts these pages quote
   pyproject.toml    the 3.x version
 ```

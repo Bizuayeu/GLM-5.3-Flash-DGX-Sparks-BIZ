@@ -6,7 +6,7 @@ What a 3.x launch is accepted on, in the order to run it, with the reference val
 
 From 3.4.0 the default checkpoint is XSFP4, whose reference values are in [XSFP4](#xsfp4); the sections before it give NVIDIA's NVFP4's, the default until 3.3.0. 3.4.0's release image, started by its own `serve.sh` with no `CHECKPOINT` in the rank files, gave XSFP4's decode-check hashes, edit reply and NLL at both TP sizes. 3.5.0's, at TP=2's 524,288-token window, gave the same at TP=2, 3.3.0's reply to the 199,307-token prompt and all three passphrases of the 499,254-token one.
 
-Run the tools from `v3/` of the checkout on rank 0, in its virtual environment ([setup §2](../SETUP.md#2-checkout-and-checkpoint)) or in the container, which has Python and `tokenizers`, against the engine on loopback (`http://127.0.0.1:8095`, model `glm-tf` unless the rank file sets others). Let the hosts cool between long requests ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)), and keep the memory guard and the [thermal watch](../../host/README.md#during-long-runs) running.
+Run the tools from `v3/` of the checkout on rank 0, in its virtual environment ([setup §2](../SETUP.md#2-checkout-and-checkpoint)) or in the container, which has Python and `tokenizers`, against the engine on loopback (`http://127.0.0.1:8095`, model `glm-tf` unless the rank file sets others). Let the hosts cool between long requests ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)), and keep the memory guard and the [thermal watch](../../host/README.md#during-long-runs) running (`--container glm53-tf3 --process 'tensorfold-native serve'`).
 
 ## Decode check
 
@@ -45,15 +45,15 @@ The same prompt with and without drafts (`"draft": false` in the request body de
 
 ## Teacher-forced NLL
 
-The NLL set of [`config/nll_set.json`](../config/nll_set.json), a byte copy of 1.x's and 2.x's: four domains (Japanese, English, code, math) of four texts each, 5,851-6,830 tokens per domain, scored through `prompt_logprobs` on `/v1/completions`. The tokenizer must be the checkpoint's own:
+The NLL set of [`config/nll_set.json`](../config/nll_set.json), a byte copy of 1.x's and 2.x's: four domains (Japanese, English, code, math) of four texts each, 5,851-6,830 tokens per domain, scored through `prompt_logprobs` on `/v1/completions`. The tokenizer must be the checkpoint's own (XSFP4's below; NVIDIA's NVFP4's is the same file):
 
 ```sh
 python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
-  --tokenizer ~/.cache/huggingface/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93/tokenizer.json \
+  --tokenizer ~/.cache/huggingface/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/59c49ac98221848ac981226c85f77a7b55fa8469/tokenizer.json \
   --out ../records/<run>/nll.json
 ```
 
-Needs the `tokenizers` package where it runs. Each text is scored twice; the run passes when every request answered and the two scores of each text agree.
+Needs the `tokenizers` package where it runs. Each text is scored twice; the run passes when every request answered, and its `self-agreement` line gives the largest move between the two scores of a text.
 
 | Domain (positions) | TP=2 | TP=3 | 2.x TP=2 (information) | 2.x TP=3 (information) |
 |---|---|---|---|---|

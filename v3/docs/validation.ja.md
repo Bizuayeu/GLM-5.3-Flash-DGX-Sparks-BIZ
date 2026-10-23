@@ -6,7 +6,7 @@
 
 3.4.0から既定のcheckpointはXSFP4で、その基準値は[XSFP4](#xsfp4)にあります。その前の節は、3.3.0まで既定だったNVIDIAのNVFP4のものです。3.4.0のリリースのimageを、rankのファイルに `CHECKPOINT` を書かずにそれ自身の `serve.sh` で起動すると、両TPでXSFP4のdecode検査のhash、編集の返答、NLLを返しました。3.5.0のものは、TP=2の524,288 tokenの窓で、TP=2で同じものを返し、199,307 tokenのpromptに3.3.0と同じ返答を返し、499,254 tokenのpromptで3つの合言葉を全部見つけました。
 
-道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、またはPythonと `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)を動かしたままにします。
+道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、またはPythonと `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)（`--container glm53-tf3 --process 'tensorfold-native serve'`）を動かしたままにします。
 
 ## decode検査
 
@@ -45,15 +45,15 @@ hashは、各TPの2回の起動と、`PARALLEL=` を空にしたTP=2の起動（
 
 ## teacher-forced NLL
 
-[`config/nll_set.json`](../config/nll_set.json) のNLL採点セット（1.x系・2.x系のもののbyte単位の写し）：4領域（日本語・英語・コード・数学）に各4本、領域ごとに5,851〜6,830 token。`/v1/completions` の `prompt_logprobs` で採点します。tokenizerはcheckpoint自身のものを使います：
+[`config/nll_set.json`](../config/nll_set.json) のNLL採点セット（1.x系・2.x系のもののbyte単位の写し）：4領域（日本語・英語・コード・数学）に各4本、領域ごとに5,851〜6,830 token。`/v1/completions` の `prompt_logprobs` で採点します。tokenizerはcheckpoint自身のものを使います（下はXSFP4のもの。NVIDIAのNVFP4のものは同じファイルです）：
 
 ```sh
 python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
-  --tokenizer ~/.cache/huggingface/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93/tokenizer.json \
+  --tokenizer ~/.cache/huggingface/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/59c49ac98221848ac981226c85f77a7b55fa8469/tokenizer.json \
   --out ../records/<run>/nll.json
 ```
 
-実行する環境に `tokenizers` packageが要ります。各本文を2回採点し、全要求が答え、各本文の2回が一致すればpassです。
+実行する環境に `tokenizers` packageが要ります。各本文を2回採点し、全要求が答えればpassです。各本文の2回の差の最大は `self-agreement` の行に出ます。
 
 | 領域（位置数） | TP=2 | TP=3 | 2.x TP=2（参考） | 2.x TP=3（参考） |
 |---|---|---|---|---|

@@ -38,7 +38,7 @@
 長いpromptはどれも番号付きの行の台帳で（`Ledger <i>: the river barge delivered sacks of barley to the northern granary at dusk.`）、system messageは `You are a careful archivist. Read the ledger.`、temperature 0、effort lowで、行数はエンジンの `/tokenize` で目標に合わせます。各行の `cached` は、promptがprompt cacheから再開したtoken数を示します。受け入れでは、TP=3で3本続けたものも含め、どの長いpromptも全体を読みました（`cached` 0）。
 
 - **199,652 tokenに合言葉一つ**、真ん中に。streamなし、最大512 token。応答に合言葉があれば正答です。両TPで。
-- **499,622 tokenと1,036,859 tokenに合言葉三つ**（先頭から20分の1、真ん中、末尾から20分の1）、TP=3。streamで最大256 token、最初にstreamで届いたtokenまでをクライアントが測ります。応答が三つとも挙げれば正答です。
+- **499,622 tokenと1,036,859 tokenに合言葉三つ**（先頭から20分の1、真ん中、末尾から20分の1）、TP=3。3.5.0からは499,622 tokenのものをTP=2でも。streamで最大256 token、最初にstreamで届いたtokenまでをクライアントが測ります。応答が三つとも挙げれば正答です。
 
 promptの熱の待ちは、要求の開始と終了の間のrank 0の `heat_wait_s` の行から読みます。
 
