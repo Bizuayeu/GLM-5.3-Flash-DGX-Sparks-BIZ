@@ -66,7 +66,7 @@ TP=2では大きいrankから起動し、rank 0を最後にします。TP=3で�
 - 各rankのNCCLの行（`via NET/IB`、rankのファイルの `NCCL_DEBUG` の行で起動時に一度だけ出る）：全接続が `NET/IB` で、socketは無い
 - `serving` の行：modelの名前（rankのファイルで `MODEL_NAME` を設定しなければ `glm-tf`）、`HOST` と `PORT` を設定しなければ `127.0.0.1:8095`、窓
 
-rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、3.2.0のimageで起動にTP=3で246〜554秒、TP=2で301〜615秒かかりました。長い方は各containerの最初の起動で、checkpoint全体を読んでdigestも取ります（参照機で190.4 GiBに約300秒、rank 0のlogに `checkpoint digest: … 0/33 cached files`）。同じcontainerの次からの起動はdigestをcacheから読み、TP=3で246〜258秒、TP=2で301〜302秒でした。
+rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、NVIDIAのNVFP4を3.2.0のimageで起動すると、TP=3で246〜554秒、TP=2で301〜615秒かかりました。長い方は各containerの最初の起動で、checkpoint全体を読んでdigestも取ります（参照機で190.4 GiBに約300秒、rank 0のlogに `checkpoint digest: … 0/33 cached files`）。同じcontainerの次からの起動はdigestをcacheから読み、TP=3で246〜258秒、TP=2で301〜302秒でした。XSFP4ではdigestが165.7 GiBを読み（`0/39 cached files`）、3.4.0のリリースのimageは、新しいcontainerの最初の起動で、rank 0の `serving` の行に、TP=2で `loaded in 369.9s`、TP=3で `319.5s` と出しました。
 
 ## 6. tool引数ゲート（任意）
 

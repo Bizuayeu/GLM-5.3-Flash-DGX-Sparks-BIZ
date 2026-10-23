@@ -2,7 +2,7 @@
 
 [日本語](validation.ja.md) · [3.x overview](../README.md) · [Setup runbook](../SETUP.md) · [Benchmark method](benchmarks.md)
 
-What a 3.x launch is accepted on, in the order to run it, with the reference values. The reference values are the native engine's own, measured on the reference hosts with `serve.sh`'s defaults and every container on the efficiency cores. TP=2's were set in 3.1.0's acceptance on 2026-10-19 and 20 with the engine built from `1a8f1efd` (upstream 1.1.1 and this line's two commits), on upstream's tiled BF16 linears; 3.2.0's acceptance on 2026-10-20, with the vision tower loaded, and 3.3.0's on 2026-10-22, on upstream 1.1.2, gave the same decode-check hashes, edit reply, NLL and tool-eval-bench score. TP=3's were set in 3.3.0's acceptance: upstream 1.1.2 lets a TP=3 rank run the tiled kernels too (issue #1067), and they give TP=3 new decode-check hashes and NLL. 3.0.0 to 3.2.0 ran TP=3 on the glue kernels (`TF_GLM_MM=0`); the sections below give those values as information ([serving defaults](../README.md#serving-defaults)). Where a later acceptance's speed, memory or heat differed, the sections below say so. 2.x's references do not apply: the native engine's kernels and its BF16 KV cache give other tokens, so the two lines compare by teacher-forced NLL, and 2.x's values appear here as information only. Which images were accepted against them is the README's [status](../README.md#summary). A check that differs is a finding to explain before routine use, not a value to replace.
+What a 3.x launch is accepted on, in the order to run it, with the reference values. The reference values are the native engine's own, measured on the reference hosts with the defaults of their release's `serve.sh` (NVIDIA's NVFP4 until 3.3.0) and every container on the efficiency cores. TP=2's were set in 3.1.0's acceptance on 2026-10-19 and 20 with the engine built from `1a8f1efd` (upstream 1.1.1 and this line's two commits), on upstream's tiled BF16 linears; 3.2.0's acceptance on 2026-10-20, with the vision tower loaded, and 3.3.0's on 2026-10-22, on upstream 1.1.2, gave the same decode-check hashes, edit reply, NLL and tool-eval-bench score. TP=3's were set in 3.3.0's acceptance: upstream 1.1.2 lets a TP=3 rank run the tiled kernels too (issue #1067), and they give TP=3 new decode-check hashes and NLL. 3.0.0 to 3.2.0 ran TP=3 on the glue kernels (`TF_GLM_MM=0`); the sections below give those values as information ([serving defaults](../README.md#serving-defaults)). Where a later acceptance's speed, memory or heat differed, the sections below say so. 2.x's references do not apply: the native engine's kernels and its BF16 KV cache give other tokens, so the two lines compare by teacher-forced NLL, and 2.x's values appear here as information only. Which images were accepted against them is the README's [status](../README.md#summary). A check that differs is a finding to explain before routine use, not a value to replace.
 
 From 3.4.0 the default checkpoint is XSFP4, whose reference values are in [XSFP4](#xsfp4); the sections before it give NVIDIA's NVFP4's, the default until 3.3.0. 3.4.0's release image, started by its own `serve.sh` with no `CHECKPOINT` in the rank files, gave XSFP4's decode-check hashes, edit reply and NLL at both TP sizes.
 
@@ -21,7 +21,7 @@ done
 
 The engine returns no token ids: each row gives the hash of the completion text and `token_sha256`, the engine's hash of the reply's token ids (the ids as comma-separated decimals, which does not compare with 2.x's `token_ids_sha256`). The engine keeps prompts in a cache sized in GiB that no request can drop, so a sample after the first may resume the prompt (`cached` in the row, `resumed` in the summary); a resumed prompt gives the same tokens. `TOKENS_OUT` keeps each sample's text, and two launches whose hashes differ are compared at their first diverging character with `python -m glm53_tf decode-divergence A.json B.json`.
 
-**Accepted when** each task gives one completion within the launch (`distinct_completions` 1) and its hashes are the reference of its TP:
+**Accepted when** each task gives one completion within the launch (`distinct_completions` 1) and its hashes are the reference of its TP, NVIDIA's NVFP4's below (XSFP4's are in [XSFP4](#xsfp4)):
 
 | Task | TP=2 `completion_sha256` | TP=2 `token_sha256` | TP=3 `completion_sha256` | TP=3 `token_sha256` |
 |---|---|---|---|---|
@@ -62,7 +62,7 @@ Needs the `tokenizers` package where it runs. Each text is scored twice; the run
 | Code (5,941) | 1.3145 | 1.3158 | 1.3184 | 1.3101 |
 | Math (5,847) | 0.6261 | 0.6262 | 0.6250 | 0.6237 |
 
-**Accepted when** the run passes and each domain equals the reference of its TP. The two scores of every text agreed exactly (largest move 0.0) at both TP sizes. On the tiled kernels TP=2's moved from 3.0.0's (2.5293, 2.9109, 1.3138, 0.6272) by at most 0.0184, and TP=3's from the glue kernels' (3.0.0 to 3.2.0: 2.5246, 2.9206, 1.3147, 0.6241) by at most 0.0077; TP=2's stay within 0.007 of 2.x's, and TP=3's within 0.013.
+**Accepted when** the run passes and each domain equals the reference of its TP, NVIDIA's NVFP4's above (XSFP4's are in [XSFP4](#xsfp4)). The two scores of every text agreed exactly (largest move 0.0) at both TP sizes. On the tiled kernels TP=2's moved from 3.0.0's (2.5293, 2.9109, 1.3138, 0.6272) by at most 0.0184, and TP=3's from the glue kernels' (3.0.0 to 3.2.0: 2.5246, 2.9206, 1.3147, 0.6241) by at most 0.0077; TP=2's stay within 0.007 of 2.x's, and TP=3's within 0.013.
 
 ## Prompt scores and structured output
 
@@ -79,7 +79,7 @@ A 38,960-token prompt three times with a fresh nonce at its start (median), afte
 python -m glm53_tf bench --out ../records/<run>/bench.jsonl
 ```
 
-Reference: 1,415.7 tok/s prefill and 43.80 tok/s decode at TP=2 (3.3.0: 1,411.2 and 44.00), 1,559.7 and 56.03 at TP=3 (on the glue kernels, 3.1.0: 1,507.9 and 55.05). Every decode row stops at the limit (`finish_reason` `length`), and each prefill row's `cached` is 0.
+Reference on NVIDIA's NVFP4: 1,415.7 tok/s prefill and 43.80 tok/s decode at TP=2 (3.3.0: 1,411.2 and 44.00), 1,559.7 and 56.03 at TP=3 (on the glue kernels, 3.1.0: 1,507.9 and 55.05). Every decode row stops at the limit (`finish_reason` `length`), and each prefill row's `cached` is 0.
 
 ## Long inputs
 
@@ -90,7 +90,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-Fitted to the targets, the prompts came to 199,307, 499,254 and 1,035,295 tokens. Reference: the passphrase found at 199,307 tokens in 153.4 s at TP=2 (3.3.0: 155.0 s) and 140.3 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 399.5 s and 3 of 3 at 1,035,295 after 1,064.9 s, of which the prompt waited 38 s for heat in 19 pauses of 2 s, run in the afternoon. None resumed a kept prompt (`cached` 0). On the glue kernels (3.1.0, at night) the three took 140.4, 398.1 and 1,022.7 s with no wait for heat. The 1,036,859-token target is TP=3's alone; TP=2's window is 245,760 tokens.
+Fitted to the targets, the prompts came to 199,307, 499,254 and 1,035,295 tokens. Reference on NVIDIA's NVFP4: the passphrase found at 199,307 tokens in 153.4 s at TP=2 (3.3.0: 155.0 s) and 140.3 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 399.5 s and 3 of 3 at 1,035,295 after 1,064.9 s, of which the prompt waited 38 s for heat in 19 pauses of 2 s, run in the afternoon. None resumed a kept prompt (`cached` 0). On the glue kernels (3.1.0, at night) the three took 140.4, 398.1 and 1,022.7 s with no wait for heat. The 1,036,859-token target is TP=3's alone; TP=2's window is 245,760 tokens.
 
 ## Tools through the tool-argument gate
 
@@ -104,23 +104,23 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 The engine does not pass `clear_thinking` to the chat template ([limits](../README.md#limits)); the invocation keeps it so that the scores compare with 1.x's and 2.x's.
 
-Reference: 92/100 at TP=2 and 95/100 at TP=3 with the Safety Gate passed; TP=2 failed TC-21 and TC-61, TP=3 TC-61 alone (93/100 on the glue kernels). One trial each, so a point or two is within what one trial moves.
+Reference on NVIDIA's NVFP4: 92/100 at TP=2 and 95/100 at TP=3 with the Safety Gate passed; TP=2 failed TC-21 and TC-61, TP=3 TC-61 alone (93/100 on the glue kernels). One trial each, so a point or two is within what one trial moves.
 
 ## Stopping a reply
 
-**Accepted when**, at both TP sizes, with thinking off: a streamed request to write the numbers from 1 to 1,000, cut by the client after about 5 s, leaves no connection in `/health`'s `live` block within 15 s, and a short request right after answers within 10 s; the same request with the stop string `"\n300\n"` ends at 299 with `finish_reason` `stop`; a ledger prompt of about 93,000 tokens cut by the client after 3 s, while it is read, lets a short request right after answer in less than half the time the whole prompt takes to its first token. Reference: the connection gone 1.0 s after the cut at both TP sizes; after the cut prompt a short request answered in 0.39 s at TP=2 and 1.29 s at TP=3, against 68.4 s and 62.8 s to the whole prompt's first token (3.3.0's TP=2: 0.36 s against 68.8 s). At TP=3 the short request's time moves from launch to launch: 0.25 s in 3.1.0's acceptance, 1.53 s in 3.2.0's and 1.49 s in 3.0.0's, on the glue kernels.
+**Accepted when**, at both TP sizes, with thinking off: a streamed request to write the numbers from 1 to 1,000, cut by the client after about 5 s, leaves no connection in `/health`'s `live` block within 15 s, and a short request right after answers within 10 s; the same request with the stop string `"\n300\n"` ends at 299 with `finish_reason` `stop`; a ledger prompt of about 93,000 tokens cut by the client after 3 s, while it is read, lets a short request right after answer in less than half the time the whole prompt takes to its first token. Reference on NVIDIA's NVFP4: the connection gone 1.0 s after the cut at both TP sizes; after the cut prompt a short request answered in 0.39 s at TP=2 and 1.29 s at TP=3, against 68.4 s and 62.8 s to the whole prompt's first token (3.3.0's TP=2: 0.36 s against 68.8 s). At TP=3 the short request's time moves from launch to launch: 0.25 s in 3.1.0's acceptance, 1.53 s in 3.2.0's and 1.49 s in 3.0.0's, on the glue kernels.
 
 ## Long runs of replies
 
 Forty requests back to back, each a fresh nonce and a module of about 6,000 tokens of Python with a request for a detailed review, up to 1,024 tokens each, temperature 0, effort low. This is the load that heated the CPU's zones on every core ([why the efficiency cores](../README.md#serving-defaults)). **Accepted when** all forty answer and the thermal watch does not stop an engine.
 
-Reference: forty of forty at both TP sizes, in 1,536 s at TP=2 and 1,233 s at TP=3. The hottest zone reached 74.9 °C on rank 0's host at TP=2 and 85.1 °C at TP=3 (3.3.0's TP=2: 1,505 s and 75.2 °C; TP=3 on the glue kernels, 3.1.0: 1,315 s and 79.8 °C, when no GPU slowed for heat). On every core the same forty at TP=2 finished in 1,535 s with rank 0's host at 93.0 °C, 1 °C under the thermal watch's stop ([why the efficiency cores](../README.md#serving-defaults)).
+Reference on NVIDIA's NVFP4: forty of forty at both TP sizes, in 1,536 s at TP=2 and 1,233 s at TP=3. The hottest zone reached 74.9 °C on rank 0's host at TP=2 and 85.1 °C at TP=3 (3.3.0's TP=2: 1,505 s and 75.2 °C; TP=3 on the glue kernels, 3.1.0: 1,315 s and 79.8 °C, when no GPU slowed for heat). On every core the same forty at TP=2 finished in 1,535 s with rank 0's host at 93.0 °C, 1 °C under the thermal watch's stop ([why the efficiency cores](../README.md#serving-defaults)).
 
 ## Memory and temperature
 
 The memory guard's log (`<WORK>/logs/hostwatch-<label>.log`) gives each host's lowest `MemAvailable` during the run; the hosts' telemetry gives the hottest ACPI zone every 2 s. Rank 0's log gives each prefill heat wait's seconds in a `heat_wait_s` line; the reply does not carry them.
 
-Reference: the lowest `MemAvailable` of a launch was 15 GiB on both ranks at TP=2 in 3.1.0's acceptance, without the vision tower, and 11 and 13 GiB with it in 3.3.0's; at TP=3, in 3.3.0's, 18, 20 and 26 GiB on ranks 0, 1 and 2. The hottest zone of a whole launch was 81.8 °C on rank 0's host and 83.6 °C on rank 1's at TP=2 (3.3.0: 82.6 and 84.1 °C), and 93.0, 90.0 and 86.0 °C at TP=3, during the 1M-token prompt, the only request on NVIDIA's NVFP4 in 3.3.0's acceptance that waited for heat ([long inputs](#long-inputs)).
+Reference on NVIDIA's NVFP4: the lowest `MemAvailable` of a launch was 15 GiB on both ranks at TP=2 in 3.1.0's acceptance, without the vision tower, and 11 and 13 GiB with it in 3.3.0's; at TP=3, in 3.3.0's, 18, 20 and 26 GiB on ranks 0, 1 and 2. The hottest zone of a whole launch was 81.8 °C on rank 0's host and 83.6 °C on rank 1's at TP=2 (3.3.0: 82.6 and 84.1 °C), and 93.0, 90.0 and 86.0 °C at TP=3, during the 1M-token prompt, the only request on NVIDIA's NVFP4 in 3.3.0's acceptance that waited for heat ([long inputs](#long-inputs)).
 
 **Accepted when** no run is stopped by the memory guard or the thermal watch (two readings in a row at or above 94 °C).
 

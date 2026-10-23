@@ -66,7 +66,7 @@ Read each rank's startup lines:
 - each rank's NCCL lines (`via NET/IB`, logged once at start by the rank file's `NCCL_DEBUG` lines) name `NET/IB` for every connection, none over sockets
 - the `serving` line: the model name (`glm-tf` unless `MODEL_NAME` is set in the rank file), `127.0.0.1:8095` unless `HOST` and `PORT` are, and the window
 
-Rank 0 serves the OpenAI-compatible API on loopback. With 3.2.0's image a start took 246 to 554 s at TP=3 and 301 to 615 s at TP=2 on the reference hosts. The longer ones were each container's first start, which also reads the whole checkpoint for its digest (190.4 GiB in about 300 s there, `checkpoint digest: … 0/33 cached files` in rank 0's log); later starts in the same container read the digest from its cache and took 246 to 258 s at TP=3 and 301 to 302 s at TP=2.
+Rank 0 serves the OpenAI-compatible API on loopback. On NVIDIA's NVFP4 with 3.2.0's image a start took 246 to 554 s at TP=3 and 301 to 615 s at TP=2 on the reference hosts. The longer ones were each container's first start, which also reads the whole checkpoint for its digest (190.4 GiB in about 300 s there, `checkpoint digest: … 0/33 cached files` in rank 0's log); later starts in the same container read the digest from its cache and took 246 to 258 s at TP=3 and 301 to 302 s at TP=2. On XSFP4 the digest reads 165.7 GiB (`0/39 cached files`), and 3.4.0's release image, in each new container's first start, logged `loaded in 369.9s` at TP=2 and `319.5s` at TP=3 on rank 0's `serving` line.
 
 ## 6. Tool-argument gate (optional)
 

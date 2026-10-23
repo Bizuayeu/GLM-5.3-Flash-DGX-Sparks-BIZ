@@ -2,7 +2,7 @@
 
 [English](validation.md) · [3.x系の概要](../README.ja.md) · [配備の手順書](../SETUP.ja.md) · [ベンチマークの方法](benchmarks.ja.md)
 
-3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値はネイティブエンジン自身のもので、参照機で `serve.sh` の既定、全containerを効率coreにして測りました。TP=2の値は2026-10-19〜20の3.1.0の受け入れで、`1a8f1efd`（上流1.1.1とこの系列の二つのcommit）からbuildしたエンジンにより、上流のtiledのBF16のlinearで決めました。2026-10-20の3.2.0の受け入れ（visionのtowerを読み込んで）と、2026-10-22の3.3.0の受け入れ（上流1.1.2の上で）も、同じdecode checkのhash、editの返答、NLL、tool-eval-benchの点を出しました。TP=3の値は3.3.0の受け入れで決めました：上流1.1.2はTP=3のrankにもtiledのkernelを開き（issue #1067）、それがTP=3に新しいdecode checkのhashとNLLを出します。3.0.0〜3.2.0はTP=3をglueのkernel（`TF_GLM_MM=0`）で回し、その値は下の各節に参考として載せます（[配信の既定](../README.ja.md#配信の既定)）。後の受け入れで速さ、メモリ、熱が違った所は、下の各節に書きます。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
+3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値はネイティブエンジン自身のもので、参照機で、そのリリースの `serve.sh` の既定（3.3.0まではNVIDIAのNVFP4）、全containerを効率coreにして測りました。TP=2の値は2026-10-19〜20の3.1.0の受け入れで、`1a8f1efd`（上流1.1.1とこの系列の二つのcommit）からbuildしたエンジンにより、上流のtiledのBF16のlinearで決めました。2026-10-20の3.2.0の受け入れ（visionのtowerを読み込んで）と、2026-10-22の3.3.0の受け入れ（上流1.1.2の上で）も、同じdecode checkのhash、editの返答、NLL、tool-eval-benchの点を出しました。TP=3の値は3.3.0の受け入れで決めました：上流1.1.2はTP=3のrankにもtiledのkernelを開き（issue #1067）、それがTP=3に新しいdecode checkのhashとNLLを出します。3.0.0〜3.2.0はTP=3をglueのkernel（`TF_GLM_MM=0`）で回し、その値は下の各節に参考として載せます（[配信の既定](../README.ja.md#配信の既定)）。後の受け入れで速さ、メモリ、熱が違った所は、下の各節に書きます。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
 
 3.4.0から既定のcheckpointはXSFP4で、その基準値は[XSFP4](#xsfp4)にあります。その前の節は、3.3.0まで既定だったNVIDIAのNVFP4のものです。3.4.0のリリースのimageを、rankのファイルに `CHECKPOINT` を書かずにそれ自身の `serve.sh` で起動すると、両TPでXSFP4のdecode検査のhash、編集の返答、NLLを返しました。
 
@@ -21,7 +21,7 @@ done
 
 エンジンはtoken idを返しません：各行には、completionの文章のhashと、エンジンによる応答のtoken idのhashである `token_sha256`（idを10進でコンマ区切りにしたもので、2.x系の `token_ids_sha256` とは比べられません）が出ます。エンジンはどの要求も消せないGiB単位の大きさのcacheにpromptを保つので、最初の後のサンプルはpromptを再開することがあります（行の `cached`、summaryの `resumed`）。再開したpromptは同じtokenを出します。`TOKENS_OUT` には各サンプルの文章が残り、hashの違う2回の起動は `python -m glm53_tf decode-divergence A.json B.json` で最初に分かれた文字を比べます。
 
-**合格の条件**：各タスクが起動の中で一つのcompletion（`distinct_completions` が1）で、そのhashがそのTPの基準と同じこと：
+**合格の条件**：各タスクが起動の中で一つのcompletion（`distinct_completions` が1）で、そのhashがそのTPの基準と同じこと。下はNVIDIAのNVFP4の基準です（XSFP4のものは[XSFP4](#xsfp4)）：
 
 | タスク | TP=2 `completion_sha256` | TP=2 `token_sha256` | TP=3 `completion_sha256` | TP=3 `token_sha256` |
 |---|---|---|---|---|
@@ -62,7 +62,7 @@ python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
 | コード（5,941） | 1.3145 | 1.3158 | 1.3184 | 1.3101 |
 | 数学（5,847） | 0.6261 | 0.6262 | 0.6250 | 0.6237 |
 
-**合格の条件**：passで、各領域がそのTPの基準と同じこと。両TPで、どの本文の2回の採点も完全に一致しました（最大の動きは0.0）。tiledのkernelで、TP=2は3.0.0の値（2.5293・2.9109・1.3138・0.6272）から最大0.0184、TP=3はglueのkernelの値（3.0.0〜3.2.0：2.5246・2.9206・1.3147・0.6241）から最大0.0077動きました。2.x系の値との差は、TP=2で0.007以内、TP=3で0.013以内です。
+**合格の条件**：passで、各領域がそのTPの基準と同じこと。上はNVIDIAのNVFP4の基準です（XSFP4のものは[XSFP4](#xsfp4)）。両TPで、どの本文の2回の採点も完全に一致しました（最大の動きは0.0）。tiledのkernelで、TP=2は3.0.0の値（2.5293・2.9109・1.3138・0.6272）から最大0.0184、TP=3はglueのkernelの値（3.0.0〜3.2.0：2.5246・2.9206・1.3147・0.6241）から最大0.0077動きました。2.x系の値との差は、TP=2で0.007以内、TP=3で0.013以内です。
 
 ## promptのscoreと構造化出力
 
@@ -79,7 +79,7 @@ python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
 python -m glm53_tf bench --out ../records/<run>/bench.jsonl
 ```
 
-基準値：TP=2でprefill 1,415.7 tok/s・decode 43.80 tok/s（3.3.0：1,411.2と44.00）、TP=3で1,559.7と56.03（glueのkernelの3.1.0：1,507.9と55.05）。decodeの行はどれも上限で止まり（`finish_reason` `length`）、prefillの行の `cached` はどれも0です。
+基準値（NVIDIAのNVFP4）：TP=2でprefill 1,415.7 tok/s・decode 43.80 tok/s（3.3.0：1,411.2と44.00）、TP=3で1,559.7と56.03（glueのkernelの3.1.0：1,507.9と55.05）。decodeの行はどれも上限で止まり（`finish_reason` `length`）、prefillの行の `cached` はどれも0です。
 
 ## 長い入力
 
@@ -90,7 +90,7 @@ python -m glm53_tf long-input --passphrases 1 --tokens 199652
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値：199,307 tokenで合言葉を、TP=2で153.4秒（3.3.0：155.0秒）、TP=3で140.3秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで399.5秒、1,035,295 tokenで3つ中3つ、1,064.9秒で、そのうちpromptは熱で2秒の待ちを19回、計38秒待ちました（午後に回しました）。どれも保持したpromptから再開しませんでした（`cached` 0）。glueのkernel（3.1.0、夜）では、TP=3の3つが140.4・398.1・1,022.7秒で、熱では待ちませんでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は245,760 tokenです。
+目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値（NVIDIAのNVFP4）：199,307 tokenで合言葉を、TP=2で153.4秒（3.3.0：155.0秒）、TP=3で140.3秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで399.5秒、1,035,295 tokenで3つ中3つ、1,064.9秒で、そのうちpromptは熱で2秒の待ちを19回、計38秒待ちました（午後に回しました）。どれも保持したpromptから再開しませんでした（`cached` 0）。glueのkernel（3.1.0、夜）では、TP=3の3つが140.4・398.1・1,022.7秒で、熱では待ちませんでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は245,760 tokenです。
 
 ## tool引数ゲート越しのtool
 
@@ -104,23 +104,23 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 エンジンは `clear_thinking` をchat templateに渡しません（[制限](../README.ja.md#制限)）。呼び方は、点数を1.x系・2.x系と比べられるよう、それを残します。
 
-基準値：TP=2で92/100、TP=3で95/100、Safety Gateは合格。TP=2はTC-21とTC-61を、TP=3はTC-61だけを落としました（glueのkernelでは93/100）。各1回なので、1〜2点は1回の試行で動く範囲です。
+基準値（NVIDIAのNVFP4）：TP=2で92/100、TP=3で95/100、Safety Gateは合格。TP=2はTC-21とTC-61を、TP=3はTC-61だけを落としました（glueのkernelでは93/100）。各1回なので、1〜2点は1回の試行で動く範囲です。
 
 ## 応答を止める
 
-**合格の条件**（両TPで、思考を切って）：1から1,000までの数を書かせるstreamの要求を約5秒でクライアントが切ると、15秒以内に `/health` の `live` blockに接続が残らず、直後の短い要求が10秒以内に答える。同じ要求にstop文字列 `"\n300\n"` を付けると299で終わり、`finish_reason` が `stop`。約93,000 tokenの台帳のpromptを、読んでいる途中の3秒でクライアントが切ると、直後の短い要求が、prompt全体が最初のtokenまでにかかる時間の半分未満で答える。基準値：両TPで、切ってから1.0秒で接続が消えました。切ったpromptの後、短い要求はTP=2で0.39秒、TP=3で1.29秒で答え、prompt全体の最初のtokenまでは68.4秒と62.8秒でした（3.3.0のTP=2：0.36秒、68.8秒）。TP=3の短い要求の時間は起動ごとに動きます：glueのkernelで、3.1.0の受け入れでは0.25秒、3.2.0では1.53秒、3.0.0では1.49秒でした。
+**合格の条件**（両TPで、思考を切って）：1から1,000までの数を書かせるstreamの要求を約5秒でクライアントが切ると、15秒以内に `/health` の `live` blockに接続が残らず、直後の短い要求が10秒以内に答える。同じ要求にstop文字列 `"\n300\n"` を付けると299で終わり、`finish_reason` が `stop`。約93,000 tokenの台帳のpromptを、読んでいる途中の3秒でクライアントが切ると、直後の短い要求が、prompt全体が最初のtokenまでにかかる時間の半分未満で答える。基準値（NVIDIAのNVFP4）：両TPで、切ってから1.0秒で接続が消えました。切ったpromptの後、短い要求はTP=2で0.39秒、TP=3で1.29秒で答え、prompt全体の最初のtokenまでは68.4秒と62.8秒でした（3.3.0のTP=2：0.36秒、68.8秒）。TP=3の短い要求の時間は起動ごとに動きます：glueのkernelで、3.1.0の受け入れでは0.25秒、3.2.0では1.53秒、3.0.0では1.49秒でした。
 
 ## 返答の長い連続
 
 40の要求を続けて流します。どれも新しいnonceと約6,000 tokenのPythonのmoduleに詳しいreviewを頼むもので、それぞれ最大1,024 token、temperature 0、effort low。これが全coreでCPUのzoneを温めた負荷です（[効率coreにする理由](../README.ja.md#配信の既定)）。**合格の条件**：40本すべてが答え、熱の見張りがエンジンを止めないこと。
 
-基準値：両TPで40本中40本、TP=2で1,536秒、TP=3で1,233秒。最も熱いzoneはTP=2でrank 0のホストの74.9 °C、TP=3で85.1 °Cでした（3.3.0のTP=2：1,505秒・75.2 °C。glueのkernelのTP=3、3.1.0：1,315秒・79.8 °Cで、GPUは熱で遅くなりませんでした）。全coreでは、TP=2の同じ40本が1,535秒で終わり、rank 0のホストは93.0 °Cで、熱の見張りの止める温度まで1 °Cでした（[効率coreにする理由](../README.ja.md#配信の既定)）。
+基準値（NVIDIAのNVFP4）：両TPで40本中40本、TP=2で1,536秒、TP=3で1,233秒。最も熱いzoneはTP=2でrank 0のホストの74.9 °C、TP=3で85.1 °Cでした（3.3.0のTP=2：1,505秒・75.2 °C。glueのkernelのTP=3、3.1.0：1,315秒・79.8 °Cで、GPUは熱で遅くなりませんでした）。全coreでは、TP=2の同じ40本が1,535秒で終わり、rank 0のホストは93.0 °Cで、熱の見張りの止める温度まで1 °Cでした（[効率coreにする理由](../README.ja.md#配信の既定)）。
 
 ## メモリと温度
 
 メモリの見張りのlog（`<WORK>/logs/hostwatch-<label>.log`）に、実行中の各ホストの最低の `MemAvailable` が残ります。ホストの記録は2秒ごとにACPIの最も熱いzoneを示します。rank 0のlogは、prefillの熱の待ちごとの秒数を `heat_wait_s` の行に出します。応答はそれを運びません。
 
-基準値：起動の中の最低の `MemAvailable` は、TP=2で、visionのtowerなしの3.1.0の受け入れでは両rankとも15 GiB、towerありの3.3.0では11・13 GiBでした。TP=3では、3.3.0でrank 0・1・2が18・20・26 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C（3.3.0：82.6・84.1 °C）、TP=3で93.0・90.0・86.0 °Cでした。TP=3の値は1M tokenのpromptの間のもので、3.3.0の受け入れのNVIDIAのNVFP4で、熱で待った要求はこれだけです（[長い入力](#長い入力)）。
+基準値（NVIDIAのNVFP4）：起動の中の最低の `MemAvailable` は、TP=2で、visionのtowerなしの3.1.0の受け入れでは両rankとも15 GiB、towerありの3.3.0では11・13 GiBでした。TP=3では、3.3.0でrank 0・1・2が18・20・26 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C（3.3.0：82.6・84.1 °C）、TP=3で93.0・90.0・86.0 °Cでした。TP=3の値は1M tokenのpromptの間のもので、3.3.0の受け入れのNVIDIAのNVFP4で、熱で待った要求はこれだけです（[長い入力](#長い入力)）。
 
 **合格の条件**：どの実行もメモリの見張りにも熱の見張り（94 °C以上の読みが2回続く）にも止められないこと。
 

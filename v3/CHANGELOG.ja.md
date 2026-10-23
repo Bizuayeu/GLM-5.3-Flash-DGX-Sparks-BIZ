@@ -10,28 +10,33 @@ TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` の
 
 XSFP4を既定のcheckpointにし、エンジンは3.3.0のままです。リポジトリは新しい名前GLM-5.3-Flash-DGX-Sparks-BIZになり、略称はGLM-5.3-Flash BIZです。NVIDIAのNVFP4のcheckpointも選べます。
 
-### XSFP4を既定に
+### XSFP4 the default
 
 - `serve.sh` は、rankのファイルに `CHECKPOINT` が無ければ [`config/xsfp4.lock.json`](config/xsfp4.lock.json) のrevisionのXSFP4を配信し、`download` と `verify-download` は `--checkpoint` が無ければXSFP4を取ります（[checkpoint](README.ja.md#checkpoint)）。NVIDIAのNVFP4は `--checkpoint pinned` と全rankのファイルの `CHECKPOINT` で選び、rankのファイルの例はその行をcommentで持ちます。取得の状況はこれまでどおりの場所（`state/xsfp4`、`state`）に置き、手順書はXSFP4を `../records/checksum-xsfp4` に検証します。
-- XSFP4は `59c49ac9` に固定します。3.3.0の `dbcb7b65` の上のhubの2つのcommitが変えたのはmodel cardだけです：リポジトリの新しい名前、3.x系の推奨のcheckpointであること、3.3.0で測った速さ、数を2度書くのはエンジンの振る舞いであること。他のfileはどれも同じblobで、fileごとに照らしました。公開しているAXLの重みは、cardが新しい名前の `c0232adb` に固定します。1.x系と2.x系のAXLのlockは、それぞれのrevisionのままです。
-- imageが3.3.0と違うのは、`serve.sh` の既定と表示だけです。エンジンは3.3.0の `d2d95b11` で、forkのbranch `release/3.4.0` としても公開します。
+- XSFP4は `59c49ac9` に固定します。3.3.0の `dbcb7b65` の上のhubの2つのcommitが変えたのはmodel cardだけです：リポジトリの新しい名前、3.x系の推奨のcheckpointであること、3.3.0で測った速さ、数を2度書くのはエンジンの振る舞いであること。他のfileはどれも同じblobで、fileごとに照らしました。公開しているAXLの重みは、cardが新しい名前の `c0232adb` に固定します。2.x系のAXLのlockは `bbad98c8` のままです。
+- imageの入力が3.3.0と違うのは、`serve.sh` の既定と表示だけです。エンジンは3.3.0の `d2d95b11` で、forkのbranch `release/3.4.0` としても公開します。そのcommitからbuildし直したbinaryは3.3.0のものとbyteが揃いませんが、3.3.0と同じ答えを返しました。
 
-### 名前
+### Name
 
 - リポジトリは2026-10-23から `Bizuayeu/GLM-5.3-Flash-DGX-Sparks-BIZ` で、GitHubは旧名から転送します。各系列の文書、NOTICE、clusterの例の `CHECKOUT`、道具のdocstring、LPAのprojectorのReleaseのURLは新しい名前を使います。1.x系のsetupのcodeと例、変更履歴の過去の節は書いたままです。
 - スタックの略称は、各系列のREADMEと公開監査が確かめる引用で、GLM-5.3-Flash BIZです。公開しているAXLの重みは、NVFP4 BIZ AXLの名前のままです。
 - リポジトリと3.x系の新しいバナー。3.x系のものは可逆のWebPです。
 
-### 文書
+### Documentation
 
-- 文書はNVIDIAのcheckpointをNVIDIAのNVFP4と呼び、XSFP4を先に書きます：READMEのcheckpoint・配信の既定・設定、手順書§2、運用のcheckpointの切り替え、検証（XSFP4の値が既定の値）、ライセンスの整理、リポジトリのREADMEのライセンスの早見表。
+- 文書はNVIDIAのcheckpointをNVIDIAのNVFP4と呼び、XSFP4を既定と書きます：READMEのcheckpoint（XSFP4を先に）・配信の既定・設定、手順書§2、運用のcheckpointの切り替え、検証（XSFP4の値が既定の値）、ライセンスの整理、リポジトリのREADMEのライセンスの早見表。
+- NVIDIAのNVFP4で測った数と基準値には、そう書きました：検証のXSFP4より前の表、TP=2の窓の理由、制限の節のstreamの数、手順書の起動の時間。XSFP4で測ったものがあれば並べます。
 - 1 tokenずつ数えると数を2度書く振る舞いを、XSFP4とFP4-Localのものではなく、エンジンのものとして書き直しました。NVIDIAのNVFP4も、TP=2で最初から生成させると、3.3.0の確かめが読んだ150より先で152を2度書き、上流1.1.1そのもののbinaryでも同じtokenです。エンジンのバグとみられ、上流にTensorFold #1214として報告しています（[リリースでの測定値](README.ja.md#リリースでの測定値)、XSFP4のmodel card）。
 - 第三者の表示にXSFP4のcheckpointを載せました。
-- 制約の節の `clear_thinking` は、両方のcheckpointのchat templateについて書きます。どちらも無ければfalseとして扱います。
+- 制限の節の `clear_thinking` は、両方のcheckpointのchat templateについて書きます。どちらも無ければfalseとして扱います。
 
-### 受け入れ
+### Accepted
 
 2026-10-23に参照機で、リリースのimage（`glm53-tf3:3.4.0`）をそれ自身の `serve.sh` と `cluster.sh` で、rankのファイルに `CHECKPOINT` を書かず、全containerを効率coreに置いて、各TPで1回起動しました：TP=2とTP=3で、XSFP4のdecode検査のhash、`bench --kinds edit` の返答、NLLが3.3.0と同じで、rank 0の読み込みの行のmodelの大きさも同じでした（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
+### Not in 3.4.0
+
+公開したAXLの重み（lockが動いたのはcardの新しい名前のためだけです）、生成したtokenのlog確率、chat templateへの `clear_thinking` の受け渡し（[制限](README.ja.md#制限)）。
 
 ## 3.3.0 — 2026-10-23
 

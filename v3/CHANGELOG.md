@@ -11,8 +11,8 @@ XSFP4 becomes the default checkpoint, on 3.3.0's engine, and the repository take
 ### XSFP4 the default
 
 - `serve.sh` serves XSFP4 at the revision in [`config/xsfp4.lock.json`](config/xsfp4.lock.json) when the rank files name no `CHECKPOINT`, and `download` and `verify-download` take it when no `--checkpoint` is given ([checkpoints](README.md#checkpoints)). NVIDIA's NVFP4 checkpoint is `--checkpoint pinned` and `CHECKPOINT` in every rank file, a line the rank file examples carry as a comment. Each download keeps its status where it did (`state/xsfp4`, `state`), and the setup verifies XSFP4 into `../records/checksum-xsfp4`.
-- XSFP4 is pinned at `59c49ac9`. The hub's two commits on top of 3.3.0's `dbcb7b65` change only the model card: the repository's new name, XSFP4 as the 3.x line's recommended checkpoint, its speeds as measured for 3.3.0 and the number written twice as the engine's; every other file is the same blob, checked file by file. The published AXL weights are pinned at `c0232adb`, whose card has the new name; 1.x's and 2.x's AXL locks keep their revisions.
-- The image differs from 3.3.0's in `serve.sh`'s default and in the notices. The engine is 3.3.0's, `d2d95b11`, published again as the fork's branch `release/3.4.0`.
+- XSFP4 is pinned at `59c49ac9`. The hub's two commits on top of 3.3.0's `dbcb7b65` change only the model card: the repository's new name, XSFP4 as the 3.x line's recommended checkpoint, its speeds as measured for 3.3.0 and the number written twice as the engine's; every other file is the same blob, checked file by file. The published AXL weights are pinned at `c0232adb`, whose card has the new name; 2.x's AXL lock keeps `bbad98c8`.
+- The image's inputs differ from 3.3.0's only in `serve.sh`'s default and the notices. The engine is 3.3.0's, `d2d95b11`, published again as the fork's branch `release/3.4.0`; built again from that commit, its binary differs from 3.3.0's byte for byte and gave 3.3.0's answers.
 
 ### Name
 
@@ -22,7 +22,8 @@ XSFP4 becomes the default checkpoint, on 3.3.0's engine, and the repository take
 
 ### Documentation
 
-- The documents call NVIDIA's checkpoint NVIDIA's NVFP4 and describe XSFP4 first: the README's checkpoints, serving defaults and configuration, setup §2, operations' change of checkpoint, validation (whose XSFP4 values are the default's), the licensing guide and the repository README's licensing table.
+- The documents call NVIDIA's checkpoint NVIDIA's NVFP4 and name XSFP4 the default: the README's checkpoints (XSFP4 first), serving defaults and configuration, setup §2, operations' change of checkpoint, validation (whose XSFP4 values are the default's), the licensing guide and the repository README's licensing table.
+- Figures and reference values measured on NVIDIA's NVFP4 say so: validation's tables before XSFP4's, the reason for TP=2's window, the limits' streams and setup's start times, beside XSFP4's where they were measured.
 - A number counted twice token by token is now described as the engine's, not as XSFP4's and FP4-Local's: NVIDIA's NVFP4, generated from the start at TP=2, writes 152 twice, past the 150 numbers 3.3.0's checks read, with the same tokens on upstream 1.1.1's own binary. It looks like an engine bug, reported upstream as TensorFold #1214 ([measured on the release](README.md#measured-on-the-release), the XSFP4 model card).
 - The third-party notices list the XSFP4 checkpoint.
 - The limits name both checkpoints' chat templates, which both take a missing `clear_thinking` as false.
@@ -30,6 +31,10 @@ XSFP4 becomes the default checkpoint, on 3.3.0's engine, and the repository take
 ### Accepted
 
 On the reference hosts on 2026-10-23, with the release image (`glm53-tf3:3.4.0`) started by its own `serve.sh` and `cluster.sh`, no `CHECKPOINT` in the rank files and every container on the efficiency cores, one launch at each TP size: XSFP4's decode-check hashes, `bench --kinds edit` reply and NLL were 3.3.0's at TP=2 and TP=3, and rank 0's load line read the same model size ([measured on the release](README.md#measured-on-the-release)).
+
+### Not in 3.4.0
+
+The published AXL weights (their lock moved for the card's new name alone), log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
 
 ## 3.3.0 — 2026-10-23
 
