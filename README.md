@@ -1,6 +1,6 @@
 # GLM-5.3-Flash-NVFP4-DGX-Sparks-BIZ
 
-![GLM-5.3-Flash NVFP4 BIZ: local AI on DGX Spark-compatible GB10 systems, two or three nodes](assets/banner.png)
+![GLM-5.3-Flash BIZ: local AI on DGX Spark-compatible GB10 systems, two or three nodes](assets/banner.png)
 
 [日本語](README.ja.md)
 
