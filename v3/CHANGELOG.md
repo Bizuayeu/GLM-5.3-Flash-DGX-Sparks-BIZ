@@ -4,6 +4,29 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.5.0 — 2026-10-23
+
+TP=2's default window becomes 524,288 tokens, on 3.4.0's engine.
+
+### Window
+
+- `serve.sh` serves TP=2 with a 524,288-token window when the rank files name no `CONTEXT` (245,760 until 3.4.0); TP=3 keeps 1,048,576 ([serving defaults](README.md#serving-defaults)). 245,760 was set on NVIDIA's NVFP4, the default until 3.3.0, as about the most that fit one stream beside it; XSFP4 takes 3.94 GiB less on rank 0, and at 524,288 rank 0's load line read one stream of 6.71 GiB and a 5.5 GiB prompt cache.
+- NVIDIA's NVFP4 starts at 524,288 too, with a 1.0 GiB prompt cache: the TP=2 rank file examples carry `CONTEXT=245760` right after its `CHECKPOINT` line.
+- A second stream no longer fits the default window at TP=2: `PARALLEL=2` needs `CONTEXT=245760`, and an empty `PARALLEL=` takes one stream (three at 245,760).
+- The image differs from 3.4.0's in `serve.sh` alone; its engine binary is 3.4.0's byte for byte, and the engine, `d2d95b11`, is published again as the fork's branch `release/3.5.0`.
+
+### Documentation
+
+- The README's serving defaults, configuration, reason for TP=2's window and limits, setup's start lines and validation's long inputs describe the new window; validation adds XSFP4's 499,254-token prompt at TP=2.
+
+### Accepted
+
+On the reference hosts on 2026-10-23 at TP=2, with the release image (`glm53-tf3:3.5.0`) started by its own `serve.sh` and `cluster.sh`, no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores: XSFP4's decode-check hashes, `bench --kinds edit` reply and NLL were 3.3.0's, the 199,307-token prompt gave 3.3.0's reply and the 499,254-token prompt found its three passphrases, with no wait for heat. With `PARALLEL=` empty the engine took one stream and gave the count hash, and NVIDIA's NVFP4 at the default window gave its count hash. TP=3 was not launched again: its engine binary and window are 3.4.0's ([measured on the release](README.md#measured-on-the-release)).
+
+### Not in 3.5.0
+
+The published AXL weights, log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.4.0 — 2026-10-23
 
 XSFP4 becomes the default checkpoint, on 3.3.0's engine, and the repository takes its new name, GLM-5.3-Flash-DGX-Sparks-BIZ, with the short name GLM-5.3-Flash BIZ. NVIDIA's NVFP4 checkpoint stays a choice.

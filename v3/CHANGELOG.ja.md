@@ -6,6 +6,29 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.5.0 — 2026-10-23
+
+TP=2の既定の窓を524,288 tokenにし、エンジンは3.4.0のままです。
+
+### Window
+
+- `serve.sh` は、rankのファイルに `CONTEXT` が無ければTP=2を524,288 tokenの窓で配信します（3.4.0までは245,760）。TP=3は1,048,576のままです（[配信の既定](README.ja.md#配信の既定)）。245,760は、3.3.0まで既定だったNVIDIAのNVFP4で、1本のstreamが収まるほぼ最大として決めた値でした。XSFP4はrank 0で3.94 GiB軽く、524,288でrank 0のloadの行は1本6.71 GiBのstreamと5.5 GiBのprompt cacheを示しました。
+- NVIDIAのNVFP4も524,288で起動しますが、prompt cacheは1.0 GiBです。TP=2のrankのファイルの例は、その `CHECKPOINT` の行のすぐ後に `CONTEXT=245760` を持ちます。
+- TP=2の既定の窓には2本目のstreamが入りません：`PARALLEL=2` には `CONTEXT=245760` が要り、空の `PARALLEL=` は1本を取ります（245,760では3本）。
+- imageが3.4.0と違うのは `serve.sh` だけで、エンジンのbinaryはbyteまで3.4.0のものです。エンジン `d2d95b11` は、forkのbranch `release/3.5.0` としても公開します。
+
+### Documentation
+
+- READMEの配信の既定・設定・TP=2の窓の理由・制限、手順書の起動の行、検証の長い入力は、新しい窓について書きます。検証にはTP=2のXSFP4の499,254 tokenのpromptを足しました。
+
+### Accepted
+
+2026-10-23に参照機のTP=2で、リリースのimage（`glm53-tf3:3.5.0`）をそれ自身の `serve.sh` と `cluster.sh` で、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて起動しました：XSFP4のdecode検査のhash、`bench --kinds edit` の返答、NLLは3.3.0と同じで、199,307 tokenのpromptは3.3.0と同じ返答を返し、499,254 tokenのpromptは3つの合言葉を全部見つけ、熱の待ちはありませんでした。`PARALLEL=` を空にするとエンジンは1本を取ってcountのhashを返し、NVIDIAのNVFP4も既定の窓でcountのhashを返しました。TP=3は起動し直していません：エンジンのbinaryと窓が3.4.0と同じです（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
+### Not in 3.5.0
+
+公開したAXLの重み、生成したtokenのlog確率、chat templateへの `clear_thinking` の受け渡し（[制限](README.ja.md#制限)）。
+
 ## 3.4.0 — 2026-10-23
 
 XSFP4を既定のcheckpointにし、エンジンは3.3.0のままです。リポジトリは新しい名前GLM-5.3-Flash-DGX-Sparks-BIZになり、略称はGLM-5.3-Flash BIZです。NVIDIAのNVFP4のcheckpointも選べます。
