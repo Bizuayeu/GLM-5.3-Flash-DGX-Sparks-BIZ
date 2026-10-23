@@ -208,7 +208,10 @@ class RecipeCitationTests(unittest.TestCase):
 class CitationTests(unittest.TestCase):
     def test_short_name_citation_carries_the_project_version(self):
         self.assertEqual(
-            citation_problems("README.md", 'cite as "GLM-5.3-Flash BIZ 1.9.2"', "1.9.2"), []
+            citation_problems(
+                "README.md", 'cite as "GLM-5.3-Flash BIZ 1.9.2"', "1.9.2"
+            ),
+            [],
         )
         self.assertEqual(
             citation_problems(
