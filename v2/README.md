@@ -4,7 +4,7 @@
 
 [日本語](README.ja.md) · [Repository index](../README.md) · [Setup runbook](SETUP.md) · [Validation](docs/validation.md) · [Changelog](CHANGELOG.md)
 
-**GLM-5.3-Flash BIZ** serves NVIDIA's pinned GLM-5.3-Flash NVFP4 checkpoint as distributed, without retraining or requantizing it, on DGX Spark or compatible GB10 systems. The name does not depend on the engine. The 2.x line serves it with [TensorFold](https://github.com/ashhart/TensorFold) (Apache-2.0) in place of vLLM, on two hosts at TP=2 or three hosts at TP=3. 2.0.0 is its first release; the [1.x line](../v1/README.md) continues beside it.
+The 2.x line of **GLM-5.3-Flash BIZ** serves NVIDIA's pinned GLM-5.3-Flash NVFP4 checkpoint as distributed, without retraining or requantizing it, on DGX Spark or compatible GB10 systems. The name does not depend on the engine. This line serves it with [TensorFold](https://github.com/ashhart/TensorFold) (Apache-2.0) in place of vLLM, on two hosts at TP=2 or three hosts at TP=3. 2.0.0 is its first release; the [1.x line](../v1/README.md) continues beside it.
 
 **BIZ** is the maintainer's mark and states the repository's intent; what it means and does not mean is in the [repository README](../README.md#biz).
 
@@ -26,7 +26,7 @@
 
 ## Requirements
 
-- **Hosts**: two or three DGX Spark or compatible GB10 systems (Linux ARM64, 128 GB unified memory each) with nothing else large on their GPUs. A 1.x server on the same hosts is stopped first.
+- **Hosts**: two or three DGX Spark or compatible GB10 systems (Linux ARM64, 128 GB unified memory each) with nothing else large on their GPUs. A 1.x server on the same hosts is stopped first, and 3.x's container too, since it claims every GPU ([3.x operations](../v3/docs/operations.md#hand-the-hosts-to-2x)).
 - **Fabric**: ConnectX-7 links with RoCE v2, a direct cable for the pair or a switchless ring for three hosts ([three hosts in a ring](../docs/qsfp-network.md#8-three-hosts-in-a-ring)). Both rails of each port are used.
 - **Host kernel**: as in 1.x; the kernel current DGX OS updates install can break multi-node RoCE by default, and the reference hosts boot it with `kho=off` ([host kernel and multi-node RoCE](../docs/hosts.md#host-kernel-and-multi-node-roce)).
 - **GPU clock** capped on every host, as in 1.x ([GPU clock cap](../docs/hosts.md#gpu-clock-cap)); [`host/`](../host/README.md) installs the cap and a telemetry logger. Every 2.x figure was measured under the cap.
@@ -405,7 +405,7 @@ Public recipes that serve GLM-5.3-Flash on TensorFold. This table owns their lin
 
 Each item is a trigger and what this line then does.
 
-- Upstream TensorFold serves GLM-5.3-Flash on CUDA from its Zig engine (as of 2026-10-06 the Python engine is frozen, issue #286, and Zig CUDA serves no model yet; upstream said it would follow this line's designs from issues #308, #310 and #339 and pull requests #333 and #396-#399 there) → read it against the release branch and decide whether 2.x moves to it.
+- Upstream TensorFold serves GLM-5.3-Flash on CUDA from its Zig engine (as of 2026-10-06 the Python engine is frozen, issue #286, and Zig CUDA serves no model yet; upstream said it would follow this line's designs from issues #308, #310 and #339 and pull requests #333 and #396-#399 there) → read it against the release branch and decide whether 2.x moves to it. It happened: [3.x](../v3/README.md) serves GLM-5.3-Flash on upstream's Zig engine from 3.0.0 (2026-10-18, upstream 1.0.12), and 2.x stays on the Python engine.
 - Upstream releases another 0.6.x of the Python engine (0.6.6 was under test before the freeze: unoffered `<tool_call>` markup leaking into the reply text, #285 with #256; `--loop-guard` against a token repeated without end, #210 and #262 for #204; the open-file limit raised at start, #294) → read it against the release branch and follow it in a 2.x release (2.5.0 took #285 and #294; 2.7.0's loop guard is MiaAI-Lab's patch 0091, off by default).
 - More than one sequence at a time: upstream closed MiaAI-Lab's pull request #243 (`--parallel N` on two ranks) with the freeze → this line takes it into its own release branch, then measures the published AXL weights at two sequences, as 1.x did.
 - Upstream reopens the lossy KV cache question for GLM (it declined FP8 and 4-bit caches in issues #309 and #401, 2026-10-06), or this line moves to an engine without FP8 KV → measure BF16 KV's window first (TP=2 held 344,820 tokens against about 490K with FP8 on 2026-10-02).

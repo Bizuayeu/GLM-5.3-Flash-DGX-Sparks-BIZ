@@ -4,7 +4,7 @@
 
 [English](README.md) · [リポジトリの索引](../README.ja.md) · [セットアップ手順書](SETUP.ja.md) · [検証](docs/validation.ja.md) · [変更履歴](CHANGELOG.ja.md)
 
-**GLM-5.3-Flash BIZ** は、NVIDIAの固定したGLM-5.3-Flash NVFP4 checkpointを、再学習も再量子化もせず配布のまま、DGX Sparkまたは互換のGB10機で配信します。名前はエンジンには依存しません。2.x系はvLLMに代えて[TensorFold](https://github.com/ashhart/TensorFold)（Apache-2.0）で、2台のTP=2または3台のTP=3で配信します。2.0.0が最初のリリースです。[1.x系](../v1/README.ja.md)も並んで続きます。
+**GLM-5.3-Flash BIZ** の2.x系は、NVIDIAの固定したGLM-5.3-Flash NVFP4 checkpointを、再学習も再量子化もせず配布のまま、DGX Sparkまたは互換のGB10機で配信します。名前はエンジンには依存しません。この系列はvLLMに代えて[TensorFold](https://github.com/ashhart/TensorFold)（Apache-2.0）で、2台のTP=2または3台のTP=3で配信します。2.0.0が最初のリリースです。[1.x系](../v1/README.ja.md)も並んで続きます。
 
 **BIZ**は保守者の印で、リポジトリの意図を示す語です。意味することと意味しないことは[リポジトリのREADME](../README.ja.md#biz)にあります。
 
@@ -26,7 +26,7 @@
 
 ## 必要な環境
 
-- **機体**：DGX Sparkまたは互換のGB10機を2台か3台（Linux ARM64、各128 GBの統合メモリ）。GPUで他の大きな仕事を動かさないこと。同じ機で1.x系のserverが動いていれば先に止めます。
+- **機体**：DGX Sparkまたは互換のGB10機を2台か3台（Linux ARM64、各128 GBの統合メモリ）。GPUで他の大きな仕事を動かさないこと。同じ機で1.x系のserverが動いていれば先に止め、全GPUを要求する3.x系のcontainerも止めます（[3.x系の運用](../v3/docs/operations.ja.md#ホストを2x系へ渡す)）。
 - **fabric**：RoCE v2のConnectX-7リンク。2台は直結、3台はswitchなしのリング（[3台をリングにつなぐ](../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。各portの2本のrailを両方使います。
 - **ホストカーネル**：1.x系と同じです。今のDGX OSの更新が入れるカーネルは、既定のままでは複数ノードのRoCEを壊すことがあり、参照機は `kho=off` で起動しています（[ホストカーネルと複数ノードRoCE](../docs/hosts.ja.md#ホストカーネルと複数ノードroce)）。
 - **GPUクロック**は1.x系と同じく全機で上限を設けます（[GPUクロックの上限](../docs/hosts.ja.md#gpuクロックの上限)）。上限と温度の記録は[`host/`](../host/README.ja.md)が据え付けます。2.x系の数字は全部この上限の下で測りました。
@@ -405,7 +405,7 @@ GLM-5.3-FlashをTensorFoldで配信する公開レシピです。各レシピの
 
 各項目は、きっかけと、そのときこの系列がすることです。
 
-- 上流のTensorFoldが、Zig版のエンジンでGLM-5.3-FlashをCUDAで配信する（2026-10-06時点でPython版は凍結〔issue #286〕、Zig版のCUDAはまだどのモデルも配信していない。上流は、そこでこの系列のissue #308・#310・#339とpull request #333・#396〜#399の設計に倣うと返事した）→ リリースのbranchと突き合わせて読み、2.x系がそちらへ移るかを決める。
+- 上流のTensorFoldが、Zig版のエンジンでGLM-5.3-FlashをCUDAで配信する（2026-10-06時点でPython版は凍結〔issue #286〕、Zig版のCUDAはまだどのモデルも配信していない。上流は、そこでこの系列のissue #308・#310・#339とpull request #333・#396〜#399の設計に倣うと返事した）→ リリースのbranchと突き合わせて読み、2.x系がそちらへ移るかを決める。これは起きた：[3.x系](../v3/README.ja.md)が3.0.0（2026-10-18、上流1.0.12）から上流のZig版のエンジンでGLM-5.3-Flashを配信し、2.x系はPython版のエンジンのまま。
 - 上流がPython版のエンジンの0.6.xをもう一度出す（凍結の前に0.6.6として試験中だったもの：要求に無い `<tool_call>` のmarkupが応答の本文に漏れる件の#285と#256、同じtokenを延々繰り返すのを止める `--loop-guard` の#210と#262〔#204向け〕、起動時に開けるファイル数を上げる#294）→ リリースのbranchと突き合わせて読み、2.x系の版で追う（2.5.0は#285と#294を取り込んだ。2.7.0のloop guardはMiaAI-Labのpatch 0091で、既定で無効）。
 - 同時に2系列以上：上流は凍結とともにMiaAI-Labのpull request #243（2 rankで `--parallel N`）を閉じた → この系列が自前のリリースのbranchへ取り込み、1.x系と同じく公開したAXLの重みを2系列で測る。
 - 上流がGLMのlossyなKV cacheの問いを開き直す（issue #309と#401でFP8と4-bitのcacheを断った、2026-10-06）か、この系列がFP8 KVの無いエンジンへ移る → まずBF16 KVの窓を測る（2026-10-02にTP=2でBF16は344,820 token、FP8は約490K）。
