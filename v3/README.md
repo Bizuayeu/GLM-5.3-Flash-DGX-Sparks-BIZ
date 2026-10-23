@@ -1,5 +1,7 @@
 # GLM-5.3-Flash BIZ 3.x (TensorFold native)
 
+![GLM-5.3-Flash BIZ v3, XSFP4 × TensorFold: native Zig and CUDA on DGX Spark and GB10 systems](assets/banner.webp)
+
 [日本語](README.ja.md) · [Repository index](../README.md) · [Setup runbook](SETUP.md) · [Validation](docs/validation.md) · [Changelog](CHANGELOG.md)
 
 **NVFP4 BIZ** serves NVIDIA's pinned GLM-5.3-Flash NVFP4 checkpoint as distributed, without retraining or requantizing it, on DGX Spark or compatible GB10 systems. The 3.x line serves it with TensorFold's native engine, the Zig and CUDA engine that took the place of the Python engine the [2.x line](../v2/README.md) runs, on two hosts at TP=2 or three hosts at TP=3. 3.0.0 was its first release, on upstream TensorFold 1.0.12; 3.1.0 moves it onto upstream 1.1.1, and 3.2.0 adds image and video input. 3.3.0 moves onto upstream 1.1.2 and adds a second checkpoint to choose: [XSFP4](#checkpoints), a derivative of NVIDIA's GLM-5.3-Flash-FP4-Local whose experts this repository's maintainer requantized; NVIDIA's pinned checkpoint stays the default. 2.x continues beside it.

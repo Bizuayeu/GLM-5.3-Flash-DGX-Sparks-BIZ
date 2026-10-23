@@ -1,5 +1,7 @@
 # GLM-5.3-Flash BIZ 3.x（TensorFoldネイティブ）
 
+![GLM-5.3-Flash BIZ v3、XSFP4 × TensorFold：DGX Spark・GB10で動くZigとCUDAのネイティブ実装](assets/banner.webp)
+
 [English](README.md) · [リポジトリの索引](../README.ja.md) · [配備の手順書](SETUP.ja.md) · [検証](docs/validation.ja.md) · [変更履歴](CHANGELOG.ja.md)
 
 **NVFP4 BIZ** は、NVIDIAの固定したGLM-5.3-Flash NVFP4 checkpointを、再学習も再量子化もせず配布のまま、DGX Sparkまたは互換のGB10機で配信します。3.x系はTensorFoldのネイティブエンジン、つまり[2.x系](../v2/README.ja.md)が動かすPythonのエンジンに代わったZigとCUDAのエンジンで、2台のTP=2または3台のTP=3で配信します。3.0.0が上流のTensorFold 1.0.12の上の最初のリリースで、3.1.0で上流の1.1.1へ移り、3.2.0で画像と動画の入力を加えました。3.3.0は上流の1.1.2へ移り、選べる2つ目のcheckpointを加えます：[XSFP4](#checkpoint)、NVIDIAのGLM-5.3-Flash-FP4-Localの派生物で、expertsを本リポジトリの管理者が量子化し直したものです。既定はNVIDIAの固定したcheckpointのままです。2.x系も並んで続きます。
