@@ -110,8 +110,8 @@ class ServeScriptTests(unittest.TestCase):
     def test_serve_sh_sets_the_window_by_tp_unless_the_rank_file_says_otherwise(self):
         # TP=2 524,288 (3.5.0: one stream and a prompt cache beside XSFP4), TP=3 1,048,576 (the model's limit).
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
-        self.assertIn("context=${CONTEXT:-524288}", serve)
-        self.assertIn("context=${CONTEXT:-1048576}", serve)
+        self.assertIn('if [ "$tp" = 2 ]; then\n  context=${CONTEXT:-524288}\n', serve)
+        self.assertIn("else\n  context=${CONTEXT:-1048576}\n", serve)
         self.assertEqual(serve.count("${CONTEXT:-"), 2)
 
     def test_tp2_examples_keep_nvidias_window_beside_its_checkpoint(self):

@@ -87,10 +87,11 @@ python -m glm53_tf bench --out ../records/<run>/bench.jsonl
 
 ```sh
 python -m glm53_tf long-input --passphrases 1 --tokens 199652
+python -m glm53_tf long-input --passphrases 3 --tokens 499622
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値（NVIDIAのNVFP4）：199,307 tokenで合言葉を、TP=2で153.4秒（3.3.0：155.0秒）、TP=3で140.3秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで399.5秒、1,035,295 tokenで3つ中3つ、1,064.9秒で、そのうちpromptは熱で2秒の待ちを19回、計38秒待ちました（午後に回しました）。どれも保持したpromptから再開しませんでした（`cached` 0）。glueのkernel（3.1.0、夜）では、TP=3の3つが140.4・398.1・1,022.7秒で、熱では待ちませんでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は3.5.0から524,288 tokenです（それより前とNVIDIAのNVFP4では245,760）。
+目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値（NVIDIAのNVFP4）：199,307 tokenで合言葉を、TP=2で153.4秒（3.3.0：155.0秒）、TP=3で140.3秒で見つけました。TP=3では499,254 tokenで3つ中3つ、最初のtokenまで399.5秒、1,035,295 tokenで3つ中3つ、1,064.9秒で、そのうちpromptは熱で2秒の待ちを19回、計38秒待ちました（午後に回しました）。どれも保持したpromptから再開しませんでした（`cached` 0）。glueのkernel（3.1.0、夜）では、TP=3の3つが140.4・398.1・1,022.7秒で、熱では待ちませんでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は3.5.0から524,288 tokenです（それより前と、rankのファイルの例のNVIDIAのNVFP4の行では245,760）。
 
 ## tool引数ゲート越しのtool
 
@@ -139,7 +140,7 @@ XSFP4のcheckpoint（[checkpoint](../README.ja.md#checkpoint)）はNVIDIAのNVFP
 | ゲート越しのtool-eval-bench | 93、Safety Gateは通過（TC-61がfail） | 同じ |
 | 38,960 tokenのprefill / decode（tok/s） | 1,415.1 / 54.15 | 1,717.3 / 66.23 |
 | 199,307 tokenのprompt | 見つけた、151.9秒 | 見つけた、127.9秒 |
-| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken | 499,254：3つ中3つ、431.5秒、熱の待ちなし（3.5.0、524,288 tokenの窓） | 3つ中3つ、373.0秒。3つ中3つ、1,015.7秒（うち42秒は熱の待ち） |
+| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken | 499,254：3つ中3つ、431.5秒、熱の待ちなし（3.5.0、524,288 tokenの窓。その起動の最低の `MemAvailable` は12 / 12 GiB、最も熱いzoneは87.3 / 89.0 °C） | 3つ中3つ、373.0秒。3つ中3つ、1,015.7秒（うち42秒は熱の待ち） |
 | 約93,000 tokenのpromptを切った後の次の要求、切らないpromptの最初のtokenとの比べ（秒） | 0.32 対 68.6 | 0.91 対 56.7 |
 | 6,000 tokenのpromptの後の40の返答（秒、rank 0のホストの最も熱いzone） | 1,250、76.5 °C | 981、85.8 °C |
 | 最低の `MemAvailable`、rankごと（GiB） | 11 / 13 | 21 / 22 / 28 |

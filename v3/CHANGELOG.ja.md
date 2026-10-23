@@ -12,14 +12,14 @@ TP=2の既定の窓を524,288 tokenにし、エンジンは3.4.0のままです�
 
 ### Window
 
-- `serve.sh` は、rankのファイルに `CONTEXT` が無ければTP=2を524,288 tokenの窓で配信します（3.4.0までは245,760）。TP=3は1,048,576のままです（[配信の既定](README.ja.md#配信の既定)）。245,760は、3.3.0まで既定だったNVIDIAのNVFP4で、1本のstreamが収まるほぼ最大として決めた値でした。XSFP4はrank 0で3.94 GiB軽く、524,288でrank 0のloadの行は1本6.71 GiBのstreamと5.5 GiBのprompt cacheを示しました。
+- `serve.sh` は、rankのファイルに `CONTEXT` が無ければTP=2を524,288 tokenの窓で配信します（3.4.0までは245,760）。TP=3は1,048,576のままです（[配信の既定](README.ja.md#配信の既定)）。245,760は、3.3.0まで既定だったNVIDIAのNVFP4で、1本のstreamが収まるほぼ最大として決めた値でした。XSFP4はrank 0で約3.9 GiB軽く、524,288でrank 0のloadの行は1本6.71 GiBのstreamと5.5 GiBのprompt cacheを示しました。
 - NVIDIAのNVFP4も524,288で起動しますが、prompt cacheは1.0 GiBです。TP=2のrankのファイルの例は、その `CHECKPOINT` の行のすぐ後に `CONTEXT=245760` を持ちます。
-- TP=2の既定の窓には2本目のstreamが入りません：`PARALLEL=2` には `CONTEXT=245760` が要り、空の `PARALLEL=` は1本を取ります（245,760では3本）。
+- TP=2の既定の窓には2本目のstreamが入らなくなりました：`PARALLEL=2` には小さい窓（例えば `CONTEXT=245760`）が要り、空の `PARALLEL=` は1本を取ります（XSFP4は245,760で3本）。
 - imageが3.4.0と違うのは `serve.sh` だけで、エンジンのbinaryはbyteまで3.4.0のものです。エンジン `d2d95b11` は、forkのbranch `release/3.5.0` としても公開します。
 
 ### Documentation
 
-- READMEの配信の既定・設定・TP=2の窓の理由・制限、手順書の起動の行、検証の長い入力は、新しい窓について書きます。検証にはTP=2のXSFP4の499,254 tokenのpromptを足しました。
+- READMEのcheckpoint・配信の既定・設定・TP=2の窓の理由・2.x系との違い・制限、手順書の起動の行、測定の方法、検証の長い入力は、新しい窓について書きます。NVIDIAのNVFP4を選ぶ手順（README、手順書§2、運用のcheckpointの切り替え）には、TP=2の `CONTEXT=245760` を足しました。検証にはTP=2のXSFP4の499,254 tokenのpromptを足しました。手順書と運用のコマンドは `glm53-tf3:3.5.0` をbuildして名指します。
 
 ### Accepted
 

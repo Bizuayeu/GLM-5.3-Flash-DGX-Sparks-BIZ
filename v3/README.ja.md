@@ -45,7 +45,7 @@
 # 一度だけ、ある1台の v3/ からその仮想環境で。その後cacheを他のホストへ写し、写しごとに検証する（SETUP §2）
 python -m glm53_tf download --background
 python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
-# NVIDIAのNVFP4にするなら（下のcheckpoint）：両方に --checkpoint pinned を足し、検証の --output は ../records/checksum に（SETUP §2）、全rankのファイルに CHECKPOINT を置く
+# NVIDIAのNVFP4にするなら（下のcheckpoint）：両方に --checkpoint pinned を足し、検証の --output は ../records/checksum に（SETUP §2）、全rankのファイルに CHECKPOINT を置く（TP=2では CONTEXT=245760 も）
 
 # 1台がimageをbuildし、他はそれを読み込む。image IDを比べる（SETUP §3）
 docker build -f v3/docker/Dockerfile -t glm53-tf3:3.5.0 .
@@ -88,11 +88,11 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | 同じものをTP=3で | 93.30% / +0.85% / 0.0436 | 92.71% / +1.38% / 0.0511 |
 | ライセンス | NVIDIA Open Model Agreement（FP4-Localの派生物。repositoryに `LICENSE` と `NOTICE`） | MIT |
 | ダウンロード（SETUP §2） | `download`・`verify-download`（ダウンロードの状況は `state/xsfp4` に） | 同じものに `--checkpoint pinned`（ダウンロードの状況は `state` に） |
-| rankのファイル | 何も要らない：`serve.sh` の既定（lockのrevision） | 全rankに `CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93` |
+| rankのファイル | 何も要らない：`serve.sh` の既定（lockのrevision） | 全rankに `CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93`、TP=2ではprompt cacheのため `CONTEXT=245760` も（[配信の既定](#配信の既定)） |
 
 各文書はtoken idとしてエンジンに送り、`prompt_logprobs` は20。KLの下限は、両方が確率を返したtoken（エンジンの上位20、BF16の上位20、本文のtoken）を1つずつ数え、残りを1つの塊として数えます。全語彙のKLより低く、エンジンの外で測ったKLとは比べられません（XSFP4の[model card](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)に両方があります）。XSFP4はどちらのTPでも3つともNVIDIAのNVFP4よりBF16に近く、差の文書ごとの95%区間は0を含みません。参考として、FP4-Local自身を同じエンジンでそのまま読み込むと、TP=2で 92.82% / +1.11% / 0.0510、TP=3で 92.75% / +1.07% / 0.0514 でした。
 
-2つは別のtokenを出すので、それぞれが[検証](docs/validation.ja.md)に自分の基準値を持ちます。XSFP4は窓の横に多くのメモリを残します：TP=2でrank 0のprompt cacheは5.2 GiBに対して8.9 GiB、`PARALLEL=` を空にするとエンジンは2本に対して3本のstreamを取りました。速さはNVIDIAのNVFP4のものと違います：draftの受理と層の形が違うので、[測定値](#リリースでの測定値)はそれぞれのcheckpointのもので、自分とだけ比べられます。XSFP4が持つFP4-Localのchat templateは、NVIDIAのものと3か所違います（contentの無いmessageは何も出さない、tool callの名前を `~` でつなぐ、toolの結果を呼び出しの順に並べられるかの検査が、だめと分かった所で止まる）。
+2つは別のtokenを出すので、それぞれが[検証](docs/validation.ja.md)に自分の基準値を持ちます。XSFP4は窓の横に多くのメモリを残します：TP=2の245,760 tokenの窓で、rank 0のprompt cacheは5.2 GiBに対して8.9 GiB、`PARALLEL=` を空にするとエンジンは2本に対して3本のstreamを取りました。3.5.0の524,288では1.0 GiBに対して5.5 GiBです。速さはNVIDIAのNVFP4のものと違います：draftの受理と層の形が違うので、[測定値](#リリースでの測定値)はそれぞれのcheckpointのもので、自分とだけ比べられます。XSFP4が持つFP4-Localのchat templateは、NVIDIAのものと3か所違います（contentの無いmessageは何も出さない、tool callの名前を `~` でつなぐ、toolの結果を呼び出しの順に並べられるかの検査が、だめと分かった所で止まる）。
 
 ## 配信の既定
 
@@ -103,9 +103,9 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | checkpoint | XSFP4、lockのrevision（`CHECKPOINT` を書かない。NVIDIAのNVFP4は `CHECKPOINT` で、[checkpoint](#checkpoint)） | 同じ |
 | KV cache | latentとindexのkeyをBF16（エンジンが持つ唯一の形） | 同じ |
 | draft | checkpointのMTP head（エンジンの既定） | 同じ |
-| 窓（`--context`） | 524,288 token：各rankでXSFP4の隣に1本のstreamとprompt cacheが入る。NVIDIAのNVFP4は、rankのファイルの例の `CONTEXT` の245,760 | 1,048,576 token（モデルの上限） |
+| 窓（`--context`） | 524,288 token：各rankでXSFP4の隣に1本のstreamとprompt cacheが入る。NVIDIAのNVFP4もこの窓で起動するが（prompt cacheは1.0 GiB）、rankのファイルの例は `CONTEXT=245760` を渡す | 1,048,576 token（モデルの上限） |
 | 同時にdecodeする要求（`--parallel`） | 1（`PARALLEL=1`）。空の `PARALLEL=` ではエンジンに任せ、エンジンは起動時の空きメモリからstreamとprompt cacheの大きさを決める | 同じ |
-| prompt cache（保持するpromptの状態、2,048 tokenのchunkの始まりごと） | 窓の残り（rank 0のloadの行。起動時の空きメモリで動きます）：参照機で、vision towerを読み込んで、XSFP4は524,288 tokenで5.2〜5.5 GiB（245,760では8.9 GiB）、NVIDIAのNVFP4は245,760で5.2 GiB（524,288では1.0 GiB。それまでの3.xのエンジンは4.4〜5.4 GiB、`VISION=` で5.2〜6.3 GiB） | 参照リングで、どちらのcheckpointも16.0 GiB |
+| prompt cache（保持するpromptの状態、2,048 tokenのchunkの始まりごと） | 窓の残り（rank 0のloadの行。起動時の空きメモリで動きます）：参照機で、vision towerを読み込んで、XSFP4は524,288 tokenで5.2〜5.5 GiB（245,760では8.9 GiB）、NVIDIAのNVFP4は245,760で5.2 GiB（それまでの3.xのエンジンはそこで4.4〜5.4 GiB、`VISION=` で5.2〜6.3 GiB。524,288では1.0 GiB） | 参照リングで、どちらのcheckpointも16.0 GiB |
 | 要求が指定しないときの応答の上限 | 32,768 token（`--max-tokens`） | 同じ |
 | 要求が指定しないときの推論のeffort | `high`（`--reasoning-effort`） | 同じ |
 | NCCL | 各リンク2本のrail・4 channel・IBのtransportを明示、rankごとのファイルから。rank 0のアドレスとportを `NCCL_COMM_ID` に | 2本のrail・4 channel・IBのtransportを明示・subnet-aware routing。rank 0のアドレスとportを `NCCL_COMM_ID` に（rankどうしの生存の線のためだけ）、rank 0のNCCLのidをファイルで渡す |
@@ -114,9 +114,9 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | 画像と動画の入力 | 有効（`VISION=1`、エンジンの `--vision`）：rank 0にcheckpointのvision tower、PNG・JPEG・WebPの画像と動画をdata URLで、エンジンの制限の中で（[制限](#制限)）。`VISION=` でtextだけ、全rankで同じに | 同じ |
 | containerのcore | 最大周波数の最も低いcore：GB10の効率core、0-4と10-14（`create_container.sh`、`CPUSET`） | 同じ |
 
-**一度に一要求にする理由。** `--parallel` を設定しないと、エンジンは8本のstreamを求めて収まるだけを配信するので、streamの数とprompt cacheに残る余地は、そのときの空きメモリによって起動ごとに変わります（TP=3では、ある起動が2本のstreamと0.1 GiBのprompt cacheを取りました）。2.x系と同じ1本のstreamなら、窓はどの起動でも同じで、prompt cacheは空きメモリの分だけ動きます（TP=2でvision towerありのNVIDIAのNVFP4は、3.3.0の2回の起動で5.2・5.1 GiB）。TP=2では、3.0.0のエンジンは245,760 tokenの窓の隣に2本目のstreamが収まりませんでした（各rankで4.55 GiBが要り、rank 1には4.41 GiBでした）。3.1.0からのエンジンは収まります：3.3.0ではNVIDIAのNVFP4で `PARALLEL=` を空にすると2本のstreamを取り（XSFP4では3本）、prompt cacheは1本のときの5.2 GiBに対して1.5 GiBでした。
+**一度に一要求にする理由。** `--parallel` を設定しないと、エンジンは8本のstreamを求めて収まるだけを配信するので、streamの数とprompt cacheに残る余地は、そのときの空きメモリによって起動ごとに変わります（TP=3では、ある起動が2本のstreamと0.1 GiBのprompt cacheを取りました）。2.x系と同じ1本のstreamなら、窓はどの起動でも同じで、prompt cacheは空きメモリの分だけ動きます（TP=2でvision towerありのNVIDIAのNVFP4は、3.3.0の2回の起動で5.2・5.1 GiB）。TP=2では、3.0.0のエンジンは245,760 tokenの窓の隣に2本目のstreamが収まりませんでした（各rankで4.55 GiBが要り、rank 1には4.41 GiBでした）。3.1.0からのエンジンは収まります：3.3.0ではNVIDIAのNVFP4で `PARALLEL=` を空にすると2本のstreamを取り（XSFP4では3本）、prompt cacheは1本のときの5.2 GiBに対して1.5 GiBでした。3.5.0の524,288では1本です（[制限](#制限)）。
 
-**TP=2を524,288にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取るので、対が持てる窓は2.x系の300,000 tokenより短くなります。3.4.0までの245,760は、決めた時の既定だったNVIDIAのNVFP4で、1本のstreamが収まるほぼ最大でした。3.4.0から既定のXSFP4はrank 0で3.94 GiB軽いので、3.5.0から窓は524,288 tokenです：rank 0のloadの行は1本6.71 GiBのstreamと5.5 GiBのprompt cacheを示し、499,254 tokenのpromptが返答の分を残して入ります。NVIDIAのNVFP4も524,288で起動しますが、prompt cacheは1.0 GiBしか残らないので、rankのファイルの例は245,760を渡します（`CHECKPOINT` の隣の `CONTEXT`）。2本目のstream（`PARALLEL=2`）はさらに6.71 GiBを取り、この窓には入らないので、`CONTEXT=245760` が要ります。全rankのファイルの `CONTEXT` で別の値を選びます。
+**TP=2を524,288にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取ります。3.4.0までの窓245,760 tokenは2.x系の300,000 tokenより短く、決めた時の既定だったNVIDIAのNVFP4で1本のstreamが収まるほぼ最大でした。3.4.0から既定のXSFP4はrank 0で約3.9 GiB軽いので（245,760でNVIDIAの97.38 GiBに対して93.44 GiB）、3.5.0から窓は524,288 tokenです：rank 0のloadの行は1本6.71 GiBのstreamと5.5 GiBのprompt cacheを示し、499,254 tokenのpromptが返答に25,034 tokenを残して入ります。NVIDIAのNVFP4も524,288で起動しますが、prompt cacheは1.0 GiBしか残らないので、rankのファイルの例は `CHECKPOINT` の隣で `CONTEXT=245760` を渡します。2本目のstream（`PARALLEL=2`）はさらに6.71 GiBを取り、この窓には入らないので、小さい窓（例えば `CONTEXT=245760`）が要ります。全rankのファイルの `CONTEXT` で別の値を選びます。
 
 **効率coreにする理由。** エンジンは要求を回す間、全rankで2本のCPUのthreadを空回りさせ続けます。rank 0ではdecodeの間、他のrankではそれを待つ間です（上流1.1.2のエンジンより前は、他のrankは要求の無い間も空回りしました。#1053は、rank 0にstreamが無い間それらを眠らせます）：一つはGPUを待ち、もう一つはそのkernel時間から見てNCCLのものである見込みが高いthreadです。全coreでは、これらがCPUのthermal zone（GB10の7つのzoneのうち5つ）を温めました：約6,000 tokenのpromptの後の1,024 tokenの返答を40本続けると、3.0.0のエンジンでは、TP=2でrank 0の最も熱いzoneが94.7 °Cに達し、熱の見張りが7本目でエンジンを止めました。3.1.0のエンジンは全coreでも効率coreと同じ1,535秒で40本を終えましたが、rank 0のホストは93.0 °Cに達し（止める温度まで1 °C）、効率coreでは74.9 °Cでした。全coreで2つの要求を同時に回すと88.5 °Cでした。熱の待ちはprompt chunkの合間に働くので、これを抑えられません。効率coreでは40本の返答がそのzone 85.1 °Cで終わり、rank 1のホストは約70 °Cではなく57〜63 °Cで待ちました。その代わり速さの1〜3%を失い、起動は約25秒長くなりました（[リリースでの測定値](#リリースでの測定値)）。熱の帯を下げる（86/82/87）と、待ったpromptが26〜89%遅くなり、1,048,576 tokenのpromptの最高温度は下がりませんでした。空回りせずに眠るCUDAのcontextはdecodeが12%遅く、もう一つのthreadは空回りしたままでした。1.1.1から、上流の[runbook](https://github.com/ashhart/TensorFold/blob/v1.1.1/RUNBOOK.md)もこれらの測定からGB10の各rankに同じcoreを挙げています。`CPUSET=` でcontainerに全coreを与えます。
 
@@ -133,7 +133,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | | `NCCL_NET`・`NCCL_IB_DISABLE`・`NCCL_IB_ROCE_VERSION_NUM`・`NCCL_IB_ADDR_FAMILY`・`NCCL_SOCKET_FAMILY`・`NCCL_MIN_NCHANNELS`・`NCCL_MAX_NCHANNELS` | RoCE v2とIPv4の上のNCCLのIBのtransport、4 channel | 2.x系と同じ（[2.x系の決定](../v2/docs/decisions.ja.md#fabric)）。TP=3はsubnet-aware routingと `NCCL_NET_PLUGIN=none` が加わります（[`tp3-rank0.env`](examples/tp3-rank0.env)） |
 | | `NCCL_DEBUG`・`NCCL_DEBUG_SUBSYS` | `INFO`・`INIT,NET` | NCCLが起動時に各接続のtransportを一度だけ書き、[手順書 §5](SETUP.ja.md#5-起動)がそれを読みます |
 | | `PARALLEL` | `1` | 同時にdecodeする要求。空ならエンジン自身の選択（[配信の既定](#配信の既定)）。全rankで同じ |
-| | `CONTEXT` | TP=2で `524288`、TP=3で `1048576` | 窓。全rankで同じ（NVIDIAのNVFP4のTP=2では、rankのファイルの例のとおり `245760`） |
+| | `CONTEXT` | TP=2で `524288`、TP=3で `1048576` | 窓。全rankで同じ（rankのファイルの例は、TP=2のNVIDIAのNVFP4に `245760` を渡す） |
 | | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け |
 | | `REASONING_EFFORT` | `high` | effortを指定しない要求にrank 0が使うeffort（`low`・`medium`・`high`・`xhigh`・`max`。空：chat template自身のもの） |
 | | `API_KEY_FILE` | なし | loopbackの外で配信するときのrank 0のkeyのファイル（上記） |
@@ -169,7 +169,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 |---|---|---|
 | エンジン | TensorFold 0.6.5のBIZ版。PythonとTritonのkernelで、kernelは実行時にcompile | TensorFold 1.1.2のBIZ版（3.0.0は1.0.12、3.1.0と3.2.0は1.1.1）。ZigとCUDAで、kernelはbinaryの中 |
 | 出力の反復性 | エンジンの契約として、draftした応答はserialと同じ、再開したpromptは最初からと同じ、chunkの切り方で結果が変わらない | draftした応答はserialと同じで、起動はtoken idを繰り返す。tokenは2.x系のものと違う（別のkernel、BF16 KV）ので、系列の間はNLLで比べる |
-| KVと窓 | latentとindexのkeyをFP8。TP=2で300,000 token、TP=3で1,048,576 | BF16。TP=2で524,288 token（NVIDIAのNVFP4では245,760）、TP=3で1,048,576 |
+| KVと窓 | latentとindexのkeyをFP8。TP=2で300,000 token、TP=3で1,048,576 | BF16。TP=2で524,288 token（rankのファイルの例はNVIDIAのNVFP4に245,760を渡す）、TP=3で1,048,576 |
 | 同時の要求 | 1 | 既定で1。`PARALLEL` で、窓が残すメモリの中で、エンジンがdecodeのroundをより多くの要求に分ける |
 | prompt cache | 8本、3 GiB（`TF_GLM_CACHE_*`） | 窓の残りに、chunkの始まりの状態を保つ（TP=2でvision towerありは、XSFP4の524,288 tokenで5.2〜5.5 GiB、NVIDIAのNVFP4の245,760で5.1〜5.2 GiB。TP=3はどちらも16.0 GiB）。本数の上限は無い |
 | 画像入力 | 受ける（`VISION=1`） | 受け、動画も（`VISION=1`、既定） |

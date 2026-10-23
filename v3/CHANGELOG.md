@@ -10,14 +10,14 @@ TP=2's default window becomes 524,288 tokens, on 3.4.0's engine.
 
 ### Window
 
-- `serve.sh` serves TP=2 with a 524,288-token window when the rank files name no `CONTEXT` (245,760 until 3.4.0); TP=3 keeps 1,048,576 ([serving defaults](README.md#serving-defaults)). 245,760 was set on NVIDIA's NVFP4, the default until 3.3.0, as about the most that fit one stream beside it; XSFP4 takes 3.94 GiB less on rank 0, and at 524,288 rank 0's load line read one stream of 6.71 GiB and a 5.5 GiB prompt cache.
+- `serve.sh` serves TP=2 with a 524,288-token window when the rank files name no `CONTEXT` (245,760 until 3.4.0); TP=3 keeps 1,048,576 ([serving defaults](README.md#serving-defaults)). 245,760 was set on NVIDIA's NVFP4, the default until 3.3.0, as about the most that fit one stream beside it; XSFP4 takes about 3.9 GiB less on rank 0, and at 524,288 rank 0's load line read one stream of 6.71 GiB and a 5.5 GiB prompt cache.
 - NVIDIA's NVFP4 starts at 524,288 too, with a 1.0 GiB prompt cache: the TP=2 rank file examples carry `CONTEXT=245760` right after its `CHECKPOINT` line.
-- A second stream no longer fits the default window at TP=2: `PARALLEL=2` needs `CONTEXT=245760`, and an empty `PARALLEL=` takes one stream (three at 245,760).
+- A second stream no longer fits the default window at TP=2: `PARALLEL=2` needs a smaller window, such as `CONTEXT=245760`, and an empty `PARALLEL=` takes one stream (three on XSFP4 at 245,760).
 - The image differs from 3.4.0's in `serve.sh` alone; its engine binary is 3.4.0's byte for byte, and the engine, `d2d95b11`, is published again as the fork's branch `release/3.5.0`.
 
 ### Documentation
 
-- The README's serving defaults, configuration, reason for TP=2's window and limits, setup's start lines and validation's long inputs describe the new window; validation adds XSFP4's 499,254-token prompt at TP=2.
+- The README's checkpoints, serving defaults, configuration, reason for TP=2's window, differences from 2.x and limits, setup's start lines, the benchmark method and validation's long inputs describe the new window, and the steps that choose NVIDIA's NVFP4 (the README, setup §2, operations' change of checkpoint) add its `CONTEXT=245760` at TP=2; validation adds XSFP4's 499,254-token prompt at TP=2. The commands in setup and operations build and name `glm53-tf3:3.5.0`.
 
 ### Accepted
 

@@ -22,7 +22,7 @@ python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksu
 
 エンジンは各ホストのHugging Faceのcache（既定は `~/.cache/huggingface/hub`）からcheckpointを読み、containerには読み取り専用でmountします。
 
-**NVIDIAのNVFP4** にするなら（[checkpoint](README.ja.md#checkpoint)）：1.x系・2.x系と同じcheckpointで、revisionは [`config/model.lock.json`](config/model.lock.json) にあります。2.x系のためにすでに持っているホストはそのまま使えます。同じ2つのコマンドに `--checkpoint pinned` を付けると取得して検証します。取得は状況とlogを `state` に置き、検証には別の `--output`（`../records/checksum`）を渡します。その後、全rankのファイルにそのsnapshotを書きます（§4）：`CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93`。1台が両方のcheckpointを持てます。どちらを配信するかはrankのファイルが決め、全rankで同じにします。
+**NVIDIAのNVFP4** にするなら（[checkpoint](README.ja.md#checkpoint)）：1.x系・2.x系と同じcheckpointで、revisionは [`config/model.lock.json`](config/model.lock.json) にあります。2.x系のためにすでに持っているホストはそのまま使えます。同じ2つのコマンドに `--checkpoint pinned` を付けると取得して検証します。取得は状況とlogを `state` に置き、検証には別の `--output`（`../records/checksum`）を渡します。その後、全rankのファイルにそのsnapshotを書きます（§4）：`CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93`。TP=2では、約5 GiBのprompt cacheを残す窓 `CONTEXT=245760` も置きます（rankのファイルの例の次の行）。1台が両方のcheckpointを持てます。どちらを配信するかはrankのファイルが決め、全rankで同じにします。
 
 ## 3. image
 

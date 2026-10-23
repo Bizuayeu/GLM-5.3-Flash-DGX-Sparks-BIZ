@@ -71,7 +71,7 @@ v3/scripts/create_container.sh glm53-tf3:3.5.0 ~/glm53-tf3
 既定のXSFP4とNVIDIAのNVFP4（[checkpoint](../README.ja.md#checkpoint)）は同じimageとcontainerで動きます。どちらにするかはrankのファイルが決めます。
 
 1. 全ホストでもう一方のcheckpointを取得して検証します（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）。両方をcacheに置いたままにできます。
-2. 止めてから、全rankのファイルの `CHECKPOINT` をNVIDIAのNVFP4のsnapshotにするか、XSFP4（`serve.sh` の既定）ならその行を消します。rankがそれぞれ別のcheckpointを名指すと、エンジンは起動を断ります。
+2. 止めてから、全rankのファイルの `CHECKPOINT` をNVIDIAのNVFP4のsnapshotにし、TP=2では `CONTEXT=245760`（例でその次の行）も置きます。XSFP4（`serve.sh` の既定）なら両方の行を消します。rankがそれぞれ別のcheckpointを名指すと、エンジンは起動を断ります。
 3. 起動し、そのcheckpointの基準値に照らして[検証](validation.ja.md)を回します。あるcheckpointの最初の起動はそれをdiskから読むので、参照機のTP=2で約300秒長くかかりました。
 
 ## 電源が落ちたホスト

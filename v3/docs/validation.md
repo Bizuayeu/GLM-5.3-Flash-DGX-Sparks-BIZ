@@ -87,10 +87,11 @@ A passphrase in the middle of 199,652 tokens of ledger lines, and three passphra
 
 ```sh
 python -m glm53_tf long-input --passphrases 1 --tokens 199652
+python -m glm53_tf long-input --passphrases 3 --tokens 499622
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-Fitted to the targets, the prompts came to 199,307, 499,254 and 1,035,295 tokens. Reference on NVIDIA's NVFP4: the passphrase found at 199,307 tokens in 153.4 s at TP=2 (3.3.0: 155.0 s) and 140.3 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 399.5 s and 3 of 3 at 1,035,295 after 1,064.9 s, of which the prompt waited 38 s for heat in 19 pauses of 2 s, run in the afternoon. None resumed a kept prompt (`cached` 0). On the glue kernels (3.1.0, at night) the three took 140.4, 398.1 and 1,022.7 s with no wait for heat. The 1,036,859-token target is TP=3's alone; TP=2's window is 524,288 tokens from 3.5.0 (245,760 before it and on NVIDIA's NVFP4).
+Fitted to the targets, the prompts came to 199,307, 499,254 and 1,035,295 tokens. Reference on NVIDIA's NVFP4: the passphrase found at 199,307 tokens in 153.4 s at TP=2 (3.3.0: 155.0 s) and 140.3 s at TP=3; at TP=3, 3 of 3 at 499,254 tokens with the first token after 399.5 s and 3 of 3 at 1,035,295 after 1,064.9 s, of which the prompt waited 38 s for heat in 19 pauses of 2 s, run in the afternoon. None resumed a kept prompt (`cached` 0). On the glue kernels (3.1.0, at night) the three took 140.4, 398.1 and 1,022.7 s with no wait for heat. The 1,036,859-token target is TP=3's alone; TP=2's window is 524,288 tokens from 3.5.0 (245,760 before it, and in the rank file examples' line for NVIDIA's NVFP4).
 
 ## Tools through the tool-argument gate
 
@@ -139,7 +140,7 @@ The XSFP4 checkpoint ([checkpoints](../README.md#checkpoints)) gives other token
 | tool-eval-bench through the gate | 93, Safety Gate passed (TC-61 failed) | the same |
 | Prefill of 38,960 tokens / decode (tok/s) | 1,415.1 / 54.15 | 1,717.3 / 66.23 |
 | 199,307-token prompt | found, 151.9 s | found, 127.9 s |
-| 499,254 and 1,035,295-token prompts, first token | 499,254: 3 of 3 after 431.5 s, no wait for heat (3.5.0, the 524,288-token window) | 3 of 3 after 373.0 s; 3 of 3 after 1,015.7 s, 42 s of it waiting for heat |
+| 499,254 and 1,035,295-token prompts, first token | 499,254: 3 of 3 after 431.5 s, no wait for heat (3.5.0, the 524,288-token window; that launch's lowest `MemAvailable` 12 / 12 GiB, hottest zone 87.3 / 89.0 °C) | 3 of 3 after 373.0 s; 3 of 3 after 1,015.7 s, 42 s of it waiting for heat |
 | A cut prompt of about 93,000 tokens: the next request after, against the uncut first token (s) | 0.32 against 68.6 | 0.91 against 56.7 |
 | Forty replies after 6,000-token prompts (s, hottest zone of rank 0's host) | 1,250, 76.5 °C | 981, 85.8 °C |
 | Lowest `MemAvailable`, by rank (GiB) | 11 / 13 | 21 / 22 / 28 |

@@ -71,7 +71,7 @@ A new image is a new engine build: accept it again before routine use.
 XSFP4, the default, and NVIDIA's NVFP4 ([checkpoints](../README.md#checkpoints)) run on the same image and container; the rank files choose.
 
 1. Download and verify the other checkpoint on every host ([setup §2](../SETUP.md#2-checkout-and-checkpoint)); both can stay in the cache.
-2. Stop, then set `CHECKPOINT` in every rank file to NVIDIA's NVFP4 snapshot, or remove the line for XSFP4, `serve.sh`'s default. The engine refuses to start when the ranks name different checkpoints.
+2. Stop, then set `CHECKPOINT` in every rank file to NVIDIA's NVFP4 snapshot and, at TP=2, `CONTEXT=245760` (the examples' next line); for XSFP4, `serve.sh`'s default, remove both lines. The engine refuses to start when the ranks name different checkpoints.
 3. Start, and run [validation](validation.md) against that checkpoint's reference values. The first start on a checkpoint reads it from disk, about 300 s longer at TP=2 on the reference hosts.
 
 ## A host that powered off
