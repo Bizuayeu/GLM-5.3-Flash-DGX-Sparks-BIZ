@@ -4,6 +4,8 @@
 
 3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値はネイティブエンジン自身のもので、参照機で `serve.sh` の既定、全containerを効率coreにして測りました。TP=2の値は2026-10-19〜20の3.1.0の受け入れで、`1a8f1efd`（上流1.1.1とこの系列の二つのcommit）からbuildしたエンジンにより、上流のtiledのBF16のlinearで決めました。2026-10-20の3.2.0の受け入れ（visionのtowerを読み込んで）と、2026-10-22の3.3.0の受け入れ（上流1.1.2の上で）も、同じdecode checkのhash、editの返答、NLL、tool-eval-benchの点を出しました。TP=3の値は3.3.0の受け入れで決めました：上流1.1.2はTP=3のrankにもtiledのkernelを開き（issue #1067）、それがTP=3に新しいdecode checkのhashとNLLを出します。3.0.0〜3.2.0はTP=3をglueのkernel（`TF_GLM_MM=0`）で回し、その値は下の各節に参考として載せます（[配信の既定](../README.ja.md#配信の既定)）。後の受け入れで速さ、メモリ、熱が違った所は、下の各節に書きます。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
 
+3.4.0から既定のcheckpointはXSFP4で、その基準値は[XSFP4](#xsfp4)にあります。その前の節は、3.3.0まで既定だったNVIDIAのNVFP4のものです。3.4.0のリリースのimageを、rankのファイルに `CHECKPOINT` を書かずにそれ自身の `serve.sh` で起動すると、両TPでXSFP4のdecode検査のhash、編集の返答、NLLを返しました。
+
 道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、またはPythonと `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)を動かしたままにします。
 
 ## decode検査
@@ -39,7 +41,7 @@ hashは、各TPの2回の起動と、`PARALLEL=` を空にしたTP=2の起動（
 
 - **textは変わらない**：towerを読み込んだまま、decode検査と `bench --kinds edit` が、両TPで上のhashと返答を出す。
 - **画像**（両TPで）：同じ絵をPNG・JPEG・WebPのdata URLで送ると答え、どれもdraftありと `"draft": false` で同じ返答になる。GIFは400で断る。絵を最初のmessageに置いた会話は、後のturnを絵の先までprompt cacheから再開し、冷えた回と同じ返答を出し、`"draft": false` でも、別の要求と同時でも同じになる。
-- **動画**：TP=2では、エンジンのcommitの上流の `tools/zig/video_served.py` が、その13本のclip（`tools/zig/glm_video_fixtures.py` がPyAV 19.0.1で作る）で、固定したcheckpointのprocessor（transformers 5.19.0）に照らして通る（rankのファイルに `REASONING_EFFORT=`：道具はchat templateを既定のeffortで組みます）：各clipのpromptのidがprocessorのものと同じ。後のturnが動画の先まで再開し、同じtextの下の別の動画はその前のtextだけを再開する。draftありが `"draft": false` と同じ。4本同時がそれぞれの単独と同じ。動画と画像を1つの要求で答える。形の崩れた8種類の要求を理由つきの400で断る。TP=3では、H.264のMP4とVP9のWebMが答え、どちらもdraftありと `"draft": false` で同じ返答になる。
+- **動画**：TP=2では、エンジンのcommitの上流の `tools/zig/video_served.py` が、その13本のclip（`tools/zig/glm_video_fixtures.py` がPyAV 19.0.1で作る）で、NVIDIAのNVFP4のprocessor（transformers 5.19.0）に照らして通る（rankのファイルに `REASONING_EFFORT=`：道具はchat templateを既定のeffortで組みます）：各clipのpromptのidがprocessorのものと同じ。後のturnが動画の先まで再開し、同じtextの下の別の動画はその前のtextだけを再開する。draftありが `"draft": false` と同じ。4本同時がそれぞれの単独と同じ。動画と画像を1つの要求で答える。形の崩れた8種類の要求を理由つきの400で断る。TP=3では、H.264のMP4とVP9のWebMが答え、どちらもdraftありと `"draft": false` で同じ返答になる。
 
 ## teacher-forced NLL
 
@@ -118,21 +120,21 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 メモリの見張りのlog（`<WORK>/logs/hostwatch-<label>.log`）に、実行中の各ホストの最低の `MemAvailable` が残ります。ホストの記録は2秒ごとにACPIの最も熱いzoneを示します。rank 0のlogは、prefillの熱の待ちごとの秒数を `heat_wait_s` の行に出します。応答はそれを運びません。
 
-基準値：起動の中の最低の `MemAvailable` は、TP=2で、visionのtowerなしの3.1.0の受け入れでは両rankとも15 GiB、towerありの3.3.0では11・13 GiBでした。TP=3では、3.3.0でrank 0・1・2が18・20・26 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C（3.3.0：82.6・84.1 °C）、TP=3で93.0・90.0・86.0 °Cでした。TP=3の値は1M tokenのpromptの間のもので、3.3.0の受け入れの固定したcheckpointで、熱で待った要求はこれだけです（[長い入力](#長い入力)）。
+基準値：起動の中の最低の `MemAvailable` は、TP=2で、visionのtowerなしの3.1.0の受け入れでは両rankとも15 GiB、towerありの3.3.0では11・13 GiBでした。TP=3では、3.3.0でrank 0・1・2が18・20・26 GiBでした。起動全体の最も熱いzoneは、TP=2でrank 0のホストが81.8 °C、rank 1のホストが83.6 °C（3.3.0：82.6・84.1 °C）、TP=3で93.0・90.0・86.0 °Cでした。TP=3の値は1M tokenのpromptの間のもので、3.3.0の受け入れのNVIDIAのNVFP4で、熱で待った要求はこれだけです（[長い入力](#長い入力)）。
 
 **合格の条件**：どの実行もメモリの見張りにも熱の見張り（94 °C以上の読みが2回続く）にも止められないこと。
 
 ## XSFP4
 
-XSFP4のcheckpoint（[checkpoint](../README.ja.md#checkpoint)）は固定したcheckpointと別のtokenを出すので、自分の基準値を持ちます。3.3.0の受け入れ（2026-10-22）で決めました。各TPの2回目の起動も、decode検査のhashと編集の返答が同じでした。受け入れが読んだのは素のblockのスケールのrevisionです。公開するrevisionは同じtensorで、3〜44層のrouted expertのblockのスケールを可逆に圧縮して持ち、各TPでもう1回の起動で、decode検査のhash・編集の返答・NLLが同じでした。検査は上と同じで、**合格の条件**も同じく、これらの値に照らします。ただし下のTP=3の二つの既知の振る舞いは除きます。`score-nll` にはXSFP4自身の `tokenizer.json`（固定したcheckpointのものとbyteまで同じ）を渡します。速さはこのcheckpointのもので、自分とだけ比べられます（[checkpoint](../README.ja.md#checkpoint)）。
+XSFP4のcheckpoint（[checkpoint](../README.ja.md#checkpoint)）はNVIDIAのNVFP4と別のtokenを出すので、自分の基準値を持ちます。3.3.0の受け入れ（2026-10-22）で決めました。各TPの2回目の起動も、decode検査のhashと編集の返答が同じでした。受け入れが読んだのは素のblockのスケールのrevisionです。公開するrevisionは同じtensorで、3〜44層のrouted expertのblockのスケールを可逆に圧縮して持ち、各TPでもう1回の起動で、decode検査のhash・編集の返答・NLLが同じでした。検査は上と同じで、**合格の条件**も同じく、これらの値に照らします。ただし下のTP=3の二つの既知の振る舞いは除きます。`score-nll` にはXSFP4自身の `tokenizer.json`（NVIDIAのNVFP4のものとbyteまで同じ）を渡します。速さはこのcheckpointのもので、自分とだけ比べられます（[checkpoint](../README.ja.md#checkpoint)）。
 
 | 検査 | TP=2 | TP=3 |
 |---|---|---|
 | decode検査の `completion_sha256` count / prose / code | `4e3411bd357abdd4` / `3b1a0be713e866f7` / `4a2d744c5cc1fb10` | `e63b580fa9ac5e6b` / `098fe1f21f591775` / `d2768fdc1e974d89` |
 | decode検査の `token_sha256` count / prose / code | `cbe6552f4f1efcca` / `065a835f86734482` / `c4dfca7b73492c81` | `f6afacd228e848bc` / `32a387104a712248` / `9f6e8043c234c19d` |
 | 同じタスクの受理の長さ | 3.276 / 1.796 / 2.971 | 3.362 / 1.947 / 2.823 |
-| `bench --kinds edit` | `c419bce559d86b66` を190 roundで、固定したcheckpointと同じ応答 | 同じ |
-| scoreもgrammarも無い要求（「The capital of France is」、8 token）の `token_sha256` | `09a15f0582e7…`、固定したcheckpointのもの | `a094669ab5de…` |
+| `bench --kinds edit` | `c419bce559d86b66` を190 roundで、NVIDIAのNVFP4と同じ応答 | 同じ |
+| scoreもgrammarも無い要求（「The capital of France is」、8 token）の `token_sha256` | `09a15f0582e7…`、NVIDIAのNVFP4のもの | `a094669ab5de…` |
 | teacher-forced NLL、ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
 | ゲート越しのtool-eval-bench | 93、Safety Gateは通過（TC-61がfail） | 同じ |
 | 38,960 tokenのprefill / decode（tok/s） | 1,415.1 / 54.15 | 1,717.3 / 66.23 |
@@ -145,4 +147,4 @@ XSFP4のcheckpoint（[checkpoint](../README.ja.md#checkpoint)）は固定したc
 
 `PARALLEL=` を空にするとTP=2でエンジンは3本のstreamを取り、同じcountのhashを出しました。draftした応答はserialと同じでした（絵を含む要求も）。H.264とVP9の動画はdraftしても `"draft": false` でも同じ応答で、GIFとaudioの部分は400で断られました。TP=2では熱で待った要求はありませんでした。TP=3で待ったのは1,035,295 tokenのpromptだけで、2秒の待ちを21回でした。
 
-**TP=3の既知の振る舞い。** [応答を止める](#応答を止める)のstop文字列の要求は、4,000 tokenの上限まで走ります：数え上げが300の前で繰り返しに入るためで、上流1.1.1でも同じでした（切った応答と切ったpromptは合格）。[promptのscoreと構造化出力](#promptのscoreと構造化出力)のscoreもgrammarも無い要求は、固定したcheckpointの「… pronounced」に対して「 Paris. In French, Paris is spelled」で終わるので、そのhashは固定したcheckpointのものでなく表の値です。どちらも既知の振る舞いで（[リリースでの測定値](../README.ja.md#リリースでの測定値)）、受け入れを止める理由にはしません。
+**TP=3の既知の振る舞い。** [応答を止める](#応答を止める)のstop文字列の要求は、4,000 tokenの上限まで走ります：数え上げが300の前で繰り返しに入るためで、上流1.1.1でも同じでした（切った応答と切ったpromptは合格）。[promptのscoreと構造化出力](#promptのscoreと構造化出力)のscoreもgrammarも無い要求は、NVIDIAのNVFP4の「… pronounced」に対して「 Paris. In French, Paris is spelled」で終わるので、そのhashはNVIDIAのNVFP4のものでなく表の値です。どちらも既知の振る舞いで（[リリースでの測定値](../README.ja.md#リリースでの測定値)）、受け入れを止める理由にはしません。

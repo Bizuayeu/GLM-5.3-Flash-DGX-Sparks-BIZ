@@ -50,7 +50,7 @@ rankどうしはTCPのsocketではなくRoCEで話す必要があります：
 
 ```sh
 docker rm -f glm53-tf3                                  # containerは起動の合間は眠っているだけ
-v3/scripts/create_container.sh glm53-tf3:3.3.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.4.0 ~/glm53-tf3
 ```
 
 `create_container.sh` はcontainerに名前を付けるので、古いものを先に消します（または改名します：`docker rename glm53-tf3 glm53-tf3-old` の後に `docker stop`）。ホストのディレクトリは残ります：rankのファイルとlogです。containerの中では何もbuildしません。
@@ -68,10 +68,10 @@ v3/scripts/create_container.sh glm53-tf3:3.3.0 ~/glm53-tf3
 
 ## checkpointを替える
 
-固定したcheckpointとXSFP4（[checkpoint](../README.ja.md#checkpoint)）は同じimageとcontainerで動きます。どちらにするかはrankのファイルが決めます。
+既定のXSFP4とNVIDIAのNVFP4（[checkpoint](../README.ja.md#checkpoint)）は同じimageとcontainerで動きます。どちらにするかはrankのファイルが決めます。
 
 1. 全ホストでもう一方のcheckpointを取得して検証します（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）。両方をcacheに置いたままにできます。
-2. 止めてから、全rankのファイルの `CHECKPOINT` をXSFP4のsnapshotにするか、固定したcheckpointならその行を消します。rankがそれぞれ別のcheckpointを名指すと、エンジンは起動を断ります。
+2. 止めてから、全rankのファイルの `CHECKPOINT` をNVIDIAのNVFP4のsnapshotにするか、XSFP4（`serve.sh` の既定）ならその行を消します。rankがそれぞれ別のcheckpointを名指すと、エンジンは起動を断ります。
 3. 起動し、そのcheckpointの基準値に照らして[検証](validation.ja.md)を回します。あるcheckpointの最初の起動はそれをdiskから読むので、参照機のTP=2で約300秒長くかかりました。
 
 ## 電源が落ちたホスト

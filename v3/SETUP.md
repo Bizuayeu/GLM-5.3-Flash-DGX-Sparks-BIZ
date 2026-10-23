@@ -10,35 +10,35 @@ As in [2.x step 1](../v2/SETUP.md#1-hosts-and-fabric): two or three DGX Spark or
 
 ## 2. Checkout and checkpoint
 
-Check out the same reviewed commit on every host (a `v3.*` release tag). The checkpoint is the one 1.x and 2.x serve, at the revision in [`config/model.lock.json`](config/model.lock.json); a host that already holds it for 2.x has it. Otherwise prepare the tools' virtual environment from `v3/` and download and verify it as in [2.x step 2](../v2/SETUP.md#2-checkout-and-checkpoint):
+Check out the same reviewed commit on every host (a `v3.*` release tag). The default checkpoint is XSFP4 ([checkpoints](README.md#checkpoints)): `Bizuayeu/GLM-5.3-Flash-XSFP4` at the revision in [`config/xsfp4.lock.json`](config/xsfp4.lock.json). Prepare the tools' virtual environment from `v3/` and download and verify it as in [2.x step 2](../v2/SETUP.md#2-checkout-and-checkpoint); the download keeps its status and log under `state/xsfp4`:
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements/huggingface.lock.txt
 python -m glm53_tf download --background
-python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum --wait
+python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
 ```
 
 The engine reads the checkpoint from each host's Hugging Face cache, by default `~/.cache/huggingface/hub`, mounted read-only into the container.
 
-**XSFP4** instead ([checkpoints](README.md#checkpoints)): the same two commands with `--checkpoint xsfp4` fetch and verify `Bizuayeu/GLM-5.3-Flash-XSFP4` at the revision in [`config/xsfp4.lock.json`](config/xsfp4.lock.json); the download keeps its status and log under `state/xsfp4`, and the verification takes its own `--output` (`../records/checksum-xsfp4`). Every rank file then names its snapshot (§4): `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<revision>`. A host may hold both checkpoints; the rank files choose, the same on every rank.
+**NVIDIA's NVFP4** instead ([checkpoints](README.md#checkpoints)): the checkpoint 1.x and 2.x serve, at the revision in [`config/model.lock.json`](config/model.lock.json); a host that holds it for 2.x has it. The same two commands with `--checkpoint pinned` fetch and verify it; the download keeps its status and log under `state`, and the verification takes its own `--output` (`../records/checksum`). Every rank file then names its snapshot (§4): `CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93`. A host may hold both checkpoints; the rank files choose, the same on every rank.
 
 ## 3. Image
 
 Build on one of the GB10 hosts (linux/arm64), from the checkout root:
 
 ```sh
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.3.0 .
-docker image inspect --format '{{.Id}}' glm53-tf3:3.3.0
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.4.0 .
+docker image inspect --format '{{.Id}}' glm53-tf3:3.4.0
 ```
 
-The build compiles the engine from the BIZ release of TensorFold at the commit in [`config/engine.lock.json`](config/engine.lock.json) (`ENGINE_REF`), with the Zig compiler the lock names and checks by SHA-256, and builds `libtfgrammar` (structured output) from the xgrammar release the lock pins, checked by commit. For image and video input it builds libjpeg-turbo, libwebp's decoder and a static FFmpeg from the release tarballs the lock pins by SHA-256, and the engine's `libtfvideo` over that FFmpeg. The runtime image holds `tensorfold-native` and `tf-cuda-test` in `/usr/local/bin`, `libtfgrammar.so`, `libturbojpeg.so.0`, `libwebpdecoder.so.3` and `libtfvideo.so` in `/usr/local/lib`, NCCL 2.30.7 and the RDMA userspace, `serve.sh` in `/opt/glm53-tf3/`, `/usr/share/doc/tf3/ENGINE`, which names the engine commit, the media releases and every binary's and library's SHA-256, and the notices of this repository, xgrammar, libjpeg-turbo, libwebp, FFmpeg and the engine under `/usr/share/doc/tf3/`. Both base images are pinned by digest. The build of 3.2.0's image took about 13 minutes on a reference host, the base images pulled first. The same commit built on another host can give binaries with other SHA-256s (the reference hosts' builds did); the decode check, not the hash, tells whether two builds answer alike. Copy the image to the other hosts (`docker save glm53-tf3:3.3.0 | ssh <host> docker load`, over the link) and compare the image IDs of every host; they must be equal.
+The build compiles the engine from the BIZ release of TensorFold at the commit in [`config/engine.lock.json`](config/engine.lock.json) (`ENGINE_REF`), with the Zig compiler the lock names and checks by SHA-256, and builds `libtfgrammar` (structured output) from the xgrammar release the lock pins, checked by commit. For image and video input it builds libjpeg-turbo, libwebp's decoder and a static FFmpeg from the release tarballs the lock pins by SHA-256, and the engine's `libtfvideo` over that FFmpeg. The runtime image holds `tensorfold-native` and `tf-cuda-test` in `/usr/local/bin`, `libtfgrammar.so`, `libturbojpeg.so.0`, `libwebpdecoder.so.3` and `libtfvideo.so` in `/usr/local/lib`, NCCL 2.30.7 and the RDMA userspace, `serve.sh` in `/opt/glm53-tf3/`, `/usr/share/doc/tf3/ENGINE`, which names the engine commit, the media releases and every binary's and library's SHA-256, and the notices of this repository, xgrammar, libjpeg-turbo, libwebp, FFmpeg and the engine under `/usr/share/doc/tf3/`. Both base images are pinned by digest. The build of 3.2.0's image took about 13 minutes on a reference host, the base images pulled first. The same commit built on another host can give binaries with other SHA-256s (the reference hosts' builds did); the decode check, not the hash, tells whether two builds answer alike. Copy the image to the other hosts (`docker save glm53-tf3:3.4.0 | ssh <host> docker load`, over the link) and compare the image IDs of every host; they must be equal.
 
 ## 4. Container and rank file on each host
 
 ```sh
-v3/scripts/create_container.sh glm53-tf3:3.3.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
+v3/scripts/create_container.sh glm53-tf3:3.4.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # this host's rank: tp2-rank0/1 or tp3-rank0/1/2
 ```
 

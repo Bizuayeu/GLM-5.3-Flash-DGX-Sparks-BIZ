@@ -10,35 +10,35 @@
 
 ## 2. checkoutとcheckpoint
 
-全ホストで同じ確認済みのcommitをcheckoutします（`v3.*` のリリースのtag）。checkpointは1.x系・2.x系と同じもので、revisionは [`config/model.lock.json`](config/model.lock.json) にあります。2.x系のためにすでに持っているホストはそのまま使えます。無ければ `v3/` から道具の仮想環境を用意し、[2.x系の手順2](../v2/SETUP.ja.md#2-checkoutとcheckpoint)のとおりに取得して検証します：
+全ホストで同じ確認済みのcommitをcheckoutします（`v3.*` のリリースのtag）。既定のcheckpointはXSFP4（[checkpoint](README.ja.md#checkpoint)）で、`Bizuayeu/GLM-5.3-Flash-XSFP4` を [`config/xsfp4.lock.json`](config/xsfp4.lock.json) のrevisionで使います。`v3/` から道具の仮想環境を用意し、[2.x系の手順2](../v2/SETUP.ja.md#2-checkoutとcheckpoint)のとおりに取得して検証します。取得は状況とlogを `state/xsfp4` に置きます：
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements/huggingface.lock.txt
 python -m glm53_tf download --background
-python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum --wait
+python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
 ```
 
 エンジンは各ホストのHugging Faceのcache（既定は `~/.cache/huggingface/hub`）からcheckpointを読み、containerには読み取り専用でmountします。
 
-**XSFP4** にするなら（[checkpoint](README.ja.md#checkpoint)）：同じ2つのコマンドに `--checkpoint xsfp4` を付けると、`Bizuayeu/GLM-5.3-Flash-XSFP4` を [`config/xsfp4.lock.json`](config/xsfp4.lock.json) のrevisionで取得して検証します。取得は状況とlogを `state/xsfp4` に置き、検証には別の `--output`（`../records/checksum-xsfp4`）を渡します。その後、全rankのファイルにそのsnapshotを書きます（§4）：`CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<revision>`。1台が両方のcheckpointを持てます。どちらを配信するかはrankのファイルが決め、全rankで同じにします。
+**NVIDIAのNVFP4** にするなら（[checkpoint](README.ja.md#checkpoint)）：1.x系・2.x系と同じcheckpointで、revisionは [`config/model.lock.json`](config/model.lock.json) にあります。2.x系のためにすでに持っているホストはそのまま使えます。同じ2つのコマンドに `--checkpoint pinned` を付けると取得して検証します。取得は状況とlogを `state` に置き、検証には別の `--output`（`../records/checksum`）を渡します。その後、全rankのファイルにそのsnapshotを書きます（§4）：`CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93`。1台が両方のcheckpointを持てます。どちらを配信するかはrankのファイルが決め、全rankで同じにします。
 
 ## 3. image
 
 GB10ホストの1台（linux/arm64）で、checkoutのルートからbuildします：
 
 ```sh
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.3.0 .
-docker image inspect --format '{{.Id}}' glm53-tf3:3.3.0
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.4.0 .
+docker image inspect --format '{{.Id}}' glm53-tf3:3.4.0
 ```
 
-buildは、[`config/engine.lock.json`](config/engine.lock.json) のcommit（`ENGINE_REF`）のTensorFoldのBIZ releaseからエンジンをcompileします。Zigのcompilerはlockが名指す版で、SHA-256で確かめます。構造化出力の `libtfgrammar` も、lockが固定するxgrammarのreleaseからcommitで確かめてbuildします。画像と動画の入力のために、lockがSHA-256で固定するreleaseのtarballから、libjpeg-turbo・libwebpのdecoder・静的なFFmpegをbuildし、そのFFmpegの上にエンジンの `libtfvideo` を作ります。実行のimageには、`/usr/local/bin` に `tensorfold-native` と `tf-cuda-test`、`/usr/local/lib` に `libtfgrammar.so`・`libturbojpeg.so.0`・`libwebpdecoder.so.3`・`libtfvideo.so`、NCCL 2.30.7とRDMAのuserspace、`/opt/glm53-tf3/` に `serve.sh`、エンジンのcommitとmediaのreleaseと各binary・libraryのSHA-256を書いた `/usr/share/doc/tf3/ENGINE`、このリポジトリ・xgrammar・libjpeg-turbo・libwebp・FFmpeg・エンジンの表示（`/usr/share/doc/tf3/` の下）が入ります。2つのbaseのimageはdigestで固定しています。参照機では、baseのimageを取ってから3.2.0のimageのbuildに約13分かかりました。同じcommitでも別のホストでbuildするとbinaryのSHA-256が変わることがあります（参照機のbuildでもそうでした）。2つのbuildが同じに答えるかは、hashではなくdecode検査で見ます。他のホストへimageを写し（リンク越しに `docker save glm53-tf3:3.3.0 | ssh <host> docker load`）、全ホストのimage IDを比べます。同じでなければいけません。
+buildは、[`config/engine.lock.json`](config/engine.lock.json) のcommit（`ENGINE_REF`）のTensorFoldのBIZ releaseからエンジンをcompileします。Zigのcompilerはlockが名指す版で、SHA-256で確かめます。構造化出力の `libtfgrammar` も、lockが固定するxgrammarのreleaseからcommitで確かめてbuildします。画像と動画の入力のために、lockがSHA-256で固定するreleaseのtarballから、libjpeg-turbo・libwebpのdecoder・静的なFFmpegをbuildし、そのFFmpegの上にエンジンの `libtfvideo` を作ります。実行のimageには、`/usr/local/bin` に `tensorfold-native` と `tf-cuda-test`、`/usr/local/lib` に `libtfgrammar.so`・`libturbojpeg.so.0`・`libwebpdecoder.so.3`・`libtfvideo.so`、NCCL 2.30.7とRDMAのuserspace、`/opt/glm53-tf3/` に `serve.sh`、エンジンのcommitとmediaのreleaseと各binary・libraryのSHA-256を書いた `/usr/share/doc/tf3/ENGINE`、このリポジトリ・xgrammar・libjpeg-turbo・libwebp・FFmpeg・エンジンの表示（`/usr/share/doc/tf3/` の下）が入ります。2つのbaseのimageはdigestで固定しています。参照機では、baseのimageを取ってから3.2.0のimageのbuildに約13分かかりました。同じcommitでも別のホストでbuildするとbinaryのSHA-256が変わることがあります（参照機のbuildでもそうでした）。2つのbuildが同じに答えるかは、hashではなくdecode検査で見ます。他のホストへimageを写し（リンク越しに `docker save glm53-tf3:3.4.0 | ssh <host> docker load`）、全ホストのimage IDを比べます。同じでなければいけません。
 
 ## 4. 各ホストのcontainerとrankのファイル
 
 ```sh
-v3/scripts/create_container.sh glm53-tf3:3.3.0 ~/glm53-tf3   # container glm53-tf3、~/glm53-tf3 を /work に
+v3/scripts/create_container.sh glm53-tf3:3.4.0 ~/glm53-tf3   # container glm53-tf3、~/glm53-tf3 を /work に
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # このホストのrank：tp2-rank0/1 か tp3-rank0/1/2
 ```
 

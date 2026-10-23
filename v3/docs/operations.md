@@ -50,7 +50,7 @@ After `cluster.sh state/cluster.env stop`, on each host:
 
 ```sh
 docker rm -f glm53-tf3                                  # the container only sleeps between starts
-v3/scripts/create_container.sh glm53-tf3:3.3.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.4.0 ~/glm53-tf3
 ```
 
 `create_container.sh` names the container, so the old one must go first (or be renamed: `docker rename glm53-tf3 glm53-tf3-old`, then `docker stop`). The host directory stays: the rank file and the logs. Nothing is built in the container.
@@ -68,10 +68,10 @@ A new image is a new engine build: accept it again before routine use.
 
 ## Change the checkpoint
 
-The pinned checkpoint and XSFP4 ([checkpoints](../README.md#checkpoints)) run on the same image and container; the rank files choose.
+XSFP4, the default, and NVIDIA's NVFP4 ([checkpoints](../README.md#checkpoints)) run on the same image and container; the rank files choose.
 
 1. Download and verify the other checkpoint on every host ([setup §2](../SETUP.md#2-checkout-and-checkpoint)); both can stay in the cache.
-2. Stop, then set `CHECKPOINT` in every rank file to XSFP4's snapshot, or remove the line for the pinned checkpoint. The engine refuses to start when the ranks name different checkpoints.
+2. Stop, then set `CHECKPOINT` in every rank file to NVIDIA's NVFP4 snapshot, or remove the line for XSFP4, `serve.sh`'s default. The engine refuses to start when the ranks name different checkpoints.
 3. Start, and run [validation](validation.md) against that checkpoint's reference values. The first start on a checkpoint reads it from disk, about 300 s longer at TP=2 on the reference hosts.
 
 ## A host that powered off
