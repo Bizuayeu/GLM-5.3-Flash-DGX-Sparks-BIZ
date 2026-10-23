@@ -1,6 +1,7 @@
 """Serve the tool-argument gate on a loopback port in front of the model API (entry and side effects).
 
     python -m glm53_tf tool-gate [--port 8896] [--upstream http://127.0.0.1:8095] [--log FILE]
+                                 [--timeout 2400]
 
 Only POST /v1/chat/completions requests that declare tools are checked (repair.applies); every other
 request is relayed unchanged, credentials included. The listener binds 127.0.0.1 only, like the

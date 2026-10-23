@@ -432,7 +432,7 @@ def main(argv=None):
     )
     parser.add_argument("--out", help="a JSONL file that receives one row per request")
     args = parser.parse_args(argv)
-    speeds, kept, cut, warm = {}, {}, {}, []
+    speeds, counted, cut, warm = {}, {}, {}, []
     for kind in args.kinds:
         if kind == "prefill":
             warm = [prefill(args)["tok_per_s"] for _ in range(args.warmup)]
@@ -440,7 +440,7 @@ def main(argv=None):
             row = RUN[kind](args)
             speeds.setdefault(kind, []).append(row["tok_per_s"])
             if compares(row):
-                kept.setdefault(kind, []).append(row["tok_per_s"])
+                counted.setdefault(kind, []).append(row["tok_per_s"])
             else:
                 cut[kind] = cut.get(kind, 0) + 1
             if args.out:
@@ -450,7 +450,7 @@ def main(argv=None):
     print(
         json.dumps(
             {
-                "summary": {k: statistics.median(v) for k, v in kept.items()},
+                "summary": {k: statistics.median(v) for k, v in counted.items()},
                 "all": speeds,
                 **({"warmup": warm} if warm else {}),
                 **({"cut": cut} if cut else {}),

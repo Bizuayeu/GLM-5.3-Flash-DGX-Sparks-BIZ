@@ -158,8 +158,8 @@ class MainTests(unittest.TestCase):
         )
 
     def test_a_server_that_refuses_prompt_logprobs_stops_it_with_3(self):
-        """The native engine's GLM refuses prompt_logprobs with 400 (10-17's probe): one short request
-        says so before any text is scored."""
+        """A server that refuses prompt_logprobs with 400: one short request says so before any
+        text is scored."""
         tokenizer = SimpleNamespace(
             encode=lambda text, add_special_tokens: SimpleNamespace(ids=tokenize(text))
         )

@@ -1,6 +1,4 @@
 import copy
-import json
-import math
 import unittest
 
 from glm53_tf import agreement
@@ -175,70 +173,6 @@ class RunTests(unittest.TestCase):
         self.assertEqual(record["texts"][1]["error"], "TimeoutError: slow")
         self.assertEqual(record["self_agreement"], [])
         self.assertIs(record["passed"], False)
-
-    def test_bundled_texts_are_distinct_non_empty_and_bounded(self):
-        self.assertEqual(set(agreement.TEXTS), {"ja-prose", "en-prose", "code", "math"})
-        for name, text in agreement.TEXTS.items():
-            with self.subTest(name=name):
-                self.assertGreater(len(text), 200)
-                # Well under the 4,608-token block: one text never registers a
-                # prefix-cache block on the serving pair.
-                self.assertLess(len(text), 4000)
-
-
-class CompareRecordsTests(unittest.TestCase):
-    def record(self, prompt_logprobs=GOOD, names=("a", "b"), tokens=TOKENS):
-        return {
-            "texts": [
-                agreement.score_text(
-                    name, list(tokens), response(copy.deepcopy(prompt_logprobs))
-                )
-                for name in names
-            ]
-        }
-
-    def test_same_record_compares_to_full_agreement(self):
-        reference = self.record()
-        summary = agreement.compare_records(reference, copy.deepcopy(reference))
-        self.assertEqual(summary["argmax_agreement"], 1.0)
-        self.assertEqual(summary["max_abs_logprob_move"], 0.0)
-        self.assertEqual([row["name"] for row in summary["texts"]], ["a", "b"])
-        self.assertEqual(summary["missing_in_candidate"], [])
-
-    def test_reference_read_back_from_json_still_agrees_fully(self):
-        # On the host the reference arrives through read_json: rows become lists.
-        reference = json.loads(json.dumps(self.record()))
-        summary = agreement.compare_records(reference, self.record())
-        self.assertEqual(summary["argmax_agreement"], 1.0)
-        self.assertEqual(summary["max_abs_logprob_move"], 0.0)
-        self.assertTrue(all(row["top5_overlap_min"] == 1.0 for row in summary["texts"]))
-
-    def test_tokenization_change_and_missing_texts_are_named_not_scored(self):
-        reference = self.record(names=("a", "b"))
-        # The first token has no prediction, so changing it only alters tokenization.
-        candidate = self.record(names=("a", "c"), tokens=[12, 22, 33, 44])
-        summary = agreement.compare_records(reference, candidate)
-        self.assertEqual(
-            summary["texts"], [{"name": "a", "error": "tokenization differs"}]
-        )
-        self.assertEqual(summary["missing_in_candidate"], ["b"])
-        self.assertEqual(summary["missing_in_reference"], ["c"])
-        self.assertNotIn("argmax_agreement", summary)
-
-    def test_errored_texts_are_skipped(self):
-        reference = self.record(names=("a",))
-        candidate = {"texts": [{"name": "a", "error": "TimeoutError: slow"}]}
-        summary = agreement.compare_records(reference, candidate)
-        self.assertEqual(summary["texts"], [])
-        self.assertEqual(summary["missing_in_candidate"], ["a"])
-
-    def test_weighted_summary_uses_positions(self):
-        reference = self.record(names=("a",))
-        changed = copy.deepcopy(reference)
-        changed["texts"][0]["rows"][0] = [(99, -0.1), (22, -0.2)]
-        summary = agreement.compare_records(reference, changed)
-        self.assertTrue(math.isclose(summary["argmax_agreement"], 2 / 3))
-        self.assertEqual(summary["texts"][0]["first_argmax_divergence"], 1)
 
 
 if __name__ == "__main__":

@@ -29,8 +29,8 @@ class StateWriteTests(unittest.TestCase):
     def test_a_hard_linked_file_is_replaced_and_its_other_name_keeps_the_old_bytes(
         self,
     ):
-        # requant.py hard-links small files from the source fixture; rewriting the
-        # derived fixture's status must not write through into the source's.
+        # A status file hard-linked to another's (a derived fixture sharing small files
+        # with its source): rewriting it must not write through into the other name.
         with tempfile.TemporaryDirectory() as directory:
             source = Path(directory) / "source.json"
             write_json(source, {"status": "source"})

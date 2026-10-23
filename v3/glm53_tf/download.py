@@ -69,7 +69,7 @@ def download(name=DEFAULT_CHECKPOINT):
             "weight_map"
         ]
         if not weights or not all(
-            (snapshot / name).is_file() for name in set(weights.values())
+            (snapshot / shard).is_file() for shard in set(weights.values())
         ):
             raise RuntimeError("Indexed model weights are missing")
         status.update(

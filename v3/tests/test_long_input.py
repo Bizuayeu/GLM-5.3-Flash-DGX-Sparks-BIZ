@@ -77,9 +77,9 @@ class Reply(list):
 def run(argv, content, sent=None, auth=None):
     """Run main() against canned replies; return (exit status, printed JSON line).
 
-    /tokenize answers with tokens(); the short request with "ok"; the measured
-    request with `content` (a list of streamed pieces when streamed). Every
-    monotonic reading is one second after the previous.
+    /tokenize answers with tokens(); the measured request with `content` (a list
+    of streamed pieces when streamed). Every monotonic reading is one second after
+    the previous.
     """
     sent = [] if sent is None else sent
     auth = [] if auth is None else auth
@@ -90,8 +90,6 @@ def run(argv, content, sent=None, auth=None):
         sent.append((req.full_url, body))
         if req.full_url.endswith("/tokenize"):
             return Reply([json.dumps({"count": tokens(body["messages"])}).encode()])
-        if body["max_tokens"] == 4:
-            return Reply(answer("ok"))
         if body["stream"]:
             return Reply(streamed(content))
         return Reply(answer(content))

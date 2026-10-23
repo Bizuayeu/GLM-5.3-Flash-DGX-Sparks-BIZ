@@ -1,19 +1,17 @@
-"""Teacher-forced agreement with a reference run, per token.
+"""Teacher-forced scoring of texts, per token, and the agreement of its repeats.
 
 Quality gates so far (FreedomBench, tool-eval, MTP acceptance) score answers.
 None says how often the model's next-token choice still equals the unmodified
-server's choice. This module feeds fixed, self-authored texts through
+server's choice. This module feeds the callers' texts through
 ``/v1/completions`` with ``prompt_logprobs`` and records, per position, the
-rank and log-probability of the actual next token. A later run on a changed
-server (requantized projections, a different attention kernel, a reduced
-candidate set) is compared with the saved reference position by position.
+rank and log-probability of the actual next token.
 
 Two readings, kept apart:
 
 * teacher-forced: how often the actual token is rank 1 / within the top five,
   and its mean negative log-probability. This is the number SAGE-style model
   cards report against the native checkpoint.
-* agreement: between two runs on the same text, how often the argmax token is
+* agreement: between two scorings of the same text, how often the argmax token is
   the same, how much of the top-k overlaps, and how far the actual token's
   log-probability moved.
 
@@ -23,66 +21,6 @@ Nothing here talks to a server or a file; the callers pass senders in.
 import math
 
 TOP_K = 5
-TEXTS = {
-    "ja-prose": (
-        "港町の朝は霧から始まる。倉庫の屋根が濡れて光り、荷揚げの合図が鳴るころには、"
-        "霧は海のほうへ引いていく。祖父はこの町で四十年、秤の目盛りを読んで暮らした。"
-        "魚の重さは一日のうちで変わらないが、値段は変わる。だから帳面には重さだけを書き、"
-        "値は別の紙に書いた。混ぜると、あとで自分が信じられなくなるからだという。"
-        "私は最初、その言葉を年寄りの癖だと思っていた。帳面を引き継いで三年目に、"
-        "台風で市場が二週間閉まった。再開の日、値は前の半分になっていたが、重さの列は"
-        "そのまま続いていた。そこで初めて、祖父が何を守っていたのかが分かった。"
-        "測ったものと決めたものを、同じ列に並べてはいけない。並べた瞬間に、"
-        "どちらが先だったかを誰も覚えていられなくなる。"
-    ),
-    "en-prose": (
-        "The lighthouse keeper kept two logbooks. The first recorded what the "
-        "instruments said: barometer, wind, the hour the lamp was lit. The "
-        "second recorded what she decided: when to sound the horn, when to send "
-        "the boat, when to leave a ship to its own judgment. She never let a "
-        "line from one book cross into the other. Visitors found this fussy "
-        "until the winter the barometer failed for nine days. The first book "
-        "shows a flat line and a note in pencil: instrument suspect. The second "
-        "book shows every decision she made in those nine days, each with the "
-        "reason she gave herself at the time. Years later an inquiry into a "
-        "wreck on the far shoal read both books side by side and cleared her in "
-        "an afternoon. A single book would have looked like a woman guessing."
-    ),
-    "code": (
-        "def merge_ledgers(measured, decided):\n"
-        '    """Join two ledgers by day without letting either column overwrite the other.\n'
-        "\n"
-        "    measured: dict day -> weight in kilograms\n"
-        "    decided: dict day -> price per kilogram\n"
-        "    Returns rows sorted by day; a missing side is recorded as None, never 0.\n"
-        '    """\n'
-        "    days = sorted(set(measured) | set(decided))\n"
-        "    rows = []\n"
-        "    for day in days:\n"
-        "        weight = measured.get(day)\n"
-        "        price = decided.get(day)\n"
-        "        total = None if weight is None or price is None else weight * price\n"
-        '        rows.append({"day": day, "weight": weight, "price": price, "total": total})\n'
-        "    return rows\n"
-        "\n"
-        "\n"
-        "def test_missing_side_stays_none():\n"
-        '    rows = merge_ledgers({"d1": 12.0, "d2": 8.5}, {"d1": 300})\n'
-        '    assert rows[0]["total"] == 3600.0\n'
-        '    assert rows[1]["price"] is None and rows[1]["total"] is None\n'
-    ),
-    "math": (
-        "Let a_1 = 3 and a_{n+1} = 2 a_n - 1 for n >= 1. Claim: a_n = 2^n + 1.\n"
-        "Base case: a_1 = 2^1 + 1 = 3, which matches the definition.\n"
-        "Inductive step: assume a_n = 2^n + 1. Then\n"
-        "a_{n+1} = 2(2^n + 1) - 1 = 2^{n+1} + 2 - 1 = 2^{n+1} + 1,\n"
-        "so the formula holds for n + 1. By induction it holds for all n >= 1.\n"
-        "Consequence: a_n - 1 = 2^n is a power of two, so a_n is odd for every n,\n"
-        "and a_{n+1} - a_n = 2^n, which doubles at each step. The sum of the first\n"
-        "n terms is (2^{n+1} - 2) + n, since the geometric part sums to 2^{n+1} - 2\n"
-        "and the constant part contributes n.\n"
-    ),
-}
 
 
 def parse_prompt_logprobs(prompt_logprobs, prompt_token_ids):
@@ -196,41 +134,9 @@ def score_text(name, prompt_token_ids, response, top_k=TOP_K):
     }
 
 
-def compare_records(reference, candidate, top_k=TOP_K):
-    """Compare two ``run`` outputs text by text; texts missing on either side are listed."""
-    reference_texts = {row["name"]: row for row in reference["texts"] if "rows" in row}
-    candidate_texts = {row["name"]: row for row in candidate["texts"] if "rows" in row}
-    shared = sorted(reference_texts.keys() & candidate_texts.keys())
-    results = []
-    for name in shared:
-        left, right = reference_texts[name], candidate_texts[name]
-        if left["prompt_token_ids"] != right["prompt_token_ids"]:
-            results.append({"name": name, "error": "tokenization differs"})
-            continue
-        row = {"name": name, "positions": left["prompt_tokens"] - 1}
-        row.update(agreement(left["rows"], right["rows"], top_k))
-        row.update(drift(left["logprobs"], right["logprobs"]))
-        row["top1_reference"], row["top1_candidate"] = left["top1"], right["top1"]
-        results.append(row)
-    scored = [row for row in results if "error" not in row]
-    summary = {
-        "texts": results,
-        "missing_in_reference": sorted(candidate_texts.keys() - reference_texts.keys()),
-        "missing_in_candidate": sorted(reference_texts.keys() - candidate_texts.keys()),
-    }
-    if scored:
-        weights = sum(row["positions"] for row in scored)
-        summary["argmax_agreement"] = (
-            sum(row["argmax_agreement"] * row["positions"] for row in scored) / weights
-        )
-        summary["max_abs_logprob_move"] = max(
-            row["max_abs_logprob_move"] for row in scored
-        )
-    return summary
-
-
-def run(tokenize, complete, texts=None, top_k=TOP_K, repeats=2):
-    """Score each text ``repeats`` times through the given senders; never raise.
+def run(tokenize, complete, texts, top_k=TOP_K, repeats=2):
+    """Score each of ``texts`` (name to text) ``repeats`` times through the given senders;
+    never raise.
 
     ``tokenize(text)`` returns the prompt token ids; ``complete(token_ids, top_k)``
     returns the completions response. The first raw response is kept so the
@@ -239,7 +145,6 @@ def run(tokenize, complete, texts=None, top_k=TOP_K, repeats=2):
     difference is reported as ``self_agreement`` and is the yardstick for any
     comparison with another run.
     """
-    texts = TEXTS if texts is None else texts
     rows, raw_first, self_checks = [], None, []
     for name, text in texts.items():
         scored = []
