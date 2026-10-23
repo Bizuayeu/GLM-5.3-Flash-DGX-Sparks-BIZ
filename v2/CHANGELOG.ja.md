@@ -6,6 +6,15 @@
 
 TensorFoldで配信する2.x系です。`v2.*` のタグはこのファイルの節を公開します。1.x系の履歴は[v1/CHANGELOG.ja.md](../v1/CHANGELOG.ja.md)にあります。
 
+## 2.9.4 — 2026-10-24
+
+### Documentation
+
+- [README](README.ja.md)：最初の文は2.x系のものです（3.x系の既定のXSFP4は量子化し直したもの）。全GPUを要求する3.x系のcontainerも先に止めます。
+- 上流のZig版のエンジンがGLMを配信したら開き直すNext Actionの項と2つの[判断](docs/decisions.ja.md)に、それが3.0.0（2026-10-18、上流1.0.12）から3.x系で起き、2.x系はPython版のエンジンのままであることを書きました。
+
+imageのファイルは変わらず、2.9.2のままです（linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`）。
+
 ## 2.9.3 — 2026-10-16
 
 ### Changed

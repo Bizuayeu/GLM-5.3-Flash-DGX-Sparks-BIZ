@@ -4,6 +4,30 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.5.3 — 2026-10-24
+
+Documents and tools only. No file of the image changes; it stays 3.5.0's (`glm53-tf3:3.5.0`, `sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`).
+
+### Documentation
+
+- [Validation](docs/validation.md): `score-nll`'s example reads XSFP4's `tokenizer.json` (the same file as NVIDIA's NVFP4's), a run passes when every request answered and reports how far a text's two scores moved, the thermal watch takes 3.x's container and process, and the tools run in the container from a checkout under the work directory, the only host directory it mounts besides the cache.
+- [README](README.md): rank 0's model size at TP=2 is the 245,760-token window's; at that window NVIDIA's NVFP4 leaves a 1.5 GiB prompt cache to two streams against one stream's 5.2 GiB, and the serving defaults give one stream's 5.1 to 5.2 GiB; the KV row of the serving defaults points to the opt-in FP8 latent cache in the limits; the configuration table gains `VISION` and says `cluster.sh` copies `/work/nccl-id` alone; the layout lists `docker/Dockerfile.build` and `assets/`; the Not validated list links where each item is; and Next Action keeps #1053's measurement open, since the releases after 3.3.0 ran on the efficiency cores.
+- [Setup](SETUP.md): `API_KEY_FILE` is rank 0's; the tool-argument gate runs in the container from a checkout under the work directory. [Benchmark method](docs/benchmarks.md): the 499,622-token prompt runs at TP=2 too from 3.5.0.
+- The TP=3 rank file examples drop two comments copied from 2.x (its engine's timings for four channels, its TCPStore) and say `cluster.sh` copies the default `ID_FILE` path alone.
+
+### Tools
+
+- No behaviour changes: `agreement.py` drops `TEXTS` and `compare_records`, which no 3.x tool used (`score-nll` passes the NLL set's texts), with their six tests; `tool-gate`'s help names `--timeout`; `bench` and `download` no longer reuse a name another holds.
+
+### Repository
+
+- The [host tools](../host/README.md) give the thermal watch's 3.x command: with its defaults, 2.x's container and process, it finds no engine on a 3.x host and ends at once without a reading. They also name 3.x's own heat wait and list `nccl_probe.py`, and the watch's help says the same.
+- The repository README, [licensing](../docs/licensing.md), the host, network and NCCL pages, the document map, `CONTRIBUTING` and `AGENTS.md` name the 3.x line where they named two: images and videos, and the image's libjpeg-turbo, libwebp and FFmpeg (LGPL-2.1-or-later); XSFP4's Open Model Agreement beside the MIT weights; 3.x's setup, rank files and releases on the 7.0 kernel.
+
+### Not in 3.5.3
+
+The published AXL weights, log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.5.2 — 2026-10-24
 
 Documents only. No file of the image changes; it stays 3.5.0's (`glm53-tf3:3.5.0`, `sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`).

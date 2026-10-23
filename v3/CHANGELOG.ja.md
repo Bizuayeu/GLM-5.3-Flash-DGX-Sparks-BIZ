@@ -6,6 +6,30 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.5.3 — 2026-10-24
+
+文書と道具だけの版です。imageのファイルは変わらず、3.5.0のままです（`glm53-tf3:3.5.0`、`sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`）。
+
+### Documentation
+
+- [検証](docs/validation.ja.md)：`score-nll` の例はXSFP4の `tokenizer.json`（NVIDIAのNVFP4のものと同じファイル）を読み、全要求が答えればpassで、各本文の2回の差は報告として出ること、熱の見張りには3.x系のcontainerとprocessを渡すこと、containerの中では作業directory（cacheの他にcontainerがmountする唯一のホストのdirectory）の下のcheckoutから道具を動かすことを書きました。
+- [README](README.ja.md)：TP=2のrank 0のmodelの大きさは245,760 tokenの窓のもの、その窓でNVIDIAのNVFP4が2本のstreamに残すprompt cacheは、1本のときの5.2 GiBに対して1.5 GiBで、配信の既定は1本のときを5.1〜5.2 GiBと書く、配信の既定のKVの行は制限の節の選んで使うFP8のlatent cacheを指す、設定の表に `VISION` を足し、`cluster.sh` が写すのは `/work/nccl-id` だけと書いた、構成に `docker/Dockerfile.build` と `assets/` を足した、未検証の項目はそれぞれの置き場へリンクする、Next Actionの#1053の測り直しは開いたまま（3.3.0の後のリリースは効率coreで回した）。
+- [手順書](SETUP.ja.md)：`API_KEY_FILE` はrank 0のもの、tool引数ゲートはcontainerの中では作業directoryの下のcheckoutから。[測り方](docs/benchmarks.ja.md)：499,622 tokenのpromptは3.5.0からTP=2でも。
+- TP=3のrankのファイルの例から、2.x系から写した2つのコメント（そのエンジンの4 channelの時間、そのTCPStore）を外し、`cluster.sh` が写すのは既定の `ID_FILE` の場所だけと書きました。
+
+### Tools
+
+- 振る舞いは変わりません：`agreement.py` から、3.x系のどの道具も使っていない `TEXTS` と `compare_records`（`score-nll` はNLL採点セットの本文を渡す）を、その6つのテストと一緒に外しました。`tool-gate` のhelpに `--timeout` を足し、`bench` と `download` は他が持つ名前を使い回さなくなりました。
+
+### Repository
+
+- [ホストのツール](../host/README.ja.md)に、熱の見張りの3.x系の起動を書きました。既定値（2.x系のcontainerとprocess）のままでは、3.x系のホストではエンジンが見つからず、一度も読まずにすぐ終わります。3.x系のエンジン自身の熱の待ちと `nccl_probe.py` も挙げ、見張りのhelpも同じことを言います。
+- リポジトリのREADME、[ライセンスの整理](../docs/licensing.ja.md)、ホスト・ネットワーク・NCCLの頁、文書一覧、`CONTRIBUTING`、`AGENTS.md` で、2つの系列を挙げていた所に3.x系を足しました：画像と動画、imageのlibjpeg-turbo・libwebp・FFmpeg（LGPL-2.1-or-later）、MITの重みと並ぶXSFP4のOpen Model Agreement、3.x系の手順書・rankのファイル・7.0のkernelでのリリース。
+
+### Not in 3.5.3
+
+公開したAXLの重み、生成したtokenのlog確率、chat templateへの `clear_thinking` の受け渡し（[制限](README.ja.md#制限)）。
+
 ## 3.5.2 — 2026-10-24
 
 文書だけの版です。imageのファイルは変わらず、3.5.0のままです（`glm53-tf3:3.5.0`、`sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`）。

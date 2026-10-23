@@ -4,6 +4,15 @@
 
 The 2.x line, served by TensorFold. A `v2.*` tag publishes its section from this file. The 1.x line's history is in [v1/CHANGELOG.md](../v1/CHANGELOG.md).
 
+## 2.9.4 — 2026-10-24
+
+### Documentation
+
+- [README](README.md): the first sentence is the 2.x line's (3.x's default checkpoint, XSFP4, is requantized), and a 3.x container is stopped first too, since it claims every GPU.
+- The Next Action item and the two [decisions](docs/decisions.md) that reopen when upstream's Zig engine serves GLM record that it does in the 3.x line from 3.0.0 (2026-10-18, upstream 1.0.12), and that 2.x stays on the Python engine.
+
+No file of the image changes; it stays 2.9.2's (linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`).
+
 ## 2.9.3 — 2026-10-16
 
 ### Changed

@@ -2,6 +2,17 @@
 
 [日本語](CHANGELOG.ja.md) (this English file is canonical and the GitHub Release is made from it)
 
+## 1.31.2 — 2026-10-24
+
+### Documentation
+
+- [README](README.md): the CPU frequency item says the reference hosts run 7.0.0-1019 with `kho=off` since 2026-10-14 and that the frequency was read on neither kernel; the check stays, and every line's figures depend on it.
+- [Document map](docs/README.md): the 3.x pages are in the repository's map too, and the release rule links the conventions every line shares. [Architecture](docs/architecture.md): every line scores the NLL set.
+- [Harnesses](docs/harnesses.md) cite their runs by date instead of private `records/` run directories, as 1.31.0 did on the other pages.
+- The test lock's comment names 3.x's tests beside 2.x's.
+
+No file of the reference image changes; it stays 1.31.0's.
+
 ## 1.31.1 — 2026-10-15
 
 ### Documentation
