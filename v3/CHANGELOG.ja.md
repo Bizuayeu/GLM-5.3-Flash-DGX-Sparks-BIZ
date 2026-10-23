@@ -6,6 +6,18 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.5.2 — 2026-10-24
+
+文書だけの版です。imageのファイルは変わらず、3.5.0のままです（`glm53-tf3:3.5.0`、`sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`）。
+
+### Documentation
+
+- [リリースでの測定値](README.ja.md#リリースでの測定値)の、数を2度書く振る舞いを、fp32の参照とvLLMでの測りを受けて直しました。場所はこのエンジンではなくcheckpointのものです。同じ重みをfp32で計算しても、NVIDIAのNVFP4は生成が2度書く所で152をもう一度選び、同じcheckpointのvLLMも同じ場所でほぼ同じ回数だけ数を外します。3.5.1の「重みではなくエンジンから来ます」は取り下げ、項の名を「数を2度書くこと」にしました（英語版はXSFP4のmodel cardと同じA number written twice）。測りは[TensorFold #1214](https://github.com/ashhart/TensorFold/issues/1214)にあります。
+
+### Not in 3.5.2
+
+公開したAXLの重み、生成したtokenのlog確率、chat templateへの `clear_thinking` の受け渡し（[制限](README.ja.md#制限)）。
+
 ## 3.5.1 — 2026-10-24
 
 文書だけの版です。imageのファイルは変わらず、3.5.0のままです（`glm53-tf3:3.5.0`、`sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`）。

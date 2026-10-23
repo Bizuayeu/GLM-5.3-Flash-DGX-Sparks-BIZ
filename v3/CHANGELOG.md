@@ -4,6 +4,18 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.5.2 — 2026-10-24
+
+Documents only. No file of the image changes; it stays 3.5.0's (`glm53-tf3:3.5.0`, `sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`).
+
+### Documentation
+
+- The count's known behaviour in [measured on the release](README.md#measured-on-the-release) is corrected after an fp32 reference and a run on vLLM: its places belong to the checkpoint, not to this engine. Computed in fp32 from the same weights, NVIDIA's NVFP4 itself picks 152 again where generation writes it twice, and vLLM on the same checkpoint leaves the count at the same places about as often. 3.5.1's "It comes from the engine, not the weights" is withdrawn, and the item is now called "A number written twice", as on XSFP4's model card. The measurements are in [TensorFold #1214](https://github.com/ashhart/TensorFold/issues/1214).
+
+### Not in 3.5.2
+
+The published AXL weights, log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.5.1 — 2026-10-24
 
 Documents only. No file of the image changes; it stays 3.5.0's (`glm53-tf3:3.5.0`, `sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`).
