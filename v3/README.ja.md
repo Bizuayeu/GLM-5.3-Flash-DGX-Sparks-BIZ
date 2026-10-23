@@ -85,7 +85,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | このエンジンのTP=2でBF16の重みと比べた次token（128文書、144,285位置）：top-1の一致 / BF16に対するNLLの上がり / KLの下限 | 92.68% / +1.37% / 0.0510 | 93.26% / +0.85% / 0.0431 |
 | 同じものをTP=3で | 92.71% / +1.38% / 0.0511 | 93.30% / +0.85% / 0.0436 |
 | ライセンス | MIT | NVIDIA Open Model Agreement（FP4-Localの派生物。repositoryに `LICENSE` と `NOTICE`） |
-| ダウンロード（SETUP §2） | `download`・`verify-download` | 同じものに `--checkpoint xsfp4`、`state/xsfp4` へ |
+| ダウンロード（SETUP §2） | `download`・`verify-download` | 同じものに `--checkpoint xsfp4`（ダウンロードの状況は `state/xsfp4` に） |
 | rankのファイル | 何も要らない：`serve.sh` の既定 | 全rankに `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<revision>`（lockのrevision） |
 
 各文書はtoken idとしてエンジンに送り、`prompt_logprobs` は20。KLの下限は、両方が確率を返したtoken（エンジンの上位20、BF16の上位20、本文のtoken）を1つずつ数え、残りを1つの塊として数えます。全語彙のKLより低く、エンジンの外で測ったKLとは比べられません（XSFP4の[model card](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)に両方があります）。XSFP4はどちらのTPでも3つとも固定したcheckpointよりBF16に近く、差の文書ごとの95%区間は0を含みません。参考として、FP4-Local自身を同じエンジンでそのまま読み込むと、TP=2で 92.82% / +1.11% / 0.0510、TP=3で 92.75% / +1.07% / 0.0514 でした。
@@ -185,7 +185,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 ## リリースでの測定値
 
-**3.3.0**（2026-10-23、エンジン `d2d95b11`、上流1.1.2にpull request #1050と#1179、image `glm53-tf3:3.3.0`）。リリースの `serve.sh`（既定でvisionのtowerを読み込みます）と `cluster.sh` で起動し、全containerを効率coreに置き、両TPで `TF_GLM_MM` は無しです：各checkpointでTP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回。XSFP4の起動はリリースのimageで回し、読んだのは素のblockのスケールのrevisionです。公開するrevisionは、各TPでもう1回の起動で、decode検査のhash、編集の返答、NLL、rank 0のmodelが同じでした。固定したcheckpointの起動は、エンジンが一つ前のcommitのimage（`aa12d8df`。indexがfolderの中のshardを名指せるようにする#1179のpatchが無い）で回し、各TPでもう1回リリースのimageで起動すると、固定したcheckpointに同じdecode検査のhash、編集の返答、NLLを返しました。止まった起動はありません。
+**3.3.0**（2026-10-23、エンジン `d2d95b11`、上流1.1.2にpull request #1050と#1179、image `glm53-tf3:3.3.0`）。リリースの `serve.sh`（既定でvisionのtowerを読み込みます）と `cluster.sh` で起動し、全containerを効率coreに置き、両TPで `TF_GLM_MM` は無しです：各checkpointでTP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回。XSFP4の起動はリリースのimageで回し、読んだのは素のblockのスケールのrevisionです。公開するrevisionは、各TPでもう1回の起動で、decode検査のhash、編集の返答、NLL、rank 0のmodelの大きさ（読み込みの行）が同じでした。固定したcheckpointの起動は、エンジンが一つ前のcommitのimage（`aa12d8df`。indexがfolderの中のshardを名指せるようにする#1179のpatchが無い）で回し、各TPでもう1回リリースのimageで起動すると、固定したcheckpointに同じdecode検査のhash、編集の返答、NLLを返しました。止まった起動はありません。
 
 | 3.3.0 | 固定 TP=2 | 固定 TP=3 | XSFP4 TP=2 | XSFP4 TP=3 |
 |---|---|---|---|---|

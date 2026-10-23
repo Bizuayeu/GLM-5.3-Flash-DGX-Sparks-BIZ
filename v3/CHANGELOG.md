@@ -11,7 +11,7 @@ A second checkpoint to choose, XSFP4, on upstream 1.1.2, and the heat wait by th
 ### XSFP4 checkpoint
 
 - [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4), pinned in [`config/xsfp4.lock.json`](config/xsfp4.lock.json): a derivative of NVIDIA's `GLM-5.3-Flash-FP4-Local` (revision `76348ddb`) whose routed experts (layers 3 to 44) and the MTP layer's experts were requantized from Z.AI's BF16 weights as XSFP4, NVFP4 blocks fitted again with a smoothing folded into the weights; every other tensor is FP4-Local's as stored. As in FP4-Local, the routed experts' block scales of layers 3 to 44 are compressed losslessly (`csf_32x2_v1`), 178 GB in all, and the engine restores them at load, so the GPU memory and the speed are those of plain scales. NVIDIA Open Model Agreement ([checkpoints](README.md#checkpoints)).
-- `download` and `verify-download` take `--checkpoint xsfp4`, kept under `state/xsfp4`; a rank file serves it with `CHECKPOINT` set to its snapshot, the same on every rank. The rank file examples carry the line as a comment.
+- `download` and `verify-download` take `--checkpoint xsfp4`, the download's status kept under `state/xsfp4`; a rank file serves it with `CHECKPOINT` set to its snapshot, the same on every rank. The rank file examples carry the line as a comment.
 - At TP=2 the model takes 93.44 GiB on rank 0 (97.38 on the pinned checkpoint), which leaves an 8.9 GiB prompt cache beside the 245,760-token window (5.2 GiB), and with `PARALLEL=` empty the engine took three streams (two).
 
 ### Engine
