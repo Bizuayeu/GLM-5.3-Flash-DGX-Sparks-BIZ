@@ -33,14 +33,19 @@ class BackgroundTests(unittest.TestCase):
             )
         return popen, logs
 
-    def test_the_background_job_runs_this_lines_package_from_v2(self):
+    def test_the_background_job_runs_this_lines_package_from_v3_for_xsfp4(self):
         popen, logs = self.background()
-        self.assertEqual(logs, ["download.log"])
+        self.assertEqual(logs, ["xsfp4/download.log"])
         command = popen.call_args.args[0]
         self.assertEqual(
-            command[1:], ["-m", "glm53_tf", "download", "--checkpoint", "pinned"]
+            command[1:], ["-m", "glm53_tf", "download", "--checkpoint", "xsfp4"]
         )
         self.assertEqual(popen.call_args.kwargs["cwd"], LINE)
+
+    def test_a_pinned_job_passes_its_checkpoint_on_and_logs_in_state_itself(self):
+        popen, logs = self.background("--checkpoint", "pinned")
+        self.assertEqual(logs, ["download.log"])
+        self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "pinned"])
 
     def test_an_axl_job_passes_its_checkpoint_on_and_logs_in_its_folder(self):
         popen, logs = self.background("--checkpoint", "axl")
@@ -148,9 +153,16 @@ class LockTests(unittest.TestCase):
         from filelock import FileLock
 
         with tempfile.TemporaryDirectory() as tmp:
+            # A run without --checkpoint takes the default checkpoint's folder and lock.
+            folder = config.checkpoint(config.DEFAULT_CHECKPOINT, Path(tmp))[2]
+            folder.mkdir()
             with (
                 patch.object(download, "STATE", Path(tmp)),
-                FileLock(Path(tmp) / "download.lock"),
+                # A lock that let the run through fails here instead of downloading.
+                patch.object(
+                    download, "download", side_effect=AssertionError("downloading")
+                ),
+                FileLock(folder / "download.lock"),
                 self.assertRaisesRegex(SystemExit, "already owns this workspace"),
             ):
                 download.main([])

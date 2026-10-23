@@ -24,9 +24,13 @@ class VerifyDownloadTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def download(self, status, **extra):
-        model, revision, _ = config.checkpoint("pinned", self.state)
+        # The default checkpoint's download, which a run without --checkpoint reads.
+        model, revision, folder = config.checkpoint(
+            config.DEFAULT_CHECKPOINT, self.state
+        )
+        folder.mkdir(exist_ok=True)
         record = {"model": model, "revision": revision, "status": status, **extra}
-        (self.state / STATUS_FILE).write_text(json.dumps(record))
+        (folder / STATUS_FILE).write_text(json.dumps(record))
 
     def run_main(self, *extra, returncode=0, sleep=None):
         argv = ["--hf", "hf", "--output", str(self.output), *extra]
@@ -46,8 +50,9 @@ class VerifyDownloadTests(unittest.TestCase):
     def test_no_download_status_exits_one_and_says_to_run_download(self):
         for extra, hint in (
             ((), "run download first\n"),
+            (("--checkpoint", "xsfp4"), "run download first\n"),
+            (("--checkpoint", "pinned"), "run download first --checkpoint pinned\n"),
             (("--checkpoint", "axl"), "run download first --checkpoint axl\n"),
-            (("--checkpoint", "xsfp4"), "run download first --checkpoint xsfp4\n"),
         ):
             with self.subTest(extra=extra):
                 err = io.StringIO()
@@ -110,7 +115,7 @@ class VerifyDownloadTests(unittest.TestCase):
                 self.assertEqual(saved["status"], status)
                 self.assertEqual(saved["exit_code"], returncode)
                 command = run.call_args.args[0]
-                model = config.checkpoint("pinned", self.state)[0]
+                model = config.checkpoint("xsfp4", self.state)[0]
                 self.assertEqual(command[:4], ["hf", "cache", "verify", model])
                 self.assertIn("--fail-on-missing-files", command)
                 self.assertIn("--fail-on-extra-files", command)
@@ -120,7 +125,7 @@ class VerifyDownloadTests(unittest.TestCase):
         folder.mkdir()
         record = {"model": model, "revision": revision, "status": "complete"}
         (folder / STATUS_FILE).write_text(json.dumps(record))
-        self.download("complete", revision="other")  # the pinned download is not read
+        self.download("complete", revision="other")  # the default's is not read
         code, saved, run, _ = self.run_main("--checkpoint", "axl")
         self.assertEqual(
             (code, saved["status"], saved["model"]), (0, "complete", model)

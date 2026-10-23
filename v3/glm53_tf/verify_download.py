@@ -1,5 +1,6 @@
 """Wait for the existing downloader, then verify a locked checkpoint's HF cache checksums
-(the pinned one, or with --checkpoint axl or xsfp4 a published option's)."""
+(XSFP4 by default, or with --checkpoint pinned or axl NVIDIA's NVFP4 checkpoint or the
+published AXL weights)."""
 
 import argparse
 import json
@@ -9,7 +10,13 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .config import CHECKPOINT_HELP, CHECKPOINTS, STATE, checkpoint
+from .config import (
+    CHECKPOINT_HELP,
+    CHECKPOINTS,
+    DEFAULT_CHECKPOINT,
+    STATE,
+    checkpoint,
+)
 from .download import STATUS_FILE
 from .io import write_json
 
@@ -20,7 +27,10 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--wait", action="store_true")
     parser.add_argument(
-        "--checkpoint", choices=CHECKPOINTS, default="pinned", help=CHECKPOINT_HELP
+        "--checkpoint",
+        choices=CHECKPOINTS,
+        default=DEFAULT_CHECKPOINT,
+        help=CHECKPOINT_HELP,
     )
     args = parser.parse_args(argv)
     model, revision, state = checkpoint(args.checkpoint, STATE)
@@ -48,7 +58,7 @@ def main(argv=None):
             f"no {STATUS_FILE} in {state}: run download first"
             + (
                 ""
-                if args.checkpoint == "pinned"
+                if args.checkpoint == DEFAULT_CHECKPOINT
                 else f" --checkpoint {args.checkpoint}"
             ),
             file=sys.stderr,

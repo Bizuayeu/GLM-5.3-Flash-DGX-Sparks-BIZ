@@ -1,5 +1,6 @@
-"""Download a locked GLM checkpoint into the shared Hugging Face cache: NVIDIA's pinned one,
-or with --checkpoint axl or xsfp4 a published option's (config/axl.lock.json, config/xsfp4.lock.json)."""
+"""Download a locked GLM checkpoint into the shared Hugging Face cache: XSFP4 by default
+(config/xsfp4.lock.json), or with --checkpoint pinned or axl NVIDIA's NVFP4 checkpoint
+(config/model.lock.json) or the published AXL weights (config/axl.lock.json)."""
 
 import argparse
 import json
@@ -9,7 +10,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .config import CHECKPOINT_HELP, CHECKPOINTS, LINE, STATE, checkpoint
+from .config import (
+    CHECKPOINT_HELP,
+    CHECKPOINTS,
+    DEFAULT_CHECKPOINT,
+    LINE,
+    STATE,
+    checkpoint,
+)
 from .io import write_json
 
 # In the checkpoint's state folder (config.checkpoint); the checksum run
@@ -17,7 +25,7 @@ from .io import write_json
 STATUS_FILE = "download-status.json"
 
 
-def download(name="pinned"):
+def download(name=DEFAULT_CHECKPOINT):
     os.environ.setdefault("HF_XET_NUM_CONCURRENT_RANGE_GETS", "4")
     os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "120")
     from huggingface_hub import HfApi, snapshot_download
@@ -84,7 +92,10 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--background", action="store_true")
     parser.add_argument(
-        "--checkpoint", choices=CHECKPOINTS, default="pinned", help=CHECKPOINT_HELP
+        "--checkpoint",
+        choices=CHECKPOINTS,
+        default=DEFAULT_CHECKPOINT,
+        help=CHECKPOINT_HELP,
     )
     args = parser.parse_args(argv)
     state = checkpoint(args.checkpoint, STATE)[2]

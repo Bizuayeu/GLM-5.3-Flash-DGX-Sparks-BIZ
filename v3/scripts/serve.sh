@@ -48,8 +48,9 @@ TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}
 for v in TF_HEAT_HIGH TF_HEAT_LOW; do
   if [ -n "${!v}" ]; then export "$v"; else unset "$v"; fi
 done
-# The pinned checkpoint as the Hugging Face cache holds it, mounted read-only at /hub (create_container.sh)
-CHECKPOINT=${CHECKPOINT:-/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93}
+# XSFP4 at its lock's revision (config/xsfp4.lock.json) as the Hugging Face cache holds it, mounted read-only at /hub
+# (create_container.sh); CHECKPOINT in the rank files serves another, NVIDIA's NVFP4 checkpoint among them
+CHECKPOINT=${CHECKPOINT:-/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/dbcb7b65a15cfdfd91a2a0b21c6c2cd37e23844f}
 # Every rank takes the same arguments (the ranks compare their settings at start); only rank 0 serves HTTP.
 # REASONING_EFFORT: what a request that names none gets (default high; empty: the chat template's own).
 # PARALLEL: how many requests share the rounds (default 1; empty: the engine's auto). API_KEY_FILE: serving beyond

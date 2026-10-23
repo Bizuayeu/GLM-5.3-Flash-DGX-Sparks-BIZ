@@ -12,17 +12,20 @@ LINE = Path(__file__).resolve().parents[1]
 ROOT = LINE.parent
 STATE = ROOT / "state"
 LOCK_PATH = LINE / "config/model.lock.json"
-# The published options' weights, which download and verify-download fetch with
-# --checkpoint axl (NVFP4 BIZ AXL) or xsfp4 (the XSFP4 checkpoint, from 3.3.0); serving
-# them is the rank file's CHECKPOINT (README.md).
+# The published weights, which download and verify-download fetch with --checkpoint
+# axl (NVFP4 BIZ AXL) or xsfp4 (the XSFP4 checkpoint). serve.sh serves XSFP4 unless the
+# rank file's CHECKPOINT names another (README.md).
 OPTION_LOCK_PATHS = {
     "axl": LINE / "config/axl.lock.json",
     "xsfp4": LINE / "config/xsfp4.lock.json",
 }
 CHECKPOINTS = ("pinned", *OPTION_LOCK_PATHS)
+# What download and verify-download take when no --checkpoint is given (from 3.4.0).
+DEFAULT_CHECKPOINT = "xsfp4"
 CHECKPOINT_HELP = (
-    "pinned (NVIDIA's, the default), axl or xsfp4 (the published options, kept under"
-    " state/axl and state/xsfp4)"
+    "xsfp4 (the XSFP4 checkpoint, the default, kept under state/xsfp4), pinned"
+    " (NVIDIA's NVFP4 checkpoint, kept under state) or axl (the published AXL weights,"
+    " kept under state/axl)"
 )
 
 

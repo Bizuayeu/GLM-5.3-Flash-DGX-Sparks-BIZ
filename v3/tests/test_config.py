@@ -82,14 +82,15 @@ class CheckpointTests(unittest.TestCase):
 
 
 class ServeScriptTests(unittest.TestCase):
-    def test_serve_sh_serves_the_locked_checkpoint(self):
+    def test_serve_sh_serves_xsfp4_at_its_locked_revision_by_default(self):
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
         pattern = r"/hub/models--([\w.-]+)--([\w.-]+)/snapshots/([0-9a-f]{40})"
         match = re.search(pattern, serve)
         self.assertIsNotNone(match)
-        lock = config.load_lock()
-        self.assertEqual(f"{match[1]}/{match[2]}", lock["model"])
-        self.assertEqual(match[3], lock["revision"])
+        model, revision, _ = config.checkpoint("xsfp4", Path("state"))
+        self.assertEqual(config.DEFAULT_CHECKPOINT, "xsfp4")
+        self.assertEqual(f"{match[1]}/{match[2]}", model)
+        self.assertEqual(match[3], revision)
 
     def test_serve_sh_reads_images_and_videos_unless_the_rank_file_says_otherwise(self):
         # Unset: --vision. Empty: text alone. Every rank the same (the ranks agree on --vision at start).
