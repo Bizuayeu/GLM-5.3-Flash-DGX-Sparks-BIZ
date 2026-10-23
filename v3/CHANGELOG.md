@@ -27,6 +27,7 @@ XSFP4 becomes the default checkpoint, on 3.3.0's engine, and the repository take
 - A number counted twice token by token is now described as the engine's, not as XSFP4's and FP4-Local's: NVIDIA's NVFP4, generated from the start at TP=2, writes 152 twice, past the 150 numbers 3.3.0's checks read, with the same tokens on upstream 1.1.1's own binary. It looks like an engine bug, reported upstream as TensorFold #1214 ([measured on the release](README.md#measured-on-the-release), the XSFP4 model card).
 - The third-party notices list the XSFP4 checkpoint.
 - The limits name both checkpoints' chat templates, which both take a missing `clear_thinking` as false.
+- The limits name the engine's opt-in FP8 latent cache (`--kv-cache fp8`), pending upstream and not validated on this line.
 
 ### Accepted
 

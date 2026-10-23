@@ -293,7 +293,7 @@ The two lines' containers both claim every GPU: run one line's engine at a time 
 - **No log-probabilities of generated tokens.** `logprobs` and `top_logprobs` are refused with 400; `prompt_logprobs` is served on non-streamed `/v1/completions` only.
 - **`clear_thinking` is not passed to the chat template.** The native server passes the template only `enable_thinking`, `thinking_mode` and `reasoning_effort`; both checkpoints' chat templates take a missing `clear_thinking` as false and keep the reasoning of earlier turns that a client sends back. A client that sends earlier turns without their reasoning sees no difference.
 - **Every rank keeps two CPU cores spinning while a request runs**, rank 0 while it decodes and the others while they wait for it (since upstream 1.1.2's engine, #1053, the other ranks sleep while rank 0 has no stream). The default container cores keep the CPU's zones below the thermal watch's stop at a cost of 1 to 3% in speed with 3.0.0's engine (with 3.1.0's the forty replies took the same time, and a start about 40 s longer); on every core, long runs of replies reached the stop with 3.0.0's engine and came within 1 °C of it with 3.1.0's ([why the efficiency cores](#serving-defaults)).
-- **BF16 KV** holds a shorter window per GiB than 2.x's FP8 cache, and 2.x's FP8 path is not in this engine.
+- **BF16 KV** holds a shorter window per GiB than 2.x's FP8 cache. The engine has an opt-in FP8 latent cache (`--kv-cache fp8`) whose quality and device qualification upstream calls pending; this line has not validated it, and `serve.sh` does not set it.
 - **Two or three hosts with ConnectX-7 links**, as in 1.x and 2.x. Other world sizes and other hardware are outside what was measured.
 
 ## Repository Layout

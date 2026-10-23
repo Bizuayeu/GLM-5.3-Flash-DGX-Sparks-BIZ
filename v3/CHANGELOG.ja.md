@@ -29,6 +29,7 @@ XSFP4を既定のcheckpointにし、エンジンは3.3.0のままです。リポ
 - 1 tokenずつ数えると数を2度書く振る舞いを、XSFP4とFP4-Localのものではなく、エンジンのものとして書き直しました。NVIDIAのNVFP4も、TP=2で最初から生成させると、3.3.0の確かめが読んだ150より先で152を2度書き、上流1.1.1そのもののbinaryでも同じtokenです。エンジンのバグとみられ、上流にTensorFold #1214として報告しています（[リリースでの測定値](README.ja.md#リリースでの測定値)、XSFP4のmodel card）。
 - 第三者の表示にXSFP4のcheckpointを載せました。
 - 制限の節の `clear_thinking` は、両方のcheckpointのchat templateについて書きます。どちらも無ければfalseとして扱います。
+- 制限の節に、エンジンの選んで使うFP8のlatent cache（`--kv-cache fp8`）を書きました。上流では確かめがまだで、この系列でも検証していません。
 
 ### Accepted
 
