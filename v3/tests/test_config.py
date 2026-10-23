@@ -107,6 +107,30 @@ class ServeScriptTests(unittest.TestCase):
         self.assertIn('[ -n "$parallel" ] && args+=(--parallel "$parallel")', serve)
         self.assertEqual(serve.count("--parallel"), 1)
 
+    def test_serve_sh_sets_the_window_by_tp_unless_the_rank_file_says_otherwise(self):
+        # TP=2 524,288 (3.5.0: one stream and a prompt cache beside XSFP4), TP=3 1,048,576 (the model's limit).
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn("context=${CONTEXT:-524288}", serve)
+        self.assertIn("context=${CONTEXT:-1048576}", serve)
+        self.assertEqual(serve.count("${CONTEXT:-"), 2)
+
+    def test_tp2_examples_keep_nvidias_window_beside_its_checkpoint(self):
+        # NVIDIA's NVFP4 weighs about 3.9 GiB more on rank 0: its line comes with 3.4.0's window.
+        for rank in (0, 1):
+            lines = (
+                (LINE / f"examples/tp2-rank{rank}.env")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            )
+            at = next(
+                i
+                for i, line in enumerate(lines)
+                if line.startswith("# CHECKPOINT=/hub/models--nvidia--")
+            )
+            self.assertTrue(
+                lines[at + 1].startswith("# CONTEXT=245760 "), lines[at + 1]
+            )
+
     def test_serve_sh_waits_for_heat_by_the_band_alone(self):
         # 92/88 unless the rank file says otherwise; no ceiling (3.3.0: the engine has no TF_HEAT_CEILING).
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")

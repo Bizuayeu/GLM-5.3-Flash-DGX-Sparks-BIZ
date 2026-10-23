@@ -1,10 +1,11 @@
 #!/bin/bash
 # Inside the container, on every rank: serve.sh TP RANK RANK_ENV [more `tensorfold-native serve` arguments]
 # The 3.x serving defaults: the MTP head's drafts (the engine's default), replies of up to 32,768 tokens when a request
-# names no limit, high reasoning effort, and the window by TP: 245,760 tokens at TP=2 and 1,048,576 at TP=3, about the
-# largest one stream fits (measured), one stream (PARALLEL=1). An empty PARALLEL leaves it to the engine, which sizes
-# the streams and the prompt cache from the memory free at start, so they can differ between starts. CONTEXT in the
-# rank file sets another window, every rank the same.
+# names no limit, high reasoning effort, and the window by TP: 524,288 tokens at TP=2, one stream and a prompt cache
+# beside XSFP4 (NVIDIA's NVFP4 weighs more: its rank files set 245,760), and 1,048,576 at TP=3, the model's limit; one
+# stream (PARALLEL=1). An empty PARALLEL leaves it to the engine, which sizes the streams and the prompt cache from the
+# memory free at start, so they can differ between starts. CONTEXT in the rank file sets another window, every rank the
+# same.
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
 # between the hosts. TP=2 meets at MASTER:NCCL_PORT (NCCL_COMM_ID). TP=3's hosts are linked point to point with /32
 # addresses: NCCL_COMM_ID (MASTER:NCCL_PORT) names the ranks' lines, which reach rank 0 over the ring's routes, and
@@ -36,7 +37,7 @@ set +a
 : "${MASTER:?$rank_env must set MASTER, rank 0 address on the link between the hosts}"
 export TF_GLM_RANK=$rank TF_GLM_WORLD=$tp
 if [ "$tp" = 2 ]; then
-  context=${CONTEXT:-245760}   # cc-defer: measured once at S3 (10-17); the acceptance measurement (Z6, G9) sets it
+  context=${CONTEXT:-524288}
   export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"
   unset TF_GLM_NCCL_ID_FILE
 else
