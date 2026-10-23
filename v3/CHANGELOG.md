@@ -4,6 +4,33 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.4.0 — 2026-10-23
+
+XSFP4 becomes the default checkpoint, on 3.3.0's engine, and the repository takes its new name, GLM-5.3-Flash-DGX-Sparks-BIZ, with the short name GLM-5.3-Flash BIZ. NVIDIA's NVFP4 checkpoint stays a choice.
+
+### XSFP4 the default
+
+- `serve.sh` serves XSFP4 at the revision in [`config/xsfp4.lock.json`](config/xsfp4.lock.json) when the rank files name no `CHECKPOINT`, and `download` and `verify-download` take it when no `--checkpoint` is given ([checkpoints](README.md#checkpoints)). NVIDIA's NVFP4 checkpoint is `--checkpoint pinned` and `CHECKPOINT` in every rank file, a line the rank file examples carry as a comment. Each download keeps its status where it did (`state/xsfp4`, `state`), and the setup verifies XSFP4 into `../records/checksum-xsfp4`.
+- XSFP4 is pinned at `59c49ac9`. The hub's two commits on top of 3.3.0's `dbcb7b65` change only the model card: the repository's new name, XSFP4 as the 3.x line's recommended checkpoint, its speeds as measured for 3.3.0 and the number written twice as the engine's; every other file is the same blob, checked file by file. The published AXL weights are pinned at `c0232adb`, whose card has the new name; 1.x's and 2.x's AXL locks keep their revisions.
+- The image differs from 3.3.0's in `serve.sh`'s default and in the notices. The engine is 3.3.0's, `d2d95b11`, published again as the fork's branch `release/3.4.0`.
+
+### Name
+
+- The repository is `Bizuayeu/GLM-5.3-Flash-DGX-Sparks-BIZ` from 2026-10-23, and GitHub forwards the old name. Every line's documents, NOTICE, the cluster examples' `CHECKOUT`, the tools' docstrings and the LPA projector's Release URLs use the new name; 1.x's setup code and examples and the changelogs' past sections stay as written.
+- The stack's short name is GLM-5.3-Flash BIZ in every line's README and in the citation the publication audit checks; the published AXL weights keep the name NVFP4 BIZ AXL.
+- New banners for the repository and for the 3.x line, the latter as lossless WebP.
+
+### Documentation
+
+- The documents call NVIDIA's checkpoint NVIDIA's NVFP4 and describe XSFP4 first: the README's checkpoints, serving defaults and configuration, setup §2, operations' change of checkpoint, validation (whose XSFP4 values are the default's), the licensing guide and the repository README's licensing table.
+- A number counted twice token by token is now described as the engine's, not as XSFP4's and FP4-Local's: NVIDIA's NVFP4, generated from the start at TP=2, writes 152 twice, past the 150 numbers 3.3.0's checks read, with the same tokens on upstream 1.1.1's own binary. It looks like an engine bug, reported upstream as TensorFold #1214 ([measured on the release](README.md#measured-on-the-release), the XSFP4 model card).
+- The third-party notices list the XSFP4 checkpoint.
+- The limits name both checkpoints' chat templates, which both take a missing `clear_thinking` as false.
+
+### Accepted
+
+On the reference hosts on 2026-10-23, with the release image (`glm53-tf3:3.4.0`) started by its own `serve.sh` and `cluster.sh`, no `CHECKPOINT` in the rank files and every container on the efficiency cores, one launch at each TP size: XSFP4's decode-check hashes, `bench --kinds edit` reply and NLL were 3.3.0's at TP=2 and TP=3, and rank 0's load line read the same model size ([measured on the release](README.md#measured-on-the-release)).
+
 ## 3.3.0 — 2026-10-23
 
 A second checkpoint to choose, XSFP4, on upstream 1.1.2, and the heat wait by the band alone. NVIDIA's pinned checkpoint stays the default; on it the TP=2 text path is 3.2.0's, and TP=3 runs on upstream's tiled BF16 linears, which give other tokens than 3.2.0's glue kernels.

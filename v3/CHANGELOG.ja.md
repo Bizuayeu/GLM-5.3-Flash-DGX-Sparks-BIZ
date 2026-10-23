@@ -6,6 +6,33 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.4.0 — 2026-10-23
+
+XSFP4を既定のcheckpointにし、エンジンは3.3.0のままです。リポジトリは新しい名前GLM-5.3-Flash-DGX-Sparks-BIZになり、略称はGLM-5.3-Flash BIZです。NVIDIAのNVFP4のcheckpointも選べます。
+
+### XSFP4を既定に
+
+- `serve.sh` は、rankのファイルに `CHECKPOINT` が無ければ [`config/xsfp4.lock.json`](config/xsfp4.lock.json) のrevisionのXSFP4を配信し、`download` と `verify-download` は `--checkpoint` が無ければXSFP4を取ります（[checkpoint](README.ja.md#checkpoint)）。NVIDIAのNVFP4は `--checkpoint pinned` と全rankのファイルの `CHECKPOINT` で選び、rankのファイルの例はその行をcommentで持ちます。取得の状況はこれまでどおりの場所（`state/xsfp4`、`state`）に置き、手順書はXSFP4を `../records/checksum-xsfp4` に検証します。
+- XSFP4は `59c49ac9` に固定します。3.3.0の `dbcb7b65` の上のhubの2つのcommitが変えたのはmodel cardだけです：リポジトリの新しい名前、3.x系の推奨のcheckpointであること、3.3.0で測った速さ、数を2度書くのはエンジンの振る舞いであること。他のfileはどれも同じblobで、fileごとに照らしました。公開しているAXLの重みは、cardが新しい名前の `c0232adb` に固定します。1.x系と2.x系のAXLのlockは、それぞれのrevisionのままです。
+- imageが3.3.0と違うのは、`serve.sh` の既定と表示だけです。エンジンは3.3.0の `d2d95b11` で、forkのbranch `release/3.4.0` としても公開します。
+
+### 名前
+
+- リポジトリは2026-10-23から `Bizuayeu/GLM-5.3-Flash-DGX-Sparks-BIZ` で、GitHubは旧名から転送します。各系列の文書、NOTICE、clusterの例の `CHECKOUT`、道具のdocstring、LPAのprojectorのReleaseのURLは新しい名前を使います。1.x系のsetupのcodeと例、変更履歴の過去の節は書いたままです。
+- スタックの略称は、各系列のREADMEと公開監査が確かめる引用で、GLM-5.3-Flash BIZです。公開しているAXLの重みは、NVFP4 BIZ AXLの名前のままです。
+- リポジトリと3.x系の新しいバナー。3.x系のものは可逆のWebPです。
+
+### 文書
+
+- 文書はNVIDIAのcheckpointをNVIDIAのNVFP4と呼び、XSFP4を先に書きます：READMEのcheckpoint・配信の既定・設定、手順書§2、運用のcheckpointの切り替え、検証（XSFP4の値が既定の値）、ライセンスの整理、リポジトリのREADMEのライセンスの早見表。
+- 1 tokenずつ数えると数を2度書く振る舞いを、XSFP4とFP4-Localのものではなく、エンジンのものとして書き直しました。NVIDIAのNVFP4も、TP=2で最初から生成させると、3.3.0の確かめが読んだ150より先で152を2度書き、上流1.1.1そのもののbinaryでも同じtokenです。エンジンのバグとみられ、上流にTensorFold #1214として報告しています（[リリースでの測定値](README.ja.md#リリースでの測定値)、XSFP4のmodel card）。
+- 第三者の表示にXSFP4のcheckpointを載せました。
+- 制約の節の `clear_thinking` は、両方のcheckpointのchat templateについて書きます。どちらも無ければfalseとして扱います。
+
+### 受け入れ
+
+2026-10-23に参照機で、リリースのimage（`glm53-tf3:3.4.0`）をそれ自身の `serve.sh` と `cluster.sh` で、rankのファイルに `CHECKPOINT` を書かず、全containerを効率coreに置いて、各TPで1回起動しました：TP=2とTP=3で、XSFP4のdecode検査のhash、`bench --kinds edit` の返答、NLLが3.3.0と同じで、rank 0の読み込みの行のmodelの大きさも同じでした（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
 ## 3.3.0 — 2026-10-23
 
 上流1.1.2の上で、選べる2つ目のcheckpoint、XSFP4と、帯だけの熱の待ち。既定はNVIDIAの固定したcheckpointのままで、その上のTP=2のtextの道は3.2.0のものです。TP=3は上流のtiledのBF16のlinearで回り、3.2.0のglueのkernelとは別のtokenを返します。
