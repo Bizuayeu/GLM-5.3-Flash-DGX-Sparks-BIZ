@@ -20,7 +20,7 @@ This map lists the repository's own pages, the pages every serving line shares a
 
 | Document | Role | EN | JA |
 |---|---|---|---|
-| Host preparation | The kernel and driver to run, the multi-node RoCE failure and its workaround, the GPU clock cap | [EN](hosts.md) | [JA](hosts.ja.md) |
+| Host preparation | The kernel and driver to run, the multi-node RoCE failure and its workaround, the GPU clock cap, swap, host daemons and a lost peer | [EN](hosts.md) | [JA](hosts.ja.md) |
 | Host tools | GPU clock cap unit, telemetry logger, cool-gate and thermal-watch | [EN](../host/README.md) | [JA](../host/README.ja.md) |
 | QSFP network | Direct QSFP connection for the pair and the three-host ring, persistent NetworkManager profiles, per-host /32 addresses | [EN](qsfp-network.md) | [JA](qsfp-network.ja.md) |
 | NCCL diagnostics | Two- and three-rank collective diagnostic, a moving GID index, channel count, limits | [EN](nccl-validation.md) | [JA](nccl-validation.ja.md) |

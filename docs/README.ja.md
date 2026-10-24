@@ -20,7 +20,7 @@
 
 | 文書 | 役割 | EN | JA |
 |---|---|---|---|
-| ホストの準備 | 動かすカーネルとドライバー、複数ノードRoCEの失敗と回避策、GPUクロックの上限 | [EN](hosts.md) | [JA](hosts.ja.md) |
+| ホストの準備 | 動かすカーネルとドライバー、複数ノードRoCEの失敗と回避策、GPUクロックの上限、swap・ホストのデーモン・peerの喪失 | [EN](hosts.md) | [JA](hosts.ja.md) |
 | ホストのツール | GPUクロックの上限のunit、温度の記録、cool-gate、thermal-watch | [EN](../host/README.md) | [JA](../host/README.ja.md) |
 | QSFPネットワーク | 対と3台のリングのQSFP直結、NetworkManagerの永続profile、ホストごとの/32アドレス | [EN](qsfp-network.md) | [JA](qsfp-network.ja.md) |
 | NCCL診断 | 2 rank・3 rankのcollective診断、動くGID index、チャネル数、限界 | [EN](nccl-validation.md) | [JA](nccl-validation.ja.md) |

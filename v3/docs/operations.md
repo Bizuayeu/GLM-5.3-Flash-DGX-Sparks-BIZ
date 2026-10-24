@@ -30,6 +30,8 @@ The engine's heat wait holds a prompt pass between chunks while any rank's hotte
 
 The thermal watch reads every ACPI zone, and five of a GB10's seven are the CPU's. The engine's spinning threads heat them through long runs of replies, which the heat wait does not hold; the container's default cores keep them lower ([why the efficiency cores](../README.md#serving-defaults)). A container created with every core moves to them with `docker update` ([recreate the container](#recreate-the-container)).
 
+The host's own users of memory, swap and a peer that stops answering are in [host preparation](../../docs/hosts.md#swap-host-daemons-and-a-lost-peer). At 3.x each rank's liveness line to rank 0 notices a host that vanishes within about 20 s, also while no request runs, and every rank then stops; this is read from the engine's source, and the reference hosts did not meet it.
+
 ## A stop that leaves an engine
 
 `cluster.sh state/cluster.env stop` sends `pkill -TERM -f 'tensorfold-native serve'` inside rank 0's container (the other ranks leave when rank 0 does), waits up to 60 s for each rank's engine to end and sends the same to a rank still running, then prints each host's engine-process count and `MemAvailable`. A count above 0 means that rank still runs: `docker exec glm53-tf3 pkill -9 -f 'tensorfold-native serve'`, or `docker stop glm53-tf3`, which ends every process in the container, then `status` again. Every stop in the 3.0.0 and 3.1.0 acceptances ended with 0 on every rank.

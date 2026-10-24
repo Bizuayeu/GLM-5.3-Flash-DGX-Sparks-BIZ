@@ -135,19 +135,9 @@ derived checkpoint（公開した任意設定）とそのoverlayは、profileが
 
 各標本には、containerのcgroupメモリと、その全プロセスの `VmRSS`／`RssAnon` の合計（`container_cgroup_gib`・`container_rss_gib`・`container_anon_gib`）も記録します。cgroup v2と `/proc` を権限なしで読みます。GB10ではGPUがホストのメモリを共有し、device側の確保はcgroupにもプロセスにも計上されないので、rankが `memory-reserve` で止まった時、記録そのものが二つの場合を切り分けます。cgroupとRSSが平らなまま `MemAvailable` が減るならdevice側の増加（decode Graph有効時の200K prefillで観測）、RSSが増えるならプロセス側の増加です。読めなかった観測は `container_memory_error` として記録し、rankの停止条件にはしません。
 
-### swap
+### swap・ホストのデーモン・peerの喪失
 
-参照機はホストページ用に16 GiBのswapを持ちます。`vm.swappiness=0` は新しいページアウトを止めますが、既にswapに出たページは戻しません。長いprefill中に古いswapページへ触れたことがGB10のUVM livelockの引き金だったと同じ出典が報告しています。起動の全containerが止まっている間に残りのswapを巡回します：`sudo swapoff -a && sudo swapon -a`。swapファイル自体は残します。swapを無くすと、確保の山でworkerがkillされました。2026-09-17に基準の対で、chunk 2048のまま `vm.swappiness` の60と0を比べました（0の前にswapを巡回）。60ではエンジンのプロセスにswapへ出たページはなく、headの0.38 GiB・peerの0.28 GiBは検索コンテナやデスクトップのシェルなど他のプロセスのものでした。0ではswapは空のままで、prefillの差は1.9%（再起動をまたぐばらつきの範囲内）、headの最小空きは0.45 GiB低く、peerは0.31 GiB高くなりました。この負荷では効果が見えなかったため、ホストは配布時の60のままにします。Spark 2台の他レシピは0を `/etc/sysctl.d` に永続化することを必須としています（tonyd2wild OPEN-PROBLEMS §4、コードは採用しない）。永続化する前に、自分の負荷で測ってください。
-
-### ホストのデーモン
-
-**ホストのデーモンは同じ統合メモリを奪い合います。** 監視は `MemAvailable` が余裕を割るとモデルを止めますが、原因がホスト上の別プロセスのこともあり、その場合はモデルだけが止まって原因は残ります。2026-09-16 には peer 側の rank が余裕 2.5 GiB に対し 2.49 GiB で停止しました。原因は、もう一方のホストで動く監視ダッシュボードが、メトリクスを 1 つ取るたびに peer へ新しい SSH ログインを張っていたことで、その頻度は毎秒 3.6 回でした。ログインごとに logind セッションと polkit の認可チェックが生じて `polkitd` が 6 日で 3.40 GiB まで太り、セッションが変わるたびに `wireplumber` が Bluetooth オーディオのプロファイルを登録し直して `bluetoothd` が「登録済み」と拒否し、この 2 つも太りました（0.69 GiB と 1.15 GiB）。さらにログインごとに `/etc/update-motd.d` の全スクリプトが走り、毎秒約 660 個のプロセスを生んでいました。ダッシュボードが動くホストは自分のメトリクスを直接読むので、0.03 GiB のままでした。ダッシュボードのホスト別名に OpenSSH の接続再利用（`ControlMaster auto`・`ControlPersist`）を入れると、peer へのログインは毎分 218 回から 0 回になり、ダッシュボードの値も変わらず取れました。長時間運転の前に、各ホストで `journalctl -u ssh --since -60s | grep -c Accepted` でログイン数を数え、`ps -eo user,rss,comm --sort=-rss | head` でデーモンの大きさを比べます。漏れるデーモンへ `MemoryMax` を入れるときは `Restart=on-failure` も併せて指定します。これらのunitは `Restart=no` で配布されており、上限に当たって落ちたきり戻らないためです。なお片肺の起動はAPIからは見えません。生き残ったheadが `/health` に 200 を返し続けるので、全ホストで `docker ps` を見ます。
-
-**原因の特定と、その後に確かめたこと。** 新しいプロセス・スレッドのIDを数えるとホストの差がはっきりし（10秒でpeerは6,642、headは176）、`journalctl -u ssh` でログインの出どころがダッシュボードだと辿れました。Bluetoothは症状で、原因ではありませんでした。接続を再利用させるとpeerの出入りは止まり、電源を入れ直した後も3つのデーモンの大きさは変わりませんでした。事故の最中に入れた `polkitd` の上限（`MemoryMax=512M`・`Restart=on-failure`）は二重の備えとしてpeerに残しており、上限に当たったときの再起動はまだ起きていません。
-
-### peerの喪失
-
-**待機中の起動ではpeerの喪失を検知しません。** Mia Issue #193は、TP=2で連続配信している最中にheadのホストがすべてのネットワークで応答しなくなり、物理的な再起動が必要になった事例を報告しています。直前には何も記録されず、workerは動き続け、運用者が止めるまで100 GB超を抱えていました。この機体に持ち込める点は2つです。各監視プロセスは自分が守るホストの上で動くので、ホストが固まれば監視も一緒に止まります。reserveが防ぐのはモデルによる統合メモリの枯渇で、ホスト自体の固まりではありません。また、待機中の片肺の起動はどの監視でも止まりません。メモリはreserveを割らず、停滞検知はrunningの要求を条件にしているためです。各rankが他のrankを確かめてpeer喪失で停止する停止理由は設計案で、実装していません。
+これらはどの系列にも関わり、[ホストの準備](../../docs/hosts.ja.md#swapホストのデーモンpeerの喪失)にあります：残ったswapと `vm.swappiness`、統合メモリを奪い合うホストのデーモン（2026-09-16のpeerの監視停止）、そして待機中の起動で失われ、1.x系のどの監視も止めないpeerです。
 
 ### warmup ladder
 

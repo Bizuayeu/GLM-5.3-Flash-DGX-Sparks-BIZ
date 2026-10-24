@@ -62,7 +62,7 @@
 | MTPの投機設定（ランチャーは `mtp.*` から組み立てる。ファイルは手で再現するときの形を示す） | [examples/speculative.mtp1.json](../examples/speculative.mtp1.json)、[speculative.mtp3.json](../examples/speculative.mtp3.json) |
 | FreedomBenchの設問・正答の固定 | [config/freedombench.lock.json](../config/freedombench.lock.json)。確認済みの日本語訳は[config/freedombench-ja.lock.json](../config/freedombench-ja.lock.json) |
 | 施策ID、採否、再評価条件 | [施策台帳](optimization-catalog.ja.md) |
-| 実測値とその条件 | [ベンチマーク](benchmarks.ja.md)、[画像入力](vision.ja.md)、[投機的デコーディング](speculative-decoding.ja.md)、[LPA](lpa.ja.md)、[部品検証](component-validation.ja.md)、[候補順序](candidate-order.ja.md)、[Indexer再利用](indexer-reuse.ja.md)、[NCCL検証](../../docs/nccl-validation.ja.md)、[FreedomBench](freedombench.ja.md)、[HLE](hle.ja.md)、[出力の正しさの関門](correctness-gates.ja.md)（prefix cacheの関門、マルチバイト出力）、[再現性](repeatability.ja.md)、[運用手順](operations.ja.md)（運用上の事象：重みの読み込みとcloneの速さ、daemonの下のhostのメモリ） |
+| 実測値とその条件 | [ベンチマーク](benchmarks.ja.md)、[画像入力](vision.ja.md)、[投機的デコーディング](speculative-decoding.ja.md)、[LPA](lpa.ja.md)、[部品検証](component-validation.ja.md)、[候補順序](candidate-order.ja.md)、[Indexer再利用](indexer-reuse.ja.md)、[NCCL検証](../../docs/nccl-validation.ja.md)、[FreedomBench](freedombench.ja.md)、[HLE](hle.ja.md)、[出力の正しさの関門](correctness-gates.ja.md)（prefix cacheの関門、マルチバイト出力）、[再現性](repeatability.ja.md)、[運用手順](operations.ja.md)（運用上の事象：重みの読み込みとcloneの速さ）、[ホストの準備](../../docs/hosts.ja.md)（daemonの下のhostのメモリ、swap） |
 | APC／LPAの共有状態契約（N・H・T・R・B） | [APC優先LPAの設計](apc-lpa-design.ja.md) |
 | クライアント認証、allocator、レール、切替・復旧の契約 | [起動契約](launch-safety.ja.md) |
 | 3ノードの起動順、rank数の変更の拒否、ホストごとのruntime cache | [起動契約](launch-safety.ja.md#3ノード) |

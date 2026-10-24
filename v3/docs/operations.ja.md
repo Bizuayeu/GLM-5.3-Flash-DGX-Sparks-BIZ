@@ -30,6 +30,8 @@
 
 熱の見張りは全てのACPIのzoneを読み、GB10の7つのzoneのうち5つはCPUのものです。エンジンの空回りするthreadは返答の長い連続の間これを温め、熱の待ちはそれを止めません。containerの既定のcoreがこれを低く保ちます（[効率coreにする理由](../README.ja.md#配信の既定)）。全coreで作ったcontainerは `docker update` で移せます（[containerを作り直す](#containerを作り直す)）。
 
+ホスト自身のメモリの使い手、swap、応答しなくなるpeerは[ホストの準備](../../docs/hosts.ja.md#swapホストのデーモンpeerの喪失)にあります。3.x系では、各rankからrank 0への生存の線が、要求の無い間も消えたホストを約20秒で見つけ、全rankが止まります。これはエンジンのsourceから読んだもので、参照機は出会っていません。
+
 ## エンジンが残る停止
 
 `cluster.sh state/cluster.env stop` はrank 0のcontainerの中で `pkill -TERM -f 'tensorfold-native serve'` を送り（他のrankはrank 0が終わると抜けます）、rankごとにエンジンが終わるのを最大60秒待ち、まだ動いているrankに同じものを送ってから、各ホストのエンジンのプロセス数と `MemAvailable` を表示します。数が0より大きいrankはまだ動いています：`docker exec glm53-tf3 pkill -9 -f 'tensorfold-native serve'` か、containerの中の全プロセスを終わらせる `docker stop glm53-tf3` の後、もう一度 `status` を実行します。3.0.0と3.1.0の受け入れでは、どの停止も全rankで0で終わりました。
