@@ -2,7 +2,7 @@
 
 [English](operations.md) · [3.x系の概要](../README.ja.md) · [配備の手順書](../SETUP.ja.md) · [検証](validation.ja.md)
 
-3.x系の起動がうまくいかないときにすることと、その周りの日常の作業（新しいcontainer、新しいimage、別のcheckpoint、電源が落ちたホスト、ホストを2.x系へ渡す）です。各節は、台本が何をするかと、参照機がどの場合に出会ったかを書きます。出会っていない場合はそう書きます。コマンドはcheckoutのルートから、clusterのファイルを `state/cluster.env` に置いて実行します（[手順書 §5](../SETUP.ja.md#5-起動)）。ホストを変える他のコマンドと同じく、運用者が許可した時間の中で行います。
+3.x系の起動がうまくいかないときにすることと、その周りの日常の作業（新しいcontainer、新しいimage、電源が落ちたホスト、ホストを2.x系へ渡す）です。各節は、台本が何をするかと、参照機がどの場合に出会ったかを書きます。出会っていない場合はそう書きます。コマンドはcheckoutのルートから、clusterのファイルを `state/cluster.env` に置いて実行します（[手順書 §5](../SETUP.ja.md#5-起動)）。ホストを変える他のコマンドと同じく、運用者が許可した時間の中で行います。
 
 ## 起動の結果
 
@@ -50,7 +50,7 @@ rankどうしはTCPのsocketではなくRoCEで話す必要があります：
 
 ```sh
 docker rm -f glm53-tf3                                  # containerは起動の合間は眠っているだけ
-v3/scripts/create_container.sh glm53-tf3:3.5.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.6.0 ~/glm53-tf3
 ```
 
 `create_container.sh` はcontainerに名前を付けるので、古いものを先に消します（または改名します：`docker rename glm53-tf3 glm53-tf3-old` の後に `docker stop`）。ホストのディレクトリは残ります：rankのファイルとlogです。containerの中では何もbuildしません。

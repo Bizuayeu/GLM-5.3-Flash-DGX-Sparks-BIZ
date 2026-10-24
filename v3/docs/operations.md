@@ -2,7 +2,7 @@
 
 [日本語](operations.ja.md) · [3.x overview](../README.md) · [Setup runbook](../SETUP.md) · [Validation](validation.md)
 
-What to do when a 3.x launch goes wrong, and the routine changes around it: a new container, a new image, another checkpoint, a host that powered off, handing the hosts to 2.x. Each section says what the scripts do and which cases the reference hosts met; a case they did not meet is marked as such. Commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized.
+What to do when a 3.x launch goes wrong, and the routine changes around it: a new container, a new image, a host that powered off, handing the hosts to 2.x. Each section says what the scripts do and which cases the reference hosts met; a case they did not meet is marked as such. Commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized.
 
 ## Start outcomes
 
@@ -50,7 +50,7 @@ After `cluster.sh state/cluster.env stop`, on each host:
 
 ```sh
 docker rm -f glm53-tf3                                  # the container only sleeps between starts
-v3/scripts/create_container.sh glm53-tf3:3.5.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.6.0 ~/glm53-tf3
 ```
 
 `create_container.sh` names the container, so the old one must go first (or be renamed: `docker rename glm53-tf3 glm53-tf3-old`, then `docker stop`). The host directory stays: the rank file and the logs. Nothing is built in the container.

@@ -28,22 +28,22 @@ python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksu
 GB10ホストの1台（linux/arm64）で、checkoutのルートからbuildします：
 
 ```sh
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.5.0 .
-docker image inspect --format '{{.Id}}' glm53-tf3:3.5.0
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.6.0 .
+docker image inspect --format '{{.Id}}' glm53-tf3:3.6.0
 ```
 
-buildは、[`config/engine.lock.json`](config/engine.lock.json) のcommit（`ENGINE_REF`）のTensorFoldのBIZ releaseからエンジンをcompileします。Zigのcompilerはlockが名指す版で、SHA-256で確かめます。構造化出力の `libtfgrammar` も、lockが固定するxgrammarのreleaseからcommitで確かめてbuildします。画像と動画の入力のために、lockがSHA-256で固定するreleaseのtarballから、libjpeg-turbo・libwebpのdecoder・静的なFFmpegをbuildし、そのFFmpegの上にエンジンの `libtfvideo` を作ります。実行のimageには、`/usr/local/bin` に `tensorfold-native` と `tf-cuda-test`、`/usr/local/lib` に `libtfgrammar.so`・`libturbojpeg.so.0`・`libwebpdecoder.so.3`・`libtfvideo.so`、NCCL 2.30.7とRDMAのuserspace、`/opt/glm53-tf3/` に `serve.sh`、エンジンのcommitとmediaのreleaseと各binary・libraryのSHA-256を書いた `/usr/share/doc/tf3/ENGINE`、このリポジトリ・xgrammar・libjpeg-turbo・libwebp・FFmpeg・エンジンの表示（`/usr/share/doc/tf3/` の下）が入ります。2つのbaseのimageはdigestで固定しています。参照機では、baseのimageを取ってから3.2.0のimageのbuildに約13分かかりました。同じcommitでも別のホストでbuildするとbinaryのSHA-256が変わることがあります（参照機のbuildでもそうでした）。2つのbuildが同じに答えるかは、hashではなくdecode検査で見ます。他のホストへimageを写し（リンク越しに `docker save glm53-tf3:3.5.0 | ssh <host> docker load`）、全ホストのimage IDを比べます。同じでなければいけません。
+buildは、[`config/engine.lock.json`](config/engine.lock.json) のcommit（`ENGINE_REF`）のTensorFoldのBIZ releaseからエンジンをcompileします。Zigのcompilerはlockが名指す版で、SHA-256で確かめます。構造化出力の `libtfgrammar` も、lockが固定するxgrammarのreleaseからcommitで確かめてbuildします。画像と動画の入力のために、lockがSHA-256で固定するreleaseのtarballから、libjpeg-turbo・libwebpのdecoder・静的なFFmpegをbuildし、そのFFmpegの上にエンジンの `libtfvideo` を作ります。実行のimageには、`/usr/local/bin` に `tensorfold-native` と `tf-cuda-test`、`/usr/local/lib` に `libtfgrammar.so`・`libturbojpeg.so.0`・`libwebpdecoder.so.3`・`libtfvideo.so`、NCCL 2.30.7とRDMAのuserspace、`/opt/glm53-tf3/` に `serve.sh`、エンジンのcommitとmediaのreleaseと各binary・libraryのSHA-256を書いた `/usr/share/doc/tf3/ENGINE`、このリポジトリ・xgrammar・libjpeg-turbo・libwebp・FFmpeg・エンジンの表示（`/usr/share/doc/tf3/` の下）が入ります。2つのbaseのimageはdigestで固定しています。参照機では、baseのimageを取ってから3.2.0のimageのbuildに約13分かかりました。同じcommitでも別のホストでbuildするとbinaryのSHA-256が変わることがあります（参照機のbuildでもそうでした）。2つのbuildが同じに答えるかは、hashではなくdecode検査で見ます。他のホストへimageを写し（リンク越しに `docker save glm53-tf3:3.6.0 | ssh <host> docker load`）、全ホストのimage IDを比べます。同じでなければいけません。
 
 ## 4. 各ホストのcontainerとrankのファイル
 
 ```sh
-v3/scripts/create_container.sh glm53-tf3:3.5.0 ~/glm53-tf3   # container glm53-tf3、~/glm53-tf3 を /work に
+v3/scripts/create_container.sh glm53-tf3:3.6.0 ~/glm53-tf3   # container glm53-tf3、~/glm53-tf3 を /work に
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # このホストのrank：tp2-rank0/1 か tp3-rank0/1/2
 ```
 
 `create_container.sh` はcontainerに割り当てるcoreを出します。`CPUSET` が無ければ最大周波数の最も低いcoreで、GB10では効率coreの `cpuset 0-4,10-14` です。エンジンのthreadが空回りする間も、CPUの温度を低く保ちます（[配信の既定](README.ja.md#配信の既定)）。前に `CPUSET=` を付けると全core、`CPUSET=<list>` で書いたcoreです。
 
-`~/glm53-tf3/rank.env` をこのホストの値に直します：`MASTER`（リンク上のrank 0のアドレス、全rankで同じ）、`NCCL_IB_HCA`（リンクのRDMAデバイス、2本のrail）、`NCCL_IB_GID_INDEX`、`NCCL_SOCKET_IFNAME`。29583が使われていれば `NCCL_PORT` も。exampleは参照機のファイルで、各行が何と測られたかを書いています。このファイルは `bash` が読み込むもので、`docker --env-file` には渡しません。exampleがコメントにしている行は既定を変えます：`PARALLEL`、`CONTEXT`、`VISION`、`CHECKPOINT`、熱の帯は全rankで同じに、`API_KEY_FILE` はrank 0だけで（[設定](README.ja.md#設定)）。
+`~/glm53-tf3/rank.env` をこのホストの値に直します：`MASTER`（リンク上のrank 0のアドレス、全rankで同じ）、`NCCL_IB_HCA`（リンクのRDMAデバイス、2本のrail）、`NCCL_IB_GID_INDEX`、`NCCL_SOCKET_IFNAME`。29583が使われていれば `NCCL_PORT` も。exampleは参照機のファイルで、各行が何と測られたかを書いています。このファイルは `bash` が読み込むもので、`docker --env-file` には渡しません。exampleがコメントにしている行は既定を変えます：`PARALLEL`、`CONTEXT`、`VISION`、熱の帯は全rankで同じに、`API_KEY_FILE` はrank 0だけで（[設定](README.ja.md#設定)）。
 
 エンジンにはホストでのbuildの段がありません。kernelはbinaryの中にあります。
 
@@ -65,11 +65,11 @@ TP=2では大きいrankから起動し、rank 0を最後にします。TP=3で�
 - 各rankのNCCLの行（`via NET/IB`、rankのファイルの `NCCL_DEBUG` の行で起動時に一度だけ出る）：全接続が `NET/IB` で、socketは無い
 - `serving` の行：modelの名前（rankのファイルで `MODEL_NAME` を設定しなければ `glm-tf`）、`HOST` と `PORT` を設定しなければ `127.0.0.1:8095`、窓
 
-rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、NVIDIAのNVFP4を3.2.0のimageで起動すると、TP=3で246〜554秒、TP=2で301〜615秒かかりました。長い方は各containerの最初の起動で、checkpoint全体を読んでdigestも取ります（参照機で190.4 GiBに約300秒、rank 0のlogに `checkpoint digest: … 0/33 cached files`）。同じcontainerの次からの起動はdigestをcacheから読み、TP=3で246〜258秒、TP=2で301〜302秒でした。XSFP4ではdigestが165.7 GiBを読み（`0/39 cached files`）、3.4.0のリリースのimageは、新しいcontainerの最初の起動で、rank 0の `serving` の行に、TP=2で `loaded in 369.9s`、TP=3で `319.5s` と出しました。3.5.0のものは、TP=2の524,288 tokenの窓で、新しいcontainerで `loaded in 372.0s`、次からの起動で `318.8s` でした。
+rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、3.6.0のリリースのimageは、新しいcontainerの最初の起動で、rank 0の `serving` の行にTP=2で `loaded in 371.5s`、TP=3で `322.7s` と出しました。最初の起動はcheckpoint全体を読んでdigestも取ります（165.7 GiBに約44秒、rank 0のlogに `checkpoint digest: … 0/39 cached files`）。同じcontainerの次からの起動はdigestをcacheから読み、TP=2で318.1〜327.8秒、TP=3で275.7秒でした。`cluster.sh` はrank 0の `serving` の行の数秒後にREADYを出します。
 
 ## 6. tool引数ゲート（任意）
 
-ゲートは2.x系の中継で、各tool callの引数をtoolの必須項目と突き合わせ、外れたらmodelにもう一度だけ尋ねます（[2.x系の手順7](../v2/SETUP.ja.md#7-tool引数ゲート任意)）。エンジンには依存しません。rank 0で、`v3/` から仮想環境で、またはcontainerの中で作業directoryの下のcheckoutから（containerがmountするのはそれとcacheだけ）：
+ゲートはこのリポジトリの中継で、TensorFoldにはありません。2.x系のもの（その前は1.x系のもの）の写しで、各tool callの引数をtoolの必須項目と突き合わせ、外れたらmodelにもう一度だけ尋ねます（[2.x系の手順7](../v2/SETUP.ja.md#7-tool引数ゲート任意)）。エンジンには依存せず、`serve.sh` は起動しません。rank 0で、`v3/` から仮想環境で、またはcontainerの中で作業directoryの下のcheckoutから（containerがmountするのはそれとcacheだけ）：
 
 ```sh
 python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log ../records/<run>/gate.jsonl

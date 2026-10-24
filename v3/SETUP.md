@@ -28,22 +28,22 @@ The engine reads the checkpoint from each host's Hugging Face cache, by default 
 Build on one of the GB10 hosts (linux/arm64), from the checkout root:
 
 ```sh
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.5.0 .
-docker image inspect --format '{{.Id}}' glm53-tf3:3.5.0
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.6.0 .
+docker image inspect --format '{{.Id}}' glm53-tf3:3.6.0
 ```
 
-The build compiles the engine from the BIZ release of TensorFold at the commit in [`config/engine.lock.json`](config/engine.lock.json) (`ENGINE_REF`), with the Zig compiler the lock names and checks by SHA-256, and builds `libtfgrammar` (structured output) from the xgrammar release the lock pins, checked by commit. For image and video input it builds libjpeg-turbo, libwebp's decoder and a static FFmpeg from the release tarballs the lock pins by SHA-256, and the engine's `libtfvideo` over that FFmpeg. The runtime image holds `tensorfold-native` and `tf-cuda-test` in `/usr/local/bin`, `libtfgrammar.so`, `libturbojpeg.so.0`, `libwebpdecoder.so.3` and `libtfvideo.so` in `/usr/local/lib`, NCCL 2.30.7 and the RDMA userspace, `serve.sh` in `/opt/glm53-tf3/`, `/usr/share/doc/tf3/ENGINE`, which names the engine commit, the media releases and every binary's and library's SHA-256, and the notices of this repository, xgrammar, libjpeg-turbo, libwebp, FFmpeg and the engine under `/usr/share/doc/tf3/`. Both base images are pinned by digest. The build of 3.2.0's image took about 13 minutes on a reference host, the base images pulled first. The same commit built on another host can give binaries with other SHA-256s (the reference hosts' builds did); the decode check, not the hash, tells whether two builds answer alike. Copy the image to the other hosts (`docker save glm53-tf3:3.5.0 | ssh <host> docker load`, over the link) and compare the image IDs of every host; they must be equal.
+The build compiles the engine from the BIZ release of TensorFold at the commit in [`config/engine.lock.json`](config/engine.lock.json) (`ENGINE_REF`), with the Zig compiler the lock names and checks by SHA-256, and builds `libtfgrammar` (structured output) from the xgrammar release the lock pins, checked by commit. For image and video input it builds libjpeg-turbo, libwebp's decoder and a static FFmpeg from the release tarballs the lock pins by SHA-256, and the engine's `libtfvideo` over that FFmpeg. The runtime image holds `tensorfold-native` and `tf-cuda-test` in `/usr/local/bin`, `libtfgrammar.so`, `libturbojpeg.so.0`, `libwebpdecoder.so.3` and `libtfvideo.so` in `/usr/local/lib`, NCCL 2.30.7 and the RDMA userspace, `serve.sh` in `/opt/glm53-tf3/`, `/usr/share/doc/tf3/ENGINE`, which names the engine commit, the media releases and every binary's and library's SHA-256, and the notices of this repository, xgrammar, libjpeg-turbo, libwebp, FFmpeg and the engine under `/usr/share/doc/tf3/`. Both base images are pinned by digest. The build of 3.2.0's image took about 13 minutes on a reference host, the base images pulled first. The same commit built on another host can give binaries with other SHA-256s (the reference hosts' builds did); the decode check, not the hash, tells whether two builds answer alike. Copy the image to the other hosts (`docker save glm53-tf3:3.6.0 | ssh <host> docker load`, over the link) and compare the image IDs of every host; they must be equal.
 
 ## 4. Container and rank file on each host
 
 ```sh
-v3/scripts/create_container.sh glm53-tf3:3.5.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
+v3/scripts/create_container.sh glm53-tf3:3.6.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # this host's rank: tp2-rank0/1 or tp3-rank0/1/2
 ```
 
 `create_container.sh` prints the cores it gives the container: unless `CPUSET` is set, the cores with the lowest maximum frequency, `cpuset 0-4,10-14` on a GB10, whose efficiency cores keep the CPU cooler while the engine's threads spin ([serving defaults](README.md#serving-defaults)). `CPUSET=` before it gives every core, and `CPUSET=<list>` the cores listed.
 
-Edit `~/glm53-tf3/rank.env` with this host's values: `MASTER` (rank 0's address on the link, the same on every rank), `NCCL_IB_HCA` (the RDMA devices on the links, both rails), `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`; also `NCCL_PORT` if 29583 is taken. The examples are the reference hosts' files and say what each line was measured as. The file is sourced by `bash`, not passed to `docker --env-file`. Lines the examples leave commented out change a default: `PARALLEL`, `CONTEXT`, `VISION`, `CHECKPOINT` and the heat bands for every rank alike, and `API_KEY_FILE` on rank 0 alone ([configuration](README.md#configuration)).
+Edit `~/glm53-tf3/rank.env` with this host's values: `MASTER` (rank 0's address on the link, the same on every rank), `NCCL_IB_HCA` (the RDMA devices on the links, both rails), `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`; also `NCCL_PORT` if 29583 is taken. The examples are the reference hosts' files and say what each line was measured as. The file is sourced by `bash`, not passed to `docker --env-file`. Lines the examples leave commented out change a default: `PARALLEL`, `CONTEXT`, `VISION` and the heat bands for every rank alike, and `API_KEY_FILE` on rank 0 alone ([configuration](README.md#configuration)).
 
 The engine needs no build step on the host: its kernels are in the binary.
 
@@ -65,11 +65,11 @@ Read each rank's startup lines:
 - each rank's NCCL lines (`via NET/IB`, logged once at start by the rank file's `NCCL_DEBUG` lines) name `NET/IB` for every connection, none over sockets
 - the `serving` line: the model name (`glm-tf` unless `MODEL_NAME` is set in the rank file), `127.0.0.1:8095` unless `HOST` and `PORT` are, and the window
 
-Rank 0 serves the OpenAI-compatible API on loopback. On NVIDIA's NVFP4 with 3.2.0's image a start took 246 to 554 s at TP=3 and 301 to 615 s at TP=2 on the reference hosts. The longer ones were each container's first start, which also reads the whole checkpoint for its digest (190.4 GiB in about 300 s there, `checkpoint digest: … 0/33 cached files` in rank 0's log); later starts in the same container read the digest from its cache and took 246 to 258 s at TP=3 and 301 to 302 s at TP=2. On XSFP4 the digest reads 165.7 GiB (`0/39 cached files`), and 3.4.0's release image, in each new container's first start, logged `loaded in 369.9s` at TP=2 and `319.5s` at TP=3 on rank 0's `serving` line. 3.5.0's, at TP=2's 524,288-token window, logged `loaded in 372.0s` in a new container and `318.8s` in a later start.
+Rank 0 serves the OpenAI-compatible API on loopback. On the reference hosts 3.6.0's release image logged `loaded in 371.5s` at TP=2 and `322.7s` at TP=3 on rank 0's `serving` line in each new container's first start, which also reads the whole checkpoint for its digest (165.7 GiB in about 44 s, `checkpoint digest: … 0/39 cached files` in rank 0's log); later starts in the same container read the digest from its cache and logged 318.1 to 327.8 s at TP=2 and 275.7 s at TP=3. `cluster.sh` reports READY a few seconds after rank 0's `serving` line.
 
 ## 6. Tool-argument gate (optional)
 
-The gate is 2.x's relay that checks each tool call's arguments against the tool's required fields and asks the model once more when one fails ([2.x step 7](../v2/SETUP.md#7-tool-argument-gate-optional)). It does not depend on the engine. On rank 0, from `v3/` with its virtual environment, or in the container from a checkout under the work directory (the container mounts only that and the cache):
+The gate is this repository's relay, not part of TensorFold: 2.x's copy (and 1.x's before it), which checks each tool call's arguments against the tool's required fields and asks the model once more when one fails ([2.x step 7](../v2/SETUP.md#7-tool-argument-gate-optional)). It does not depend on the engine, and `serve.sh` does not start it. On rank 0, from `v3/` with its virtual environment, or in the container from a checkout under the work directory (the container mounts only that and the cache):
 
 ```sh
 python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log ../records/<run>/gate.jsonl

@@ -6,6 +6,42 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.6.0 — 2026-10-24
+
+エンジンを上流のTensorFold 1.1.3の上へ移し、3.x系はXSFP4だけを配信します：NVIDIAのNVFP4と公開したAXLの重みは3.x系の選択肢から外れ、1.x系と2.x系には残ります。
+
+### Engine
+
+- forkのbranch `release/3.6.0`（`21778b05`）は、上流v1.1.3に、pull request #1050のcode（15のcommit、上流でopen）と、TP=3のためのこの系列のNCCLのidのファイルを足したものです。そのcommentは今、この系列のpull request #1178を名指します（上流はTPのbootstrap #636を閉じました）。1.1.3から、indexがmodelのfolderの中のfolderにあるshardを名指せることは上流自身のcodeにあるので、3.3.0から持っていたpull request #1179のpatchはbranchから外れます。他のcommitが変える行は、そのcommentを除いて3.5.0と同じです。
+- 1.1.3の `zig build grammar` は `libtfgrammar` をnativeのserverの隣、`zig-out/native/lib` に置くので、imageはそこから取ります。Zig・xgrammar・mediaのlibraryは3.5.0の版のままで、1.1.3もその版を固定しています。
+
+### XSFP4 alone
+
+- `download` と `verify-download` は既定の `--checkpoint xsfp4` だけを受け、状態は前と同じく `state/xsfp4` に残します。`pinned` と `axl` は断り、`config/model.lock.json` と `config/axl.lock.json` は系列から外れます。`serve.sh` のcommentはXSFP4だけを名指し、引数は変わりません：rankのファイルの `CHECKPOINT` は今も別のfolderを名指せますが、3.x系の受け入れはそれを扱いません。
+- rankのファイルの例から、NVIDIAのNVFP4のためのcommentの `CHECKPOINT` の行と、TP=2でそれに伴っていた245,760 tokenの窓を外しました。
+- XSFP4は `88736f91` に固定します。hubの `59c49ac9` の後のrevisionが変えたのはモデルカードだけです（全fileのsize・blob・LFSのsha256を照らし、両側とも53 file）。`serve.sh` は同じbyteを読み、snapshotには直したカードが入ります。
+- 公開の監査は、TensorFoldの各系列に、それが配信するcheckpointのlockを求めます（2.x系は `config/model.lock.json`、3.x系は `config/xsfp4.lock.json`）。系列が同じcheckpointを固定するかの系列間の試験は1.x系と2.x系を見ます。
+
+### Image
+
+- `serve.sh` はrank 0のアドレスを両TPで一度だけ名指し、`REASONING_EFFORT` を一度だけ読みます。引数は前と同じです。冒頭のcommentは、上流が#1178を取り込むまでNCCLのidのファイルが残ること、`cluster.sh` は既定の `/work/nccl-id` だけを写すことを書き、TP=3に `TF_GLM_MM=0` が要るとはもう書きません（上流1.1.2がissue #1067を直しました）。
+- DockerfileのNCCLのcommentはホストを名指さず、imageはNOTICEが名指すリポジトリの `LICENSES/` を持ちます。
+
+### Documentation
+
+- 3.x系のREADME・手順書・運用・検証はXSFP4だけを書きます。検証の基準値は全節で、3.3.0の受け入れで決めたXSFP4のものです。NVIDIAのprocessorに照らすTP=2の動画の検査はNVIDIAのNVFP4と一緒に外し、2.x系のNLLの列は参考として残します。checkpointの節は、同じエンジンでのNVIDIAのNVFP4の数を比べとしてだけ載せます。
+- 検証のtool-eval-benchの基準は、3.5.3のimageでの2.8.0のものです：TP=2で95、TP=3で92、Safety Gateは合格。2.7.0と2.8.0は多くのシナリオを2.6.1.dev52（XSFP4は両TPで93）より厳しく採点するので、版の違う点数は比べられません。
+- tool引数ゲートを、TensorFoldにないこのリポジトリの中継として、手順書§6・検証・READMEで名指しました。検証とREADMEの測定値は、tool-eval-benchのゲートなしの点をゲート越しの点と並べます。
+- リポジトリのREADME・文書の地図・ライセンスの手引きは、XSFP4を3.x系のcheckpointとして名指します。Next ActionはNCCLのidのファイルについて#1178を待ち、#1179の項目は済みました。README・手順書・運用のコマンドは `glm53-tf3:3.6.0` をbuildして名指し、手順書の起動の時間は3.6.0のものです。
+
+### Accepted
+
+2026-10-24に参照機で、リリースのimage（`glm53-tf3:3.6.0`）をそれ自身の `serve.sh` と `cluster.sh` で、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて起動しました：各TPの2回の起動で、XSFP4のdecode検査のhashと `bench --kinds edit` の返答は3.3.0と同じで、1回目ではNLLと199,307 tokenのpromptへの返答も3.3.0と同じで、499,254 tokenのpromptと、TP=3では1,035,295 tokenのpromptの3つの合言葉を全部見つけました。TP=2で `PARALLEL=` を空にした起動は1本のstreamを取り、countのhashを返しました。ゲート越しのtool-eval-bench 2.8.0は、TP=2で95、TP=3で92で、3.5.3のimageと同じ点と、同じ部分点・失敗のシナリオでした。ゲートなしでは、各TPでもう1回の起動で93と91で、Safety Gateは合格、TC-43も落としました（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
+### Not in 3.6.0
+
+3.x系でのNVIDIAのNVFP4と公開したAXLの重み（1.x系と2.x系が配信します）、生成したtokenのlog確率、chat templateへの `clear_thinking` の受け渡し（[制限](README.ja.md#制限)）。
+
 ## 3.5.3 — 2026-10-24
 
 文書と道具だけの版です。imageのファイルは変わらず、3.5.0のままです（`glm53-tf3:3.5.0`、`sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`）。

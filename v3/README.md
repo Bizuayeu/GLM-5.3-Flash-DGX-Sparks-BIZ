@@ -10,7 +10,7 @@
 
 ## Summary
 
-- **Status.** 3.5.0 widens TP=2's default window to 524,288 tokens on 3.4.0's engine and engine binary: its release image, started by its own `serve.sh` with no `CHECKPOINT` or `CONTEXT` in the rank files, gave 3.3.0's XSFP4 decode-check hashes, edit reply and NLL at TP=2, 3.3.0's reply to a 199,307-token prompt and all three passphrases of a 499,254-token one ([measured on the release](#measured-on-the-release)); TP=3 was not launched again, its engine binary and window being 3.4.0's. 3.4.0 made XSFP4 the default and kept 3.3.0's engine: its release image, started by its own `serve.sh` with no `CHECKPOINT` in the rank files, gave 3.3.0's XSFP4 decode-check hashes, edit reply and NLL at TP=2 and TP=3, one launch at each size. 3.3.0 was accepted on the reference hosts on 2026-10-22 and 23 against the reference values of [validation](docs/validation.md), measured there, at TP=2 and TP=3 on both checkpoints, with the vision tower loaded and the containers on the efficiency cores ([measured on the release](#measured-on-the-release)); on XSFP4 at TP=3 the stop string's request runs to its limit and a short greedy reply differs from NVIDIA's NVFP4's, known behaviours set down there. 3.3.0's acceptance ran its release image, started by its own `serve.sh`; NVIDIA's NVFP4's full runs used the image one engine commit before it, and the release image gave it the same answers. That is the scope of the claim; other hosts are qualified by running the same checks.
+- **Status.** 3.6.0 moves the engine onto upstream 1.1.3 and serves XSFP4 alone. Its release image, started by its own `serve.sh` and `cluster.sh` with no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores, gave 3.3.0's XSFP4 decode-check hashes and edit reply at TP=2 and TP=3 in two launches at each size, and its NLL, and found every passphrase of the long inputs, the 1,035,295-token prompt's at TP=3 included ([measured on the release](#measured-on-the-release)); at TP=3 the stop string's request runs to its limit and a short greedy reply has its own hash, known behaviours set down there. The reference values of [validation](docs/validation.md) were set in 3.3.0's acceptance on the reference hosts on 2026-10-22, with the vision tower loaded. That is the scope of the claim; other hosts are qualified by running the same checks.
 - **What it is.** Build steps, launch scripts and acceptance checks that serve XSFP4 through a pinned commit of TensorFold's native engine as one OpenAI-compatible endpoint: two hosts at TP=2 over a direct ConnectX-7 link, or three at TP=3 in a switchless ring. The published measurements come from MSI EdgeXpert (MS-C931) systems.
 - **Repeatable.** Drafted replies equal serial ones, and a launch gives the token ids of the launch before it at the same TP size. The native engine's tokens are its own, not 2.x's: its kernels and its BF16 KV cache round differently, so the two lines compare by teacher-forced NLL, not token by token ([differences from 2.x](#differences-from-2x)).
 - **Structured output and prompt scores.** `response_format` with a JSON schema, `tool_choice` `required` or a named function (written in GLM's own tool markup) and `prompt_logprobs` on `/v1/completions` are upstream TensorFold's own on GLM's CUDA engine since 1.1.1, written after this line's pull requests #1016, #1017 and #1018 ([API](#api)).
@@ -22,7 +22,7 @@
 ## What It Is
 
 - **Weights**: `Bizuayeu/GLM-5.3-Flash-XSFP4` ([`config/xsfp4.lock.json`](config/xsfp4.lock.json), [checkpoints](#checkpoints)), from NVIDIA's GLM-5.3-Flash-FP4-Local and [Z.ai's GLM-5.3-Flash](https://huggingface.co/zai-org/GLM-5.3-Flash).
-- **Engine**: TensorFold's native engine (`tensorfold-native`), from the BIZ release published as the branch `release/3.5.0` (the same commit as `release/3.3.0` and `release/3.4.0`) of [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold): upstream TensorFold v1.1.2 plus the code of upstream pull request #1050, the patch of upstream pull request #1179 (merged after 1.1.2: an index may name a shard in a folder inside the model folder, which FP4-Local's and XSFP4's indexes need on 1.1.2) and one commit of this line's. #1050's code (fifteen commits; the pull request is open upstream) loads NVIDIA's GLM-5.3-Flash-FP4-Local as stored, and with it the XSFP4 checkpoint, which keeps FP4-Local's tensors outside the experts: it tells each projection's format from the checkpoint's `MIXED_PRECISION` recipe, runs the MXFP8 and 128×128-block FP8 projections as stored, reads FP4-Local's compressed expert scales, and keeps the float32 norm weights float32. This line's commit is kept to it for TP=3: rank 0 hands its NCCL id to the other ranks in a file (`TF_GLM_NCCL_ID_FILE`), and each rank then takes `NCCL_COMM_ID`, through which the ranks' liveness lines reach rank 0, out of NCCL's environment, because NCCL cannot bootstrap through the ring's point-to-point `/32` addresses (until upstream's TP bootstrap, pull request #636). 3.1.0 and 3.2.0's heat look-ahead to a ceiling (`TF_HEAT_CEILING`) is gone: the heat wait is upstream's band alone ([serving defaults](#serving-defaults)). The image pins one commit ([`config/engine.lock.json`](config/engine.lock.json)).
+- **Engine**: TensorFold's native engine (`tensorfold-native`), from the BIZ release published as the branch `release/3.6.0` of [Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold): upstream TensorFold v1.1.3 plus the code of upstream pull request #1050 and two commits of this line's. From 1.1.3 upstream's own code lets an index name a shard in a folder inside the model folder, which FP4-Local's and XSFP4's indexes need; the release branches up to 3.5.x carried it as the patch of pull request #1179. #1050's code (fifteen commits; the pull request is open upstream) loads NVIDIA's GLM-5.3-Flash-FP4-Local as stored, and with it the XSFP4 checkpoint, which keeps FP4-Local's tensors outside the experts: it tells each projection's format from the checkpoint's `MIXED_PRECISION` recipe, runs the MXFP8 and 128×128-block FP8 projections as stored, reads FP4-Local's compressed expert scales, and keeps the float32 norm weights float32. This line's commits are kept to it for TP=3: rank 0 hands its NCCL id to the other ranks in a file (`TF_GLM_NCCL_ID_FILE`), and each rank then takes `NCCL_COMM_ID`, through which the ranks' liveness lines reach rank 0, out of NCCL's environment, because NCCL cannot bootstrap through the ring's point-to-point `/32` addresses; the second commit changes that code's comment alone. Upstream closed its TP bootstrap (pull request #636), and this line's pull request #1178, which sends the id over the ranks' lines, is open. 3.1.0 and 3.2.0's heat look-ahead to a ceiling (`TF_HEAT_CEILING`) is gone: the heat wait is upstream's band alone ([serving defaults](#serving-defaults)). The image pins one commit ([`config/engine.lock.json`](config/engine.lock.json)).
 - **Image**: [`docker/Dockerfile`](docker/Dockerfile). The engine is compiled in NVIDIA's CUDA 13.3.1 build image by the Zig compiler the lock names (checked by SHA-256), and `libtfgrammar` is built from xgrammar's release at a pinned commit; the runtime image is CUDA 13.3.1 with NCCL 2.30.7 and the RDMA userspace. Both base images are pinned by digest. `/usr/share/doc/tf3/ENGINE` names the engine commit and each binary's SHA-256, and `/usr/share/doc/tf3/engine/` holds the engine's license and notices.
 - **Launch**: shell scripts in [`scripts/`](scripts/) and one environment file per rank ([`examples/`](examples/) holds the reference hosts' files). [SETUP.md](SETUP.md) is the order. Nothing is built on the hosts: the kernels are in the binary.
 
@@ -47,10 +47,10 @@ python -m glm53_tf download --background
 python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
 
 # One host builds the image, the others load it; compare the image IDs (SETUP §3)
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.5.0 .
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.6.0 .
 
 # Each host, from the checkout root (SETUP §4)
-v3/scripts/create_container.sh glm53-tf3:3.5.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.6.0 ~/glm53-tf3
 cp v3/examples/tp2-rank0.env ~/glm53-tf3/rank.env     # tp2-rank1 on the other host; then put this host's values
 
 # The control machine (SETUP §5, §8)
@@ -152,7 +152,7 @@ The engine compares its settings across the ranks at start (drafts, the window, 
 
 Rank 0 serves the engine's HTTP API. What the acceptance exercised:
 
-- **`/v1/chat/completions`**, streamed and not, with tools, through the [tool-argument gate](SETUP.md#6-tool-argument-gate-optional) and directly.
+- **`/v1/chat/completions`**, streamed and not, with tools, through the [tool-argument gate](SETUP.md#6-tool-argument-gate-optional) (this repository's relay, not part of the engine) and directly.
 - **Structured output**: `response_format` `json_object` or `json_schema`, and `tool_choice` `required` or a named function, which the engine turns into a grammar in GLM's tool markup (`<arg_key>`, `<arg_value>`). Both need `libtfgrammar`, which the image carries; a request combining a grammar with a required tool call is refused with 400.
 - **`prompt_logprobs`** on non-streamed `/v1/completions`: the log-probabilities of the prompt's tokens, up to 20 alternatives each; the NLL check uses it. Such a request never resumes from the prompt cache.
 - **Thinking**: `reasoning_effort`, at the top level or in `chat_template_kwargs`; `none` turns thinking off, and a request that names no effort gets `high` ([serving defaults](#serving-defaults)). In a stream, `reasoning_content` and `content` arrive in separate deltas.
@@ -167,7 +167,7 @@ The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through t
 
 | | 2.x (TensorFold's Python engine) | 3.x (TensorFold's native engine) |
 |---|---|---|
-| Engine | the BIZ release of TensorFold 0.6.5, Python with Triton kernels compiled at run time | the BIZ release of TensorFold 1.1.2 (3.0.0: 1.0.12; 3.1.0 and 3.2.0: 1.1.1), Zig and CUDA, the kernels in the binary |
+| Engine | the BIZ release of TensorFold 0.6.5, Python with Triton kernels compiled at run time | the BIZ release of TensorFold 1.1.3 (3.0.0: 1.0.12; 3.1.0 and 3.2.0: 1.1.1; 3.3.0 to 3.5.x: 1.1.2), Zig and CUDA, the kernels in the binary |
 | Repeatable output | drafted equals serial, resume equals fresh, chunking does not matter, as the engine's contract | drafted equals serial and launches repeat their token ids; the tokens differ from 2.x's (other kernels, BF16 KV), so the lines compare by NLL |
 | KV and window | FP8 latent and index keys; 300,000 tokens at TP=2, 1,048,576 at TP=3 | BF16; 524,288 tokens at TP=2, 1,048,576 at TP=3 |
 | Requests at once | one | one by default; `PARALLEL` lets the engine share its decode rounds among more, within the memory the window leaves |
@@ -188,6 +188,30 @@ The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through t
 The two lines' containers both claim every GPU: run one line's engine at a time ([operations](docs/operations.md#hand-the-hosts-to-2x)).
 
 ## Measured on the Release
+
+**3.6.0** (2026-10-24, engine `21778b05`, upstream 1.1.3 with pull request #1050, image `glm53-tf3:3.6.0`). The engine moves onto upstream 1.1.3, and 3.x serves XSFP4 alone. Launches of the release image started by its own `serve.sh` and `cluster.sh`, with no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores: three at TP=2, one of them with `PARALLEL=` empty, and two at TP=3, then one more at each size for tool-eval-bench without the gate (at TP=3 with the prefill again: the first launch's overlapped writing the image out on rank 2's host). Every launch that ran them gave 3.3.0's XSFP4 decode-check hashes and `bench --kinds edit` reply in 190 rounds; the NLL and the reply to the 199,307-token prompt were 3.3.0's, and every passphrase of the 499,254 and 1,035,295-token prompts was found. With `PARALLEL=` empty the engine took one stream at TP=2's 524,288-token window and gave the count hash. Nothing stopped them.
+
+| 3.6.0 | TP=2 | TP=3 |
+|---|---|---|
+| Start (s): the launch of every check / a second launch | 377 / 334 | 330 / 283 |
+| Decode check count / prose / code (tok/s) | 48.83 / 33.74 / 44.86 | 64.28 / 45.24 / 55.33 |
+| MTP acceptance length, same tasks | 3.276 / 1.796 / 2.971 | 3.362 / 1.947 / 2.823 |
+| `bench --kinds decode` (tok/s, median) | 53.53 | 65.65 |
+| `bench --kinds edit` (tok/s, median) | 82.19 | 104.12 |
+| Prefill of 38,960 tokens (tok/s, median of three) | 1,409.4 | 1,694.3 |
+| 199,307-token prompt (s) | 152.8 | 130.4 |
+| 499,254 and 1,035,295-token prompts, first token (s) | 434.6 / — | 380.5 / 1,004.1 |
+| A prompt of about 93,000 tokens cut 3 s in: the next request answered after (s), against the uncut prompt's first token | 0.36 against 69.0 | 0.98 against 58.2 |
+| Teacher-forced NLL, ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
+| tool-eval-bench 2.8.0 through the gate / without it | 95 / 93 | 92 / 91 |
+| Forty replies of up to 1,024 tokens after 6,000-token prompts (s, hottest zone of rank 0's host) | 1,255.9, 75.1 °C | 985.5, 83.3 °C |
+| Hottest zone of a launch, by rank (°C) | 86.4 / 88.9 | 92.4 / 89.4 / 87.0 |
+| Lowest `MemAvailable`, by rank (GiB) | 12 / 13 | 21 / 22 / 27 |
+
+- **Against 3.3.0.** The same tokens. The speeds are 0.4 to 1.2% lower at TP=2 and 0.7 to 2.2% lower at TP=3, where the long prompts took about 2% longer (the 1,035,295-token prompt 994 s without its waits for heat, against 974 s); TP=3's prefill is that of a launch of its own, as the first launch's 1,669.2 tok/s overlapped writing the image out on rank 2's host. Rank 0's load line read the same model size (96.97 GiB at TP=2's 524,288-token window, 76.36 GiB at TP=3) and, at TP=2, a 4.6 GiB prompt cache (5.5 GiB with `PARALLEL=` empty).
+- **Heat.** At TP=3 only the 1,035,295-token prompt waited for heat, 10 s in 5 pauses of 2 s (3.3.0: 42 s in 21); at TP=2 no prompt waited. No zone reached the thermal watch's stop.
+- **Tools.** Through the [tool-argument gate](SETUP.md#6-tool-argument-gate-optional), this repository's relay, the scores and the scenarios left partial or failed are 3.5.3's image's with tool-eval-bench 2.8.0. Without it the engine scored 93 at TP=2 and 91 at TP=3 with the Safety Gate passed; the one more scenario failed at both sizes is TC-43, a `web_search` call with an empty `query`, which through the gate becomes a refusal to call it without one.
+- **Known behaviours of XSFP4** are 3.3.0's, below: at TP=3 the stop string's request runs to its limit, and the plain request of the prompt-score and structured-output checks has its own hash.
 
 **3.5.0** (2026-10-23, engine `d2d95b11` as in 3.3.0 and 3.4.0, image `glm53-tf3:3.5.0`). TP=2's default window becomes 524,288 tokens. The image differs from 3.4.0's in `serve.sh` alone and its engine binary is 3.4.0's byte for byte (the build reused the layer), so TP=3 was not launched again. At TP=2, the release image started by its own `serve.sh` and `cluster.sh` with no `CHECKPOINT` or `CONTEXT` in the rank files, every container on the efficiency cores: XSFP4's decode check gave 3.3.0's hashes, `bench --kinds edit` its reply in 190 rounds (80.7 to 81.0 tok/s, against 82.8 to 83.0 in 3.4.0's launch; an A/B on the same image afterwards, two launches at each of 245,760 and 524,288 tokens, gave medians of 82.4 to 82.8 tok/s at both windows) and the NLL its values; the 199,307-token prompt gave 3.3.0's reply in 151.7 s, and the 499,254-token prompt found its three passphrases with the first token after 431.5 s. No prompt waited for heat (the hottest zone 87.3 °C on rank 0's host and 89.0 °C on rank 1's), and the lowest `MemAvailable` was 12 GiB on both ranks. Rank 0's load line read a 96.97 GiB model, the first stream's window included, one stream of 6.71 GiB and a 5.5 GiB prompt cache (5.2 GiB in a second launch with `PARALLEL=` empty, where the engine took one stream and gave the count hash). NVIDIA's NVFP4 at the same window read 100.90 GiB and a 1.0 GiB prompt cache, and gave its count hash. Nothing stopped them.
 
@@ -339,9 +363,8 @@ v3/
 
 Each item is a trigger and what this line then does.
 
-- Upstream's TP bootstrap (pull request #636) lands → start TP=3 on it and drop the NCCL id file from the release branch.
+- Upstream takes this line's pull request #1178 (rank 0's NCCL id over the ranks' lines; upstream closed its TP bootstrap, #636) → start TP=3 on it and drop the NCCL id file from the release branch.
 - Upstream takes pull request #1050 (FP4-Local's loader) in a release → move onto it and drop its commits from the release branch; accept XSFP4 again.
-- Upstream releases pull request #1179 (an index may name a shard in a folder inside the model folder; merged after 1.1.2) → move onto it and drop its patch from the release branch.
 - 3.3.0's engine has upstream's pull request #1053 (the waiting ranks sleep while rank 0 has no stream, in 1.1.2); the releases since ran on the efficiency cores, so it is still open → measure again whether the container still needs them.
 - `chat_template_kwargs.clear_thinking` → pass it to the chat template as 2.x does, and offer it upstream.
 

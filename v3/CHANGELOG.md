@@ -4,6 +4,42 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.6.0 — 2026-10-24
+
+The engine moves onto upstream TensorFold 1.1.3, and 3.x serves XSFP4 alone: NVIDIA's NVFP4 and the published AXL weights leave its choices, and 1.x and 2.x keep them.
+
+### Engine
+
+- The fork's branch `release/3.6.0` (`21778b05`) is upstream v1.1.3 with the code of pull request #1050 (fifteen commits, open upstream) and this line's NCCL id file for TP=3, whose comment now names this line's pull request #1178 (upstream closed its TP bootstrap, #636). From 1.1.3 upstream's own code lets an index name a shard in a folder inside the model folder, so the patch of pull request #1179, carried since 3.3.0, leaves the branch; the other commits change the same lines as 3.5.0's, but for that comment.
+- 1.1.3's `zig build grammar` installs `libtfgrammar` beside the native server, in `zig-out/native/lib`, and the image takes it from there. Zig, xgrammar and the media libraries stay at 3.5.0's versions, which 1.1.3 pins too.
+
+### XSFP4 alone
+
+- `download` and `verify-download` take `--checkpoint xsfp4` alone, the default, with its status under `state/xsfp4` as before; `pinned` and `axl` are refused, and `config/model.lock.json` and `config/axl.lock.json` leave the line. `serve.sh`'s comments name XSFP4 alone and its arguments are unchanged: `CHECKPOINT` in the rank files still names another folder, which 3.x's acceptance does not cover.
+- The rank file examples drop the commented `CHECKPOINT` line for NVIDIA's NVFP4 and, at TP=2, the 245,760-token window that came with it.
+- XSFP4 is pinned at `88736f91`. The hub's revision after `59c49ac9` changes the model card alone (every file's size, blob and LFS sha256 compared, 53 files on both sides), so `serve.sh` loads the same bytes and the snapshot carries the corrected card.
+- The publication audit asks each TensorFold line for the lock of the checkpoint it serves (2.x `config/model.lock.json`, 3.x `config/xsfp4.lock.json`), and the cross-line test that the lines pin the same checkpoint covers 1.x and 2.x.
+
+### Image
+
+- `serve.sh` names rank 0's address once for both TP sizes and reads `REASONING_EFFORT` once, with the same arguments as before. Its header says the NCCL id file stays until upstream takes #1178 and that `cluster.sh` copies only the default `/work/nccl-id`, and no longer that TP=3 needs `TF_GLM_MM=0` (upstream 1.1.2 fixed issue #1067).
+- The Dockerfile's NCCL comment names no host, and the image carries the repository's `LICENSES/`, which its NOTICE names.
+
+### Documentation
+
+- The 3.x README, setup, operations and validation describe XSFP4 alone. Validation's reference values are XSFP4's, set in 3.3.0's acceptance, in every section; the TP=2 video check against NVIDIA's processor goes with NVIDIA's NVFP4, and 2.x's NLL columns stay as information. The checkpoints section gives NVIDIA's NVFP4's figures on the same engine as a comparison alone.
+- Validation's tool-eval-bench reference is 2.8.0's on 3.5.3's image: 95 at TP=2 and 92 at TP=3, the Safety Gate passed. 2.7.0 and 2.8.0 grade many scenarios more strictly than 2.6.1.dev52, which gave XSFP4 93 at both sizes, so scores of different versions do not compare.
+- The tool-argument gate is named as this repository's relay, not part of TensorFold, in setup §6, validation and the README, and validation and the README's measurements give tool-eval-bench's scores without it beside those through it.
+- The repository README, the document map and the licensing guide name XSFP4 as 3.x's checkpoint. Next Action waits for #1178 for the NCCL id file; #1179's item is met. The commands in the README, setup and operations build and name `glm53-tf3:3.6.0`, and setup's start times are 3.6.0's.
+
+### Accepted
+
+On the reference hosts on 2026-10-24, with the release image (`glm53-tf3:3.6.0`) started by its own `serve.sh` and `cluster.sh`, no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores: in two launches at each TP size XSFP4's decode-check hashes and `bench --kinds edit` reply were 3.3.0's, and in the first its NLL and 3.3.0's reply to the 199,307-token prompt, with all three passphrases found in the 499,254-token prompt and, at TP=3, the 1,035,295-token one; at TP=2 a launch with `PARALLEL=` empty took one stream and gave the count hash. tool-eval-bench 2.8.0 through the gate gave 95 at TP=2 and 92 at TP=3, 3.5.3's image's scores with the same scenarios left partial or failed; without the gate, in one more launch at each size, 93 and 91, the Safety Gate passed and TC-43 failed as well ([measured on the release](README.md#measured-on-the-release)).
+
+### Not in 3.6.0
+
+NVIDIA's NVFP4 and the published AXL weights on 3.x (1.x and 2.x serve them), log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.5.3 — 2026-10-24
 
 Documents and tools only. No file of the image changes; it stays 3.5.0's (`glm53-tf3:3.5.0`, `sha256:ac98364d3745d55ec016ab60617a77ef87c5af2ae0ce877a14381e810c4b850c`).
