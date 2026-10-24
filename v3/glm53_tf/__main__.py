@@ -15,6 +15,7 @@ COMMANDS = {
     "score-nll": "score_nll",
     "bench": "bench",
     "long-input": "long_input",
+    "mojibake": "mojibake",
 }
 
 
@@ -32,7 +33,7 @@ def main(argv=None):
         parser.error("unknown command: " + argv[0])
     target = COMMANDS[argv[0]]
     module = importlib.import_module("glm53_tf." + target)
-    # score-nll and long-input return their exit status; the others return None (0) or exit.
+    # score-nll, long-input and mojibake return their exit status; the others return None (0) or exit.
     raise SystemExit(module.main(argv[1:]))
 
 

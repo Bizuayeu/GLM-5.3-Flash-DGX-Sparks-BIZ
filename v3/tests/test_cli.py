@@ -24,6 +24,7 @@ HELP = [
     ("score-nll", "--tokenizer"),
     ("bench", "--kinds"),
     ("long-input", "--passphrases"),
+    ("mojibake", "--repeats"),
 ]
 
 
