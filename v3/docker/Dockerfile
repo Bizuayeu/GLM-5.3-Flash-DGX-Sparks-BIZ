@@ -9,7 +9,7 @@ ARG BUILD_IMAGE=nvidia/cuda:13.3.1-devel-ubuntu24.04@sha256:4ff859525f99de5782aa
 ARG RUNTIME_IMAGE=nvidia/cuda:13.3.1-runtime-ubuntu24.04@sha256:63da350831208559df18c7b8f3e0d5d1c984eaa815cdde690aacd6606cd0cb11
 # The engine and its compiler as v3/config/engine.lock.json pins them (v3/tests/test_engine_lock.py keeps them equal).
 ARG ENGINE_REPO=https://github.com/Bizuayeu/TensorFold.git
-ARG ENGINE_REF=d2d95b11dfda8dd9af58023954c74af2e9d85ffb
+ARG ENGINE_REF=21778b05937ebac8e3adab4607116602b5f9f78f
 ARG ZIG_URL=https://ziglang.org/download/0.17.0/zig-aarch64-linux-0.17.0.tar.xz
 ARG ZIG_SHA256=9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8
 ARG BUILD_FLAGS="-Dnvcc=/usr/local/cuda/bin/nvcc -Dsm=121"
@@ -94,11 +94,12 @@ RUN /opt/zig/zig build $BUILD_FLAGS \
 ARG XGRAMMAR_REPO
 ARG XGRAMMAR_TAG
 ARG XGRAMMAR_REF
-# `zig build grammar` puts libtfgrammar.so in zig-out/lib; xgrammar's and dlpack's notices go with it
+# `zig build grammar` puts libtfgrammar.so beside the native server, in zig-out/native/lib; xgrammar's and dlpack's
+# notices go with it
 RUN git clone --branch "$XGRAMMAR_TAG" --recurse-submodules "$XGRAMMAR_REPO" /xgrammar \
  && test "$(git -C /xgrammar rev-parse HEAD)" = "$XGRAMMAR_REF" \
  && /opt/zig/zig build grammar -Dxgrammar=/xgrammar $BUILD_FLAGS \
- && cp zig-out/lib/libtfgrammar.so /out/ \
+ && cp zig-out/native/lib/libtfgrammar.so /out/ \
  && mkdir /out/LICENSES \
  && cp /xgrammar/LICENSE /out/LICENSES/xgrammar-Apache-2.0.txt \
  && cp /xgrammar/NOTICE /out/LICENSES/xgrammar-NOTICE.txt \
