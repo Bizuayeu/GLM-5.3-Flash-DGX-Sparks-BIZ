@@ -10,7 +10,7 @@ As in [2.x step 1](../v2/SETUP.md#1-hosts-and-fabric): two or three DGX Spark or
 
 ## 2. Checkout and checkpoint
 
-Check out the same reviewed commit on every host (a `v3.*` release tag). The default checkpoint is XSFP4 ([checkpoints](README.md#checkpoints)): `Bizuayeu/GLM-5.3-Flash-XSFP4` at the revision in [`config/xsfp4.lock.json`](config/xsfp4.lock.json). Prepare the tools' virtual environment from `v3/` and download and verify it as in [2.x step 2](../v2/SETUP.md#2-checkout-and-checkpoint); the download keeps its status and log under `state/xsfp4`:
+Check out the same reviewed commit on every host (a `v3.*` release tag). The checkpoint is XSFP4 ([checkpoints](README.md#checkpoints)): `Bizuayeu/GLM-5.3-Flash-XSFP4` at the revision in [`config/xsfp4.lock.json`](config/xsfp4.lock.json). Prepare the tools' virtual environment from `v3/` and download and verify it as in [2.x step 2](../v2/SETUP.md#2-checkout-and-checkpoint); the download keeps its status and log under `state/xsfp4`:
 
 ```sh
 python3 -m venv .venv
@@ -22,7 +22,6 @@ python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksu
 
 The engine reads the checkpoint from each host's Hugging Face cache, by default `~/.cache/huggingface/hub`, mounted read-only into the container.
 
-**NVIDIA's NVFP4** instead ([checkpoints](README.md#checkpoints)): the checkpoint 1.x and 2.x serve, at the revision in [`config/model.lock.json`](config/model.lock.json); a host that holds it for 2.x has it. The same two commands with `--checkpoint pinned` fetch and verify it; the download keeps its status and log under `state`, and the verification takes its own `--output` (`../records/checksum`). Every rank file then names its snapshot (§4): `CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93`, and at TP=2 also `CONTEXT=245760`, the window that leaves it about 5 GiB of prompt cache (the rank file examples' next line). A host may hold both checkpoints; the rank files choose, the same on every rank.
 
 ## 3. Image
 

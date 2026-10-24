@@ -66,14 +66,6 @@ A new image is a new engine build: accept it again before routine use.
 3. Stop, then recreate the container on every host from the new image ([above](#recreate-the-container)).
 4. Start, and run [validation](validation.md) from the decode check on. An image of the same engine commit must give the reference hashes. A release that moves the engine states in its validation which hashes change and why (3.1.0: TP=2 on upstream's tiled kernels; 3.3.0: TP=3 on them too, upstream 1.1.2); any other difference is a finding to explain, not a value to replace.
 
-## Change the checkpoint
-
-XSFP4, the default, and NVIDIA's NVFP4 ([checkpoints](../README.md#checkpoints)) run on the same image and container; the rank files choose.
-
-1. Download and verify the other checkpoint on every host ([setup §2](../SETUP.md#2-checkout-and-checkpoint)); both can stay in the cache.
-2. Stop, then set `CHECKPOINT` in every rank file to NVIDIA's NVFP4 snapshot and, at TP=2, `CONTEXT=245760` (the examples' next line); for XSFP4, `serve.sh`'s default, remove both lines. The engine refuses to start when the ranks name different checkpoints.
-3. Start, and run [validation](validation.md) against that checkpoint's reference values. The first start on a checkpoint reads it from disk, about 300 s longer at TP=2 on the reference hosts.
-
 ## A host that powered off
 
 GB10 hosts can power off under sustained load ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)); the reference hosts did not under 3.x, so this section is the scripts' reading, not a recorded recovery. The clock cap, the heat wait, the cooling gate between long requests and the thermal watch are the prevention.

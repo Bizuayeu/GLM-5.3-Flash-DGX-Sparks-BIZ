@@ -13,7 +13,7 @@
 | TensorFoldのBIZ版（2.x系と3.x系のエンジン） | Apache-2.0に従い可 | 可。同上 | 同ライセンスの条件付きで可 | `/opt/tensorfold`（2.x系）と `/usr/share/doc/tf3/engine/`（3.x系）に入るエンジン自身のLICENSE・NOTICE・第三者の表示を保持する。0.6.0より前のコードはMITの表示を保つ |
 | kingjones、knapcio、HLE（centerforaisafety）由来のMIT部分 | 可 | 可。公開義務なし | 可。販売・再許諾も可能 | 著作権表示とMIT許諾文をコピー・実質的部分に保持 |
 | 固定NVIDIA GLM NVFP4重み | モデルカードは商用・非商用利用可、MITと明記 | MITの範囲で改変・追加学習・再量子化が可能 | MITの通知保持条件で可能 | 固定モデルカード、上流著作権・MIT文を保持し、配布物の由来を明示 |
-| XSFP4のcheckpoint（3.x系の既定） | 可：NVIDIA Open Model Agreementが商用に使えると明記 | 可：契約がDerivative Worksを許す | 契約の第3条の条件付きで可 | 受け取る人に契約の写しを渡し、元の通知を保ち、「Licensed by NVIDIA Corporation under the NVIDIA Open Model Agreement.」を書いたNOTICEを添える。NVIDIAの名前は出所を示すためだけ |
+| XSFP4のcheckpoint（3.x系） | 可：NVIDIA Open Model Agreementが商用に使えると明記 | 可：契約がDerivative Worksを許す | 契約の第3条の条件付きで可 | 受け取る人に契約の写しを渡し、元の通知を保ち、「Licensed by NVIDIA Corporation under the NVIDIA Open Model Agreement.」を書いたNOTICEを添える。NVIDIAの名前は出所を示すためだけ |
 | CUDA等を含む完成Dockerイメージ（2.x系のものはNVIDIAのPyTorch container、3.x系のものはNVIDIAのCUDAのruntime imageの上に作り、NVIDIAの条件に従う） | 各同梱物の条件に従う | SDK等の変更許諾までApache扱いしない | **全体を一括して許可済みとは扱わない** | 実イメージの構成物・版・配布可能部分・通知を確認 |
 | ZCode／Claude Code本体 | 各サービス・製品の契約に従う | 本リポジトリから改造権は付与されない | 本リポジトリから再配布権は付与されない | 公式配布元から別途導入。本体やログイン情報は同梱しない |
 
@@ -45,7 +45,7 @@
 
 本プロジェクトはこの規則を一度適用しました。基準の2台が配信するattentionと `lm_head` のW4A16再パックを[Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16)としてMITで公開し、NVIDIAのモデルカードを `README.nvidia.md` として同梱、Z.AIの通知を参照し、元のrevision・toolのcommit・targetをカードと `config.json` に記録、学習データは足していません（weight-onlyの変換）。変換toolのApache-2.0はtoolに掛かり、重みには及びません。
 
-NVIDIA Open Model Agreementの規則も一度適用しました：3.x系が3.3.0から配信し、3.4.0から既定にした[Bizuayeu/GLM-5.3-Flash-XSFP4](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)は、[nvidia/GLM-5.3-Flash-FP4-Local](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)のDerivative Workで、routed expertとMTPのexpertをZ.AIのBF16の重みから量子化し直したものです。そのrepositoryは契約の全文を `LICENSE` に、契約の文言を書いた `NOTICE`、NVIDIAのモデルカードを `README.nvidia.md` として持ち、カードに元のrevision・量子化し直したもの・較正のデータ（配布しない）・Z.AIのMIT通知を記載しています。名前にNVIDIAのものを使うのは出所を示すためだけです。
+NVIDIA Open Model Agreementの規則も一度適用しました：3.x系が3.3.0から配信し、3.4.0から既定に、3.6.0から唯一のcheckpointにした[Bizuayeu/GLM-5.3-Flash-XSFP4](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)は、[nvidia/GLM-5.3-Flash-FP4-Local](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)のDerivative Workで、routed expertとMTPのexpertをZ.AIのBF16の重みから量子化し直したものです。そのrepositoryは契約の全文を `LICENSE` に、契約の文言を書いた `NOTICE`、NVIDIAのモデルカードを `README.nvidia.md` として持ち、カードに元のrevision・量子化し直したもの・較正のデータ（配布しない）・Z.AIのMIT通知を記載しています。名前にNVIDIAのものを使うのは出所を示すためだけです。
 
 ## LPA projector
 

@@ -10,7 +10,7 @@
 
 ## 2. checkoutとcheckpoint
 
-全ホストで同じ確認済みのcommitをcheckoutします（`v3.*` のリリースのtag）。既定のcheckpointはXSFP4（[checkpoint](README.ja.md#checkpoint)）で、`Bizuayeu/GLM-5.3-Flash-XSFP4` を [`config/xsfp4.lock.json`](config/xsfp4.lock.json) のrevisionで使います。`v3/` から道具の仮想環境を用意し、[2.x系の手順2](../v2/SETUP.ja.md#2-checkoutとcheckpoint)のとおりに取得して検証します。取得は状況とlogを `state/xsfp4` に置きます：
+全ホストで同じ確認済みのcommitをcheckoutします（`v3.*` のリリースのtag）。checkpointはXSFP4（[checkpoint](README.ja.md#checkpoint)）で、`Bizuayeu/GLM-5.3-Flash-XSFP4` を [`config/xsfp4.lock.json`](config/xsfp4.lock.json) のrevisionで使います。`v3/` から道具の仮想環境を用意し、[2.x系の手順2](../v2/SETUP.ja.md#2-checkoutとcheckpoint)のとおりに取得して検証します。取得は状況とlogを `state/xsfp4` に置きます：
 
 ```sh
 python3 -m venv .venv
@@ -22,7 +22,6 @@ python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksu
 
 エンジンは各ホストのHugging Faceのcache（既定は `~/.cache/huggingface/hub`）からcheckpointを読み、containerには読み取り専用でmountします。
 
-**NVIDIAのNVFP4** にするなら（[checkpoint](README.ja.md#checkpoint)）：1.x系・2.x系と同じcheckpointで、revisionは [`config/model.lock.json`](config/model.lock.json) にあります。2.x系のためにすでに持っているホストはそのまま使えます。同じ2つのコマンドに `--checkpoint pinned` を付けると取得して検証します。取得は状況とlogを `state` に置き、検証には別の `--output`（`../records/checksum`）を渡します。その後、全rankのファイルにそのsnapshotを書きます（§4）：`CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-NVFP4/snapshots/423acf37583782c51c142d145aef733d72943d93`。TP=2では、約5 GiBのprompt cacheを残す窓 `CONTEXT=245760` も置きます（rankのファイルの例の次の行）。1台が両方のcheckpointを持てます。どちらを配信するかはrankのファイルが決め、全rankで同じにします。
 
 ## 3. image
 

@@ -66,14 +66,6 @@ v3/scripts/create_container.sh glm53-tf3:3.5.0 ~/glm53-tf3
 3. 止めてから、全ホストで新しいimageからcontainerを作り直します（[上](#containerを作り直す)）。
 4. 起動し、decode検査から[検証](validation.ja.md)を回します。同じエンジンのcommitのimageは基準のhashを出さなければなりません。エンジンを動かすリリースは、どのhashがなぜ変わるかをその検証に書きます（3.1.0：上流のtiledのkernelでのTP=2。3.3.0：上流1.1.2で、TP=3もそのkernelで）。それ以外の違いは説明すべき所見で、置き換える値ではありません。
 
-## checkpointを替える
-
-既定のXSFP4とNVIDIAのNVFP4（[checkpoint](../README.ja.md#checkpoint)）は同じimageとcontainerで動きます。どちらにするかはrankのファイルが決めます。
-
-1. 全ホストでもう一方のcheckpointを取得して検証します（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）。両方をcacheに置いたままにできます。
-2. 止めてから、全rankのファイルの `CHECKPOINT` をNVIDIAのNVFP4のsnapshotにし、TP=2では `CONTEXT=245760`（例でその次の行）も置きます。XSFP4（`serve.sh` の既定）なら両方の行を消します。rankがそれぞれ別のcheckpointを名指すと、エンジンは起動を断ります。
-3. 起動し、そのcheckpointの基準値に照らして[検証](validation.ja.md)を回します。あるcheckpointの最初の起動はそれをdiskから読むので、参照機のTP=2で約300秒長くかかりました。
-
 ## 電源が落ちたホスト
 
 GB10のホストは持続する負荷で電源が落ちることがあります（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）。参照機は3.x系では落ちていないので、この節は記録した復旧ではなく台本からの読みです。予防はクロックの上限、熱の待ち、長い要求の合間の冷却gate、熱の見張りです。
