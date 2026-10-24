@@ -75,7 +75,7 @@ The gate is this repository's relay, not part of TensorFold: 2.x's copy (and 1.x
 python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log ../records/<run>/gate.jsonl
 ```
 
-Clients that use tools then talk to port 8896.
+Clients that use tools then talk to port 8896. The gate waits up to 2,400 s for each call to the engine (`--timeout`) and refuses a request body over 64 MiB with 413 ([tools](docs/configuration.md#tools)).
 
 ## 7. Accept
 

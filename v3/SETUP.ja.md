@@ -75,7 +75,7 @@ rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、3.6
 python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log ../records/<run>/gate.jsonl
 ```
 
-toolを使うclientは、以後port 8896と話します。
+toolを使うclientは、以後port 8896と話します。ゲートはエンジンへの1回の呼び出しを2,400秒まで待ち（`--timeout`）、64 MiBを越える要求の本文は413で断ります（[道具](docs/configuration.ja.md#道具)）。
 
 ## 7. 受け入れ
 

@@ -4,7 +4,7 @@
 
 3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値は、3.x系が配信するcheckpointであるXSFP4（[checkpoint](../README.ja.md#checkpoint)）でのネイティブエンジン自身のもので、参照機で、そのリリースの `serve.sh` の既定、全containerを効率coreにして測りました。2026-10-22の3.3.0の受け入れで、tiledのBF16のlinearが両TPで回る上流1.1.2（issue #1067）の上で決めました。3.4.0と3.6.0のリリースのimageは両TPで、3.5.0のものはTP=2で、同じdecode検査のhash、編集の返答、NLLを出しました。3.3.0まで既定で3.5.x系まで選べたNVIDIAのNVFP4は自分の基準値を持ち、それはそれらのリリースのtagと[変更履歴](../CHANGELOG.ja.md)に残ります。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
 
-道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、またはPythonと `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。containerがmountするのは作業directory（`/work`）とcacheだけなので、そこで使うcheckoutは作業directoryの下に置きます。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)（`--container glm53-tf3 --process 'tensorfold-native serve'`）を動かしたままにします。
+道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、またはPythonと `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。containerがmountするのは作業directory（`/work`）とcacheだけなので、そこで使うcheckoutは作業directoryの下に置きます。道具の全てのoptionと環境変数は[設定](configuration.ja.md#道具)にあります。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)（`--container glm53-tf3 --process 'tensorfold-native serve'`）を動かしたままにします。
 
 ## decode検査
 
