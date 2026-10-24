@@ -6,6 +6,31 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.7.0 — 2026-10-24
+
+道具と文書の版です。imageのファイルは変わらず、3.6.0のままです（`glm53-tf3:3.6.0`、`sha256:cad32a5c50462d4223d16937a83940b5f7a5419ff66278e86e420e46d9fc5083`）。
+
+### Tools
+
+- `python -m glm53_tf mojibake`：日本語と韓国語の答えの化けた文字を数える1.x系の検査（[vLLM #54150](https://github.com/vllm-project/vllm/issues/54150)）を、3.x系のエンジンに向けて。1.x系のpromptで400文字以上の答えを各言語3本ずつ、temperature 0またはsampled（`--temperature`・`--top-p`・`--seed`。i本目はseedにiを足して引く）で求め、答えと `reasoning_content` の中の置換文字（U+FFFD）・孤立サロゲート・改行とタブ以外の制御文字を数え、答えの全文を `--out` に残します。要求は思考のeffortを指定しないので、エンジンは `serve.sh` の既定で考えます。`max_tokens` は `serve.sh` の32,768で、思考と答えがこれを分け合うため、上限で切れた答えはinconclusiveにしました（1.x系はtruncatedの印を付けてpassにします）。各行は長さ、completionのtoken数、応答の `tensorfold` のblockが報告するeffortとsamplingを残します。全ての答えがpassなら0、化けた文字があれば1、それ以外は2で終わります（[設定](docs/configuration.ja.md#道具)）。
+
+### Accepted
+
+- 3.6.0のimageで、各TPに1回の起動：それぞれ12本、temperature 0で6本とsampled（temperature 1.0、top_p 0.95、seed 42〜47）で6本、化けた文字はなく、decode検査のcountは両方の起動で基準のhashを返しました。思考は24本中20本で空で、その文章はほとんど試されていません（[マルチバイト出力](docs/validation.ja.md#マルチバイト出力)）。
+
+### Documentation
+
+- [検証](docs/validation.ja.md)に[マルチバイト出力](docs/validation.ja.md#マルチバイト出力)の節を足しました：検査、そのcommand、合格の条件、基準値。READMEの状況と構成、[設定](docs/configuration.ja.md#道具)の道具、[チートシート](docs/cheatsheet.ja.md#起動を確かめる)の起動の検査がそれを挙げます。
+- [チートシート](docs/cheatsheet.ja.md)とREADMEから、上流のTensorFold自身の、CUDAでのこのモデルのrecipeである[GLM-5.3-Flash on CUDA](https://github.com/ashhart/TensorFold/blob/main/docs/recipes/glm-5.3-flash-cuda.md)へリンクしました。上流がこの系列のpull request #1224から自身のmainに入れた頁です。
+
+### Repository
+
+- リポジトリのREADMEに、Macで使うものを書きました（[Macでは](../README.ja.md#macでは)）：この各系列はNVIDIAのGB10機で動き、MacではTensorFoldが自身のMLXのcheckpointでGLM-5.3-Flashを配信します。4-bitのものはそのモデルの表が確かめたMac 2台で、混合幅のものはMac 1台で。3.x系のREADMEはそこを指します。
+
+### Not in 3.7.0
+
+3.x系でのNVIDIAのNVFP4と公開したAXLの重み（1.x系と2.x系が配信します）、生成したtokenのlog確率、chat templateへの `clear_thinking` の受け渡し（[制限](README.ja.md#制限)）。
+
 ## 3.6.1 — 2026-10-24
 
 文書だけの版です。imageのファイルは変わらず、3.6.0のままです（`glm53-tf3:3.6.0`、`sha256:cad32a5c50462d4223d16937a83940b5f7a5419ff66278e86e420e46d9fc5083`）。

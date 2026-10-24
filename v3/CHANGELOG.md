@@ -4,6 +4,31 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.7.0 — 2026-10-24
+
+Tools and documents. No file of the image changes; it stays 3.6.0's (`glm53-tf3:3.6.0`, `sha256:cad32a5c50462d4223d16937a83940b5f7a5419ff66278e86e420e46d9fc5083`).
+
+### Tools
+
+- `python -m glm53_tf mojibake`: 1.x's check for broken characters in Japanese and Korean answers ([vLLM #54150](https://github.com/vllm-project/vllm/issues/54150)), against 3.x's engine. It sends 1.x's prompts for answers of at least 400 characters, three in each language, at temperature 0 or sampled (`--temperature`, `--top-p` and `--seed`; answer *i* draws with seed + *i*), counts U+FFFD, lone surrogates and control characters other than line breaks and tabs in the answer and in `reasoning_content`, and keeps the full answers in `--out`. The requests name no reasoning effort, so the engine reasons at `serve.sh`'s default, and `max_tokens` is `serve.sh`'s 32,768, which the reasoning and the answer share; an answer cut at it is therefore inconclusive, where 1.x passes it marked as truncated. Each row keeps its lengths, its completion tokens and the effort and sampling the reply's `tensorfold` block reports. It exits 0 when every answer passes, 1 on a broken character and 2 otherwise ([configuration](docs/configuration.md#tools)).
+
+### Accepted
+
+- On 3.6.0's image, one launch at each TP size: twelve answers each, six at temperature 0 and six sampled (temperature 1.0, top_p 0.95, seeds 42 to 47), none with a broken character, and the decode check's count gave the reference hashes in both launches. The reasoning was empty in 20 of the 24 answers, so its text was hardly exercised ([multibyte output](docs/validation.md#multibyte-output)).
+
+### Documentation
+
+- [Validation](docs/validation.md) gains [multibyte output](docs/validation.md#multibyte-output): the check, its commands, when it is accepted and its reference. The README's status and layout, [configuration](docs/configuration.md#tools)'s tools and the [cheatsheet](docs/cheatsheet.md#checking-a-launch)'s launch checks name it.
+- The [cheatsheet](docs/cheatsheet.md) and the README link upstream TensorFold's own recipe for this model on CUDA, [GLM-5.3-Flash on CUDA](https://github.com/ashhart/TensorFold/blob/main/docs/recipes/glm-5.3-flash-cuda.md), which upstream took into its main from this line's pull request #1224.
+
+### Repository
+
+- The repository README says what to use on a Mac ([on a Mac](../README.md#on-a-mac)): every line here runs on NVIDIA GB10 systems, and TensorFold serves GLM-5.3-Flash on Macs from its own MLX checkpoints, the 4-bit one on the two Macs its model table qualifies and mixed-width ones on one Mac. 3.x's README points there.
+
+### Not in 3.7.0
+
+NVIDIA's NVFP4 and the published AXL weights on 3.x (1.x and 2.x serve them), log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.6.1 — 2026-10-24
 
 Documents only. No file of the image changes; it stays 3.6.0's (`glm53-tf3:3.6.0`, `sha256:cad32a5c50462d4223d16937a83940b5f7a5419ff66278e86e420e46d9fc5083`).
