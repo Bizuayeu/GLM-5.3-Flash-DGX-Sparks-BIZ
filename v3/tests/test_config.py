@@ -115,22 +115,13 @@ class ServeScriptTests(unittest.TestCase):
         self.assertIn("else\n  context=${CONTEXT:-1048576}\n", serve)
         self.assertEqual(serve.count("${CONTEXT:-"), 2)
 
-    def test_tp2_examples_keep_nvidias_window_beside_its_checkpoint(self):
-        # NVIDIA's NVFP4 weighs about 3.9 GiB more on rank 0: its line comes with 3.4.0's window.
-        for rank in (0, 1):
-            lines = (
-                (LINE / f"examples/tp2-rank{rank}.env")
-                .read_text(encoding="utf-8")
-                .splitlines()
-            )
-            at = next(
-                i
-                for i, line in enumerate(lines)
-                if line.startswith("# CHECKPOINT=/hub/models--nvidia--")
-            )
-            self.assertTrue(
-                lines[at + 1].startswith("# CONTEXT=245760 "), lines[at + 1]
-            )
+    def test_the_examples_name_no_other_checkpoint(self):
+        # 3.6.0: serve.sh's default, XSFP4, is the checkpoint 3.x serves.
+        for path in sorted((LINE / "examples").glob("tp*-rank*.env")):
+            with self.subTest(example=path.name):
+                text = path.read_text(encoding="utf-8")
+                self.assertNotIn("CHECKPOINT=", text)
+                self.assertNotIn("nvidia", text.lower())
 
     def test_serve_sh_names_rank_0s_address_once_for_both_tp_sizes(self):
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
