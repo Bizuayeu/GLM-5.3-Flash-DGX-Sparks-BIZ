@@ -6,6 +6,24 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.6.1 — 2026-10-24
+
+文書だけの版です。imageのファイルは変わらず、3.6.0のままです（`glm53-tf3:3.6.0`、`sha256:cad32a5c50462d4223d16937a83940b5f7a5419ff66278e86e420e46d9fc5083`）。
+
+### Documentation
+
+- 新しい頁の[設定](docs/configuration.ja.md)：配信が読む全ての設定を、台本と、imageが固定するエンジンのsourceから並べました：rankのファイル、`serve.sh` が固定するもの、エンジンのflag（labelの後に付けられるものと、GLMが断るもの）、APIのkey、エンジンの環境変数（rankが起動時に比べるものと比べないもの。`TF_ROCE`・`TF_ROCE_MAX_KB`・`TF_GLM_PREFILL_REDUCE` を含む）、NCCL、clusterのファイル、container、メモリの見張り、道具、lockです。READMEの設定の節は、そこを指す要約になりました。
+- 新しい頁の[決定](docs/decisions.ja.md)：2.x系が持つのと同じ形で、3.x系が選んだもの・選ばなかったものを、日付・測った効き目・見直すときとともに、エンジン・checkpoint・窓とstream・KV cache・熱・core・draft・fabric・画像の入力について並べ、3.x系で未評価のものも挙げます。理由は、記録のあるところだけに書きました。
+- 新しい頁の[チートシート](docs/cheatsheet.ja.md)：上流のTensorFold自身のrecipeを越えてこの構成でできることを、写せる行と代価で並べ、harnessのclientへの注意を二つ書きました：画像はclientが送り直す履歴をまたいで数えること、1M tokenのpromptの最初のtokenはTP=3で約1,000秒後で、1.x系のharnessの注意がZCodeに与える700秒のstreamのtimeoutを越えることです。
+- エンジンのsourceと照らした直し：keyのファイルは他のuserが読み書きできると断られ（`0600` と同じく `0400` も通る）、rank 0のファイルの `TENSORFOLD_API_KEY` もkeyを持つこと。prompt cacheは窓の残りで最大16 GiB、TP=3の16.0 GiBはその上限であること。`REASONING_EFFORT` は `low`〜`xhigh` を受け、`max` は起動時にエンジンを止めること（要求では今も指定できる）。動画の上限はMiBであること。熱の天井は3.0.0にもあったこと（3.3.0の節は3.1.0と3.2.0だけを挙げています）。効率coreの代価の1〜3%と起動の約25秒は、3.0.0のエンジンのものであること。
+- [運用](docs/operations.ja.md)は、ホストを1.x系へも渡します。1.x系の起動検査は、眠っているだけの3.x系のcontainerがGPUを持つ間は起動を断ります。[手順書](SETUP.ja.md)§8はそこを指し、§6はゲートのtimeoutと本文の上限を書きます。
+- [検証](docs/validation.ja.md)は、検査が何の上に立つかを一つの段落で言い、画像・動画・構造化出力の上流自身の配信の検査を、受け入れが回したものとともに名指します。READMEは、TensorFoldの他のrecipeの2.x系の表と、効率coreについての1.1.3のrunbookの節へリンクします。TP=2のrankのファイルの例は、2.x系で測った4 channelの効き目を3.x系のもののようには引かなくなりました。
+- swap・ホストのデーモン・peerの喪失を、1.x系の運用から、どの系列も共有する[ホストの準備](../docs/hosts.ja.md)へ移しました。3.x系の運用はそこへリンクし、ホストが消えたときに3.x系のrankがどうするかを、エンジンのsourceから読んで書きます。
+
+### Not in 3.6.1
+
+3.x系でのNVIDIAのNVFP4と公開したAXLの重み（1.x系と2.x系が配信します）、生成したtokenのlog確率、chat templateへの `clear_thinking` の受け渡し（[制限](README.ja.md#制限)）。
+
 ## 3.6.0 — 2026-10-24
 
 エンジンを上流のTensorFold 1.1.3の上へ移し、3.x系はXSFP4だけを配信します：NVIDIAのNVFP4と公開したAXLの重みは3.x系の選択肢から外れ、1.x系と2.x系には残ります。

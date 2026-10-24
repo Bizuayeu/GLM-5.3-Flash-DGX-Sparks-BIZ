@@ -1,6 +1,6 @@
 # GLM-5.3-Flash-DGX-Sparks-BIZ
 
-**略称：GLM-5.3-Flash BIZ**（引用は「GLM-5.3-Flash BIZ 1.31.2」の形）。この配信スタックの呼び名で、NVIDIAの固定checkpointを配布のまま配信します。公開している任意設定の重みは **NVFP4 BIZ AXL**（AXL：attention projectionと `lm_head` をW4A16にしたもの。Hugging Faceの [Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16) で、リポジトリ名は中身の記述）。
+**略称：GLM-5.3-Flash BIZ**（引用は「GLM-5.3-Flash BIZ 1.31.3」の形）。この配信スタックの呼び名で、NVIDIAの固定checkpointを配布のまま配信します。公開している任意設定の重みは **NVFP4 BIZ AXL**（AXL：attention projectionと `lm_head` をW4A16にしたもの。Hugging Faceの [Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16) で、リポジトリ名は中身の記述）。
 
 **BIZ**は保守者の印で、リポジトリの意図を示す語です。意味することと意味しないことは[リポジトリのREADME](../README.ja.md#biz)にあります。
 

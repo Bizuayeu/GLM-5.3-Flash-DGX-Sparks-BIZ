@@ -2,6 +2,14 @@
 
 [日本語](CHANGELOG.ja.md) (this English file is canonical and the GitHub Release is made from it)
 
+## 1.31.3 — 2026-10-24
+
+### Documentation
+
+- Swap, host daemons that compete for the unified memory and a peer lost while a launch is idle move from [operations](docs/operations.md) to [host preparation](../docs/hosts.md), the page every line shares, since on GB10 they concern every line. Operations keeps a paragraph that points there, and the links from the benchmarks, the optimization catalog, server configuration, image input and the [document map](docs/README.md) go to the new place. The text is 1.x's, and what holds for 1.x alone says so.
+
+No file of the reference image changes; it stays 1.31.0's.
+
 ## 1.31.2 — 2026-10-24
 
 ### Documentation

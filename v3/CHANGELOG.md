@@ -4,6 +4,24 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.6.1 — 2026-10-24
+
+Documents only. No file of the image changes; it stays 3.6.0's (`glm53-tf3:3.6.0`, `sha256:cad32a5c50462d4223d16937a83940b5f7a5419ff66278e86e420e46d9fc5083`).
+
+### Documentation
+
+- [Configuration](docs/configuration.md), a new page: every setting a deployment reads, from the scripts and from the source of the engine the image pins: the rank file, what `serve.sh` fixes, the engine's flags (what can follow the label and what GLM refuses), the API keys, the engine's environment (what the ranks compare at start and what they do not, `TF_ROCE`, `TF_ROCE_MAX_KB` and `TF_GLM_PREFILL_REDUCE` among it), NCCL, the cluster file, the container, the memory guard, the tools and the locks. The README's configuration section becomes a summary that points to it.
+- [Decisions](docs/decisions.md), a new page, as 2.x keeps one: what 3.x chose and did not, with dates, measured effects and what would reopen each, for the engine, the checkpoint, the window and streams, the KV cache, heat, cores, drafts, the fabric and image input, and what 3.x has not evaluated. A reason is given only where one was recorded.
+- [Cheatsheet](docs/cheatsheet.md), a new page: what this setup does beyond upstream TensorFold's own recipe, as lines to copy with each one's cost, and two notes for harness clients: images count across the history a client resends, and a 1M-token prompt's first token comes after about 1,000 s at TP=3, past the 700 s stream timeout 1.x's harness notes give ZCode.
+- Corrections, checked against the engine's source: the key file is refused when other users can read or write it (0400 passes, as 0600 does), and `TENSORFOLD_API_KEY` in rank 0's file holds keys too; the prompt cache is what the window leaves up to 16 GiB, TP=3's 16.0 GiB being that cap; `REASONING_EFFORT` takes `low` to `xhigh`, and `max` stops the engine at start, though a request may still name it; videos are limited in MiB; the heat ceiling shipped in 3.0.0 as well, where 3.3.0's section names 3.1.0 and 3.2.0 alone; and the efficiency cores' cost of 1 to 3% and about 25 s at start was 3.0.0's engine's.
+- [Operations](docs/operations.md) hands the hosts to 1.x as well, whose launch check refuses to start while a 3.x container that only sleeps holds the GPUs; [setup](SETUP.md) §8 points there, and §6 gives the gate's timeout and body limit.
+- [Validation](docs/validation.md) says in one paragraph what its checks rest on, and names upstream's own served checks of images, videos and structured output, saying which the acceptance ran. The README links 2.x's table of the other recipes on TensorFold and 1.1.3's runbook section on the efficiency cores. The TP=2 rank file examples no longer quote 2.x's measured effect of four channels as if it were 3.x's.
+- Swap, host daemons and a lost peer move from 1.x's operations to [host preparation](../docs/hosts.md), the page every line shares; 3.x's operations links there and says what its ranks do when a host vanishes, read from the engine's source.
+
+### Not in 3.6.1
+
+NVIDIA's NVFP4 and the published AXL weights on 3.x (1.x and 2.x serve them), log-probabilities of generated tokens and passing `clear_thinking` to the chat template ([limits](README.md#limits)).
+
 ## 3.6.0 — 2026-10-24
 
 The engine moves onto upstream TensorFold 1.1.3, and 3.x serves XSFP4 alone: NVIDIA's NVFP4 and the published AXL weights leave its choices, and 1.x and 2.x keep them.
