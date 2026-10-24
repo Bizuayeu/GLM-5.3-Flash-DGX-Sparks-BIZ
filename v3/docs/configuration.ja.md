@@ -163,7 +163,7 @@ rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serv
 | `NCCL_MIN_NCHANNELS`・`NCCL_MAX_NCHANNELS` | `4` | `4` | 4 channel |
 | `NCCL_DEBUG`・`NCCL_DEBUG_SUBSYS` | `INFO`・`INIT,NET` | `INFO`・`INIT,NET` | 各接続のtransportを起動時に一度だけlogに書き、[手順書 §5](../SETUP.ja.md#5-起動)がそれを読む |
 
-各ホスト自身の値以外は、測った2.x系から来ています（[2.x系の決定](../../v2/docs/decisions.ja.md#fabric)）。3.x系のどの起動も、全ての接続が `NET/IB` でした。エンジンのTP=2のRoCEの経路（[上](#各rankが読み比べないもの)）も `NCCL_IB_HCA` を読みます。
+各ホスト自身の値以外は、測った2.x系から来ています。3.x系が測り直したものは[決定](decisions.ja.md#fabric)にあり、3.x系のどの起動も、全ての接続が `NET/IB` でした。エンジンのTP=2のRoCEの経路（[上](#各rankが読み比べないもの)）も `NCCL_IB_HCA` を読みます。
 
 ## clusterのファイル
 

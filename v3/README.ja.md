@@ -95,7 +95,7 @@ XSFP4の[測定値](#リリースでの測定値)の速さはXSFP4のもので�
 
 ## 配信の既定
 
-[`scripts/serve.sh`](scripts/serve.sh) が持ち、全rankで同じです。
+[`scripts/serve.sh`](scripts/serve.sh) が持ち、全rankで同じです。何と比べて選び、何が起きれば見直すかは[決定](docs/decisions.ja.md)にあります。
 
 | 設定 | TP=2（2台） | TP=3（3台） |
 |---|---|---|
@@ -325,6 +325,7 @@ v3/
                     benchmarks.md     リリースの値の取り方
                     operations.md     失敗と日常の作業：止まったrank、新しいimage、ホストを2.x系へ渡す
                     configuration.md  全ての設定、その既定と読むrank
+                    decisions.md      選んだもの、選ばなかったもの、それぞれを見直すとき
   assets/           banner.webp：このページのbanner
   tests/            glm53_tf/と、これらの頁が引く事実のCPUテスト
   pyproject.toml    3.x系の版

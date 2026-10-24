@@ -95,7 +95,7 @@ XSFP4's [measured](#measured-on-the-release) speeds are its own: the drafts' acc
 
 ## Serving Defaults
 
-[`scripts/serve.sh`](scripts/serve.sh) holds them, the same on every rank:
+[`scripts/serve.sh`](scripts/serve.sh) holds them, the same on every rank; what was chosen against what, and what would reopen it, is in [decisions](docs/decisions.md):
 
 | Setting | TP=2 (two hosts) | TP=3 (three hosts) |
 |---|---|---|
@@ -325,6 +325,7 @@ v3/
                     benchmarks.md     how the release figures were taken
                     operations.md     failures and routine changes: a rank that stops, a new image, handing hosts to 2.x
                     configuration.md  every setting, its default and the ranks that read it
+                    decisions.md      what was chosen, what was not, and what would reopen each
   assets/           banner.webp: this page's banner
   tests/            CPU tests of glm53_tf/ and of the facts these pages quote
   pyproject.toml    the 3.x version

@@ -163,7 +163,7 @@ The rank files' NCCL lines. Rank 0's address and port reach NCCL as `NCCL_COMM_I
 | `NCCL_MIN_NCHANNELS`, `NCCL_MAX_NCHANNELS` | `4` | `4` | four channels |
 | `NCCL_DEBUG`, `NCCL_DEBUG_SUBSYS` | `INFO`, `INIT,NET` | `INFO`, `INIT,NET` | each connection's transport logged once at start, which [setup §5](../SETUP.md#5-start) reads |
 
-The values other than each host's own came from 2.x, where they were measured ([2.x decisions](../../v2/docs/decisions.md#fabric)); every 3.x start ran every connection over `NET/IB`. The TP=2 RoCE path of the engine ([above](#read-on-each-rank-not-compared)) reads `NCCL_IB_HCA` too.
+The values other than each host's own came from 2.x, where they were measured; what 3.x measured again is in [decisions](decisions.md#fabric), and every 3.x start ran every connection over `NET/IB`. The TP=2 RoCE path of the engine ([above](#read-on-each-rank-not-compared)) reads `NCCL_IB_HCA` too.
 
 ## Cluster file
 
