@@ -14,6 +14,13 @@
 
 Each line has its own README, version and changelog; a release tag `v1.*`, `v2.*` or `v3.*` publishes the section of that line's changelog. Each line holds what is specific to its engine: 1.x's commands run from `v1/`; 2.x's and 3.x's tools from `v2/` and `v3/`, and their image builds and scripts from the checkout root ([2.x setup](v2/SETUP.md), [3.x setup](v3/SETUP.md)). The checkout root holds what every line shares: the host and fabric pages and the repository's document map in [`docs/`](docs/README.md), the host tools in [`host/`](host/README.md), licensing, and in `tools/` the repository's publication audit and release notes. `state/` and `records/` are untracked and stay at the checkout root.
 
+## On a Mac
+
+The lines here serve GLM-5.3-Flash on NVIDIA GB10 systems; their checkpoints, images and scripts do not run on Apple silicon. A Mac takes other weights (MLX) and TensorFold's Metal engine, and this repository has no Mac to build or check them on. TensorFold itself serves GLM-5.3-Flash on Macs from checkpoints of its own (MIT), none of them run here:
+
+- **Two Macs.** [TensorFold/GLM-5.3-Flash-MLX-4bit-MTP](https://huggingface.co/TensorFold/GLM-5.3-Flash-MLX-4bit-MTP), the setup its [model table](https://github.com/ashhart/TensorFold#pick-a-model) qualifies (on 2026-10-24, two M5 Ultras), with the commands in its [paired Metal runbook](https://github.com/ashhart/TensorFold/blob/main/RUNBOOK.md#flash-next-and-paired-metal-serving). By TensorFold's [changelog](https://github.com/ashhart/TensorFold/blob/main/CHANGELOG.md#1010), no uniform checkpoint of the model fits one 256 GB Mac within its load limit.
+- **One Mac.** Mixed-width checkpoints such as [TensorFold/GLM-5.3-Flash-MLX-oQ2-MTP](https://huggingface.co/TensorFold/GLM-5.3-Flash-MLX-oQ2-MTP) (about 110 GB), which TensorFold serves on one Mac from 1.0.10, on contributors' runs on an M3 Ultra and an M5 Ultra ([changelog](https://github.com/ashhart/TensorFold/blob/main/CHANGELOG.md#1010)); the model table does not list them. Both checkpoints' cards also give runs in oMLX on one Mac Studio with an M3 Ultra.
+
 ## BIZ
 
 **BIZ** is the maintainer's mark (Bizuayeu) and states the intent: a business-use setup with commercially usable licensing, pinned assets, recorded checks and reversible operation.

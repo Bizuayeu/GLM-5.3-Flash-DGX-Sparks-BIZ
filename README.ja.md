@@ -14,6 +14,13 @@
 
 系列ごとにREADME・版・変更履歴を持ちます。リリースのtag `v1.*`・`v2.*`・`v3.*` は、その系列の変更履歴の節を公開します。各系列は自分のエンジンに固有のものを持ちます。1.x系のコマンドは `v1/` で、2.x系と3.x系の道具は `v2/` と `v3/` で、それぞれのimageのbuildと台本はcheckoutのルートで実行します（[2.x系の手順書](v2/SETUP.ja.md)、[3.x系の手順書](v3/SETUP.ja.md)）。checkoutのルートには全系に共通のものを置きます。ホストとfabricの文書とリポジトリの文書一覧は[`docs/`](docs/README.ja.md)、ホストのツールは[`host/`](host/README.ja.md)、それにライセンスと、`tools/` のリポジトリの公開の監査とリリースノートの道具です。`state/` と `records/` は追跡対象外で、checkoutのルートに置きます。
 
+## Macでは
+
+この各系列は、GLM-5.3-FlashをNVIDIAのGB10機で配信します。そのcheckpoint・image・台本はApple siliconでは動きません。Macでは別の重み（MLX）とTensorFoldのMetalのエンジンが要り、このリポジトリにはそれを組んで確かめるMacがありません。TensorFold自身が、自分のcheckpoint（MIT）でMacにGLM-5.3-Flashを配信します。どれもここでは動かしていません：
+
+- **Mac 2台。** [TensorFold/GLM-5.3-Flash-MLX-4bit-MTP](https://huggingface.co/TensorFold/GLM-5.3-Flash-MLX-4bit-MTP)。その[モデルの表](https://github.com/ashhart/TensorFold#pick-a-model)が確かめた形で（2026-10-24にはM5 Ultra 2台）、起動のコマンドは[2台のMetalのrunbook](https://github.com/ashhart/TensorFold/blob/main/RUNBOOK.md#flash-next-and-paired-metal-serving)にあります。TensorFoldの[変更履歴](https://github.com/ashhart/TensorFold/blob/main/CHANGELOG.md#1010)によれば、このモデルの一様な幅のcheckpointは、どれも256 GBのMac 1台に読み込みの上限の中で収まりません。
+- **Mac 1台。** [TensorFold/GLM-5.3-Flash-MLX-oQ2-MTP](https://huggingface.co/TensorFold/GLM-5.3-Flash-MLX-oQ2-MTP)（約110 GB）のような混合幅のcheckpoint。TensorFoldは1.0.10から、M3 UltraとM5 Ultraでの協力者の実行をもとに、これをMac 1台で配信します（[変更履歴](https://github.com/ashhart/TensorFold/blob/main/CHANGELOG.md#1010)）。モデルの表には載っていません。どちらのcheckpointのcardも、M3 UltraのMac Studio 1台でのoMLXでの実行を載せています。
+
 ## BIZ
 
 **BIZ**は保守者の印（Bizuayeu）であり、意図を示す語です。商用利用できるライセンス、資産の固定、検査結果の記録、戻せる運用を整えた**業務利用向けの構成**という意味です。
