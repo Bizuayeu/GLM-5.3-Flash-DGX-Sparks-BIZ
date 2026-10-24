@@ -4,6 +4,8 @@
 
 3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値は、3.x系が配信するcheckpointであるXSFP4（[checkpoint](../README.ja.md#checkpoint)）でのネイティブエンジン自身のもので、参照機で、そのリリースの `serve.sh` の既定、全containerを効率coreにして測りました。2026-10-22の3.3.0の受け入れで、tiledのBF16のlinearが両TPで回る上流1.1.2（issue #1067）の上で決めました。3.4.0と3.6.0のリリースのimageは両TPで、3.5.0のものはTP=2で、同じdecode検査のhash、編集の返答、NLLを出しました。3.3.0まで既定で3.5.x系まで選べたNVIDIAのNVFP4は自分の基準値を持ち、それはそれらのリリースのtagと[変更履歴](../CHANGELOG.ja.md)に残ります。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
 
+検査は、何が繰り返されるかの上に立ちます。一つの起動の中では、同じ要求はdraftの有無（`"draft": false`）によらず同じtokenを出し、prompt cacheから再開したpromptは新しいものと同じtokenを出します。起動は、同じTPとbuildの前の起動のtoken idを出します。TP=2とTP=3は設計上違い、和の取り方が違うkernel、例えばtiledのkernelに対するglueのkernel（`TF_GLM_MM`）も違います。同じcommitを別のホストでbuildすると、同じように答えながらSHA-256の違うbinaryになることがあるので、二つのbuildを見分けるのはhashではなくdecode検査です（[手順書 §3](../SETUP.ja.md#3-image)）。一度に複数の要求では、これを確かめていません。数を数える返答で一つの数を二度書くのは、生成とpromptが分かれる既知の場所です（[リリースでの測定値](../README.ja.md#リリースでの測定値)）。
+
 道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、またはPythonと `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。containerがmountするのは作業directory（`/work`）とcacheだけなので、そこで使うcheckoutは作業directoryの下に置きます。道具の全てのoptionと環境変数は[設定](configuration.ja.md#道具)にあります。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)（`--container glm53-tf3 --process 'tensorfold-native serve'`）を動かしたままにします。
 
 ## decode検査
@@ -41,6 +43,8 @@ hashは、各TPの2回目の起動と、`PARALLEL=` を空にしたTP=2の起動
 - **画像**（両TPで）：同じ絵をPNG・JPEG・WebPのdata URLで送ると答え、どれもdraftありと `"draft": false` で同じ返答になる。GIFは400で断る。絵を最初のmessageに置いた会話は、後のturnを絵の先までprompt cacheから再開し、冷えた回と同じ返答を出し、`"draft": false` でも、別の要求と同時でも同じになる。
 - **動画**（両TPで）：H.264のMP4とVP9のWebMが答え、どちらもdraftありと `"draft": false` で同じ返答になる。audioの部分は400で断る。
 
+これらの入力の上流自身の配信の検査、エンジンのsourceの `tools/zig/vision_served.py` と `video_served.py` は、`--vision` で起動したどのエンジンにも当てられます。3.x系の受け入れは上の要求を送りました。3.2.0の受け入れは `video_served.py` も、TP=2でNVIDIAのNVFP4に回しました（[変更履歴](../CHANGELOG.ja.md)）。
+
 ## teacher-forced NLL
 
 [`config/nll_set.json`](../config/nll_set.json) のNLL採点セット（1.x系・2.x系のもののbyte単位の写し）：4領域（日本語・英語・コード・数学）に各4本、領域ごとに5,851〜6,830 token。`/v1/completions` の `prompt_logprobs` で採点します。tokenizerはcheckpoint自身のもの（下のXSFP4のもの）を使います：
@@ -69,7 +73,7 @@ python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
 - **`prompt_logprobs`**：最初の後のpromptのどのtokenにも、自身の順位とlog確率、1から順位をつけた上位の候補を持つ行がある。同じ要求をもう一度、また `"draft": false` で送っても同じ行になる。5,000 tokenのpromptはどのtokenにも行があり、その最初の2,048 tokenのchunkの行は、同じpromptを3,001 tokenで切ったものの行と同じ。scoreを求めない要求はtokenのhashを保つ。
 - **構造化出力**：`json_schema` の応答が、思考を切っても入れても、schemaのkeyと型でparseできる。素のgreedyの応答がすでに満たすschemaでは、grammarの下でも、`"draft": false` でも同じ文章になる。seedを付けたtemperature 0.7の同じ要求は、同じ有効な文章を2回出す。`tool_choice` の `required` は、引数がparseできる呼び出しをGLMのtoolのmarkupで出す。grammarの無い要求はtokenのhashを保つ。
 
-scoreもgrammarも無い要求（「The capital of France is」、8 token）は、TP=2で `token_sha256` `09a15f0582e7…`、TP=3で `a094669ab5de…` を出します。TP=3の返答は既知の振る舞いです（[XSFP4](#xsfp4)）。
+scoreもgrammarも無い要求（「The capital of France is」、8 token）は、TP=2で `token_sha256` `09a15f0582e7…`、TP=3で `a094669ab5de…` を出します。TP=3の返答は既知の振る舞いです（[XSFP4](#xsfp4)）。上流自身の構造化出力の検査、エンジンのsourceの `tools/zig/structured_served.py`（正しい返答、draftありとplain、同時とsolo、拒否）は、3.x系では回していません。
 
 ## prefillとdecodeの速さ
 
