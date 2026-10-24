@@ -123,7 +123,7 @@ XSFP4の[測定値](#リリースでの測定値)の速さはXSFP4のもので�
 
 配信は三か所で決まります：各ホストのrankのファイル（`serve.sh` が読む）、制御機のclusterのファイル（`cluster.sh` が読む）、`create_container.sh` の環境です。二つのファイルは [`examples/`](examples/) から写して自分の値に直し、Gitには入れないでください。よく変える設定は、窓（`CONTEXT`）、同時にdecodeする要求（`PARALLEL`）、textだけ（`VISION=`）、待ち受けとそのkey（`HOST`・`API_KEY_FILE`）、containerのcore（`CPUSET`）です。
 
-[設定](docs/configuration.ja.md)は全ての設定を、それぞれの既定と読むrankとともに挙げます：rankのファイル、`serve.sh`、エンジンのflagと環境変数、NCCL、clusterのファイル、container、道具、lockのものです。エンジンはその多くを起動時にrankの間で比べ、違えば起動を断ります。既定以外の値は、その頁が名指すものを除き、3.x系の受け入れが測った範囲の外です。
+[設定](docs/configuration.ja.md)は全ての設定を、それぞれの既定と読むrankとともに挙げます：rankのファイル、`serve.sh`、エンジンのflagと環境変数、NCCL、clusterのファイル、container、道具、lockのものです。エンジンはその多くを起動時にrankの間で比べ、違えば起動を断ります。既定以外の値は、その頁が名指すものを除き、3.x系の受け入れが測った範囲の外です。上流自身のrecipeを越えてこの構成でできることは、写せる行の形で[チートシート](docs/cheatsheet.ja.md)にあります。
 
 ## API
 
@@ -326,6 +326,7 @@ v3/
                     operations.md     失敗と日常の作業：止まったrank、新しいimage、ホストを2.x系へ渡す
                     configuration.md  全ての設定、その既定と読むrank
                     decisions.md      選んだもの、選ばなかったもの、それぞれを見直すとき
+                    cheatsheet.md     上流のrecipeを越えてこの構成でできること、写せる行で
   assets/           banner.webp：このページのbanner
   tests/            glm53_tf/と、これらの頁が引く事実のCPUテスト
   pyproject.toml    3.x系の版

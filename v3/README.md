@@ -123,7 +123,7 @@ XSFP4's [measured](#measured-on-the-release) speeds are its own: the drafts' acc
 
 Three places set a deployment: each host's rank file, which `serve.sh` reads; the control machine's cluster file, which `cluster.sh` reads; and `create_container.sh`'s environment. Copy the two files from [`examples/`](examples/), put your own values and keep them out of Git. The settings most often changed are the window (`CONTEXT`), the requests decoded at once (`PARALLEL`), text alone (`VISION=`), the listener and its keys (`HOST`, `API_KEY_FILE`) and the container's cores (`CPUSET`).
 
-[Configuration](docs/configuration.md) lists every setting, each with its default and the ranks that read it: the rank file's, `serve.sh`'s, the engine's flags and environment, NCCL's, the cluster file's, the container's, the tools' and the locks. The engine compares most of them across the ranks at start and refuses to start when they differ. Values other than the defaults are outside what 3.x's acceptance measured, but for those that page names.
+[Configuration](docs/configuration.md) lists every setting, each with its default and the ranks that read it: the rank file's, `serve.sh`'s, the engine's flags and environment, NCCL's, the cluster file's, the container's, the tools' and the locks. The engine compares most of them across the ranks at start and refuses to start when they differ. Values other than the defaults are outside what 3.x's acceptance measured, but for those that page names. What this setup does beyond upstream's own recipe, as lines to copy, is the [cheatsheet](docs/cheatsheet.md).
 
 ## API
 
@@ -326,6 +326,7 @@ v3/
                     operations.md     failures and routine changes: a rank that stops, a new image, handing hosts to 2.x
                     configuration.md  every setting, its default and the ranks that read it
                     decisions.md      what was chosen, what was not, and what would reopen each
+                    cheatsheet.md     what this setup does beyond upstream's recipe, as lines to copy
   assets/           banner.webp: this page's banner
   tests/            CPU tests of glm53_tf/ and of the facts these pages quote
   pyproject.toml    the 3.x version

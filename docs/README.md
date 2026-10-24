@@ -43,6 +43,7 @@ This map lists the repository's own pages, the pages every serving line shares a
 | 3.x operations | Start outcomes, a rank that stops, a stop that leaves an engine, NCCL over sockets, a new container or image, a host that powered off, handing the hosts to 2.x | [EN](../v3/docs/operations.md) | [JA](../v3/docs/operations.ja.md) |
 | 3.x configuration | Every setting a 3.x deployment reads: where it is set, its default, what it does and which ranks read it | [EN](../v3/docs/configuration.md) | [JA](../v3/docs/configuration.ja.md) |
 | 3.x decisions | What 3.x chose and did not, with dates, measured effects and what would reopen each; what 3.x has not evaluated | [EN](../v3/docs/decisions.md) | [JA](../v3/docs/decisions.ja.md) |
+| 3.x cheatsheet | What the 3.x setup does beyond upstream TensorFold's own recipe, as lines to copy, with each one's cost; notes for harness clients | [EN](../v3/docs/cheatsheet.md) | [JA](../v3/docs/cheatsheet.ja.md) |
 | 3.x benchmark method | How the release figures and the reference values were taken: hosts, cores, cooling, prompts | [EN](../v3/docs/benchmarks.md) | [JA](../v3/docs/benchmarks.ja.md) |
 | 3.x changelog | 3.x releases; the English file is canonical | [EN](../v3/CHANGELOG.md) | [JA](../v3/CHANGELOG.ja.md) |
 

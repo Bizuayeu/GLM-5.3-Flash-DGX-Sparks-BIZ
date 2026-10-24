@@ -43,6 +43,7 @@
 | 3.xの運用 | 起動の結果、止まったrank、エンジンが残る停止、socketに落ちたNCCL、新しいcontainerやimage、電源が落ちたホスト、ホストを2.x系へ渡す | [EN](../v3/docs/operations.md) | [JA](../v3/docs/operations.ja.md) |
 | 3.xの設定 | 3.xの配信が読む全ての設定：どこで決め、既定は何で、何をし、どのrankが読むか | [EN](../v3/docs/configuration.md) | [JA](../v3/docs/configuration.ja.md) |
 | 3.xの決定 | 3.xが選んだもの・選ばなかったものを、日付・測った効き目・見直すときとともに。3.xで未評価のもの | [EN](../v3/docs/decisions.md) | [JA](../v3/docs/decisions.ja.md) |
+| 3.xのチートシート | 上流のTensorFold自身のrecipeを越えて3.xの構成でできることを、写せる行と代価で。harnessのclientの注意 | [EN](../v3/docs/cheatsheet.md) | [JA](../v3/docs/cheatsheet.ja.md) |
 | 3.xのベンチマークの方法 | リリースの値と基準値の取り方：ホスト、core、冷却、prompt | [EN](../v3/docs/benchmarks.md) | [JA](../v3/docs/benchmarks.ja.md) |
 | 3.xの変更履歴 | 3.xのリリース。英語版が正典 | [EN](../v3/CHANGELOG.md) | [JA](../v3/CHANGELOG.ja.md) |
 
