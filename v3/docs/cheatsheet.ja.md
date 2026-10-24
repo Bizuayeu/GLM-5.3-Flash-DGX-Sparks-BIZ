@@ -2,7 +2,7 @@
 
 [English](cheatsheet.md) · [3.x系の概要](../README.ja.md) · [設定](configuration.ja.md) · [運用](operations.ja.md)
 
-上流のTensorFold自身のrecipeを越えて、この系列の構成でできることを、写せる行で並べます：rankのファイルの行、`cluster.sh` のlabelの後の引数、またはコマンドです。各項目は代価と、測った場所へのリンクを書き、3.x系の受け入れの外の項目はそう書きます。rankのファイルの行は、項目がrank 0と書かない限り全rankの `/work/rank.env` に入れ、次の起動で効きます。コマンドはcheckoutのルートから、clusterのファイルを `state/cluster.env` に置いて実行し（[手順書 §5](../SETUP.ja.md#5-起動)）、ホストを変える他のコマンドと同じく、運用者が許可した時間の中で行います。全ての設定とその既定は[設定](configuration.ja.md)にあります。
+[上流のTensorFold自身のrecipe](https://github.com/ashhart/TensorFold/blob/main/docs/recipes/glm-5.3-flash-cuda.md)を越えて、この系列の構成でできることを、写せる行で並べます：rankのファイルの行、`cluster.sh` のlabelの後の引数、またはコマンドです。各項目は代価と、測った場所へのリンクを書き、3.x系の受け入れの外の項目はそう書きます。rankのファイルの行は、項目がrank 0と書かない限り全rankの `/work/rank.env` に入れ、次の起動で効きます。コマンドはcheckoutのルートから、clusterのファイルを `state/cluster.env` に置いて実行し（[手順書 §5](../SETUP.ja.md#5-起動)）、ホストを変える他のコマンドと同じく、運用者が許可した時間の中で行います。全ての設定とその既定は[設定](configuration.ja.md)にあります。
 
 ## XSFP4とFP4-Localの形式をそのまま
 

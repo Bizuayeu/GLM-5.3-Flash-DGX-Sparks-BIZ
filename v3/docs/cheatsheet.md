@@ -2,7 +2,7 @@
 
 [日本語](cheatsheet.ja.md) · [3.x overview](../README.md) · [Configuration](configuration.md) · [Operations](operations.md)
 
-What this line's setup does beyond upstream TensorFold's own recipe, as lines to copy: a rank file line, an argument after `cluster.sh`'s label or a command. Each item says what it costs and links where it was measured, and an item outside 3.x's acceptance says so. A rank file line goes into every rank's `/work/rank.env` unless the item says rank 0, and takes effect at the next start; commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized. Every setting and its default are in [configuration](configuration.md).
+What this line's setup does beyond [upstream TensorFold's own recipe](https://github.com/ashhart/TensorFold/blob/main/docs/recipes/glm-5.3-flash-cuda.md), as lines to copy: a rank file line, an argument after `cluster.sh`'s label or a command. Each item says what it costs and links where it was measured, and an item outside 3.x's acceptance says so. A rank file line goes into every rank's `/work/rank.env` unless the item says rank 0, and takes effect at the next start; commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized. Every setting and its default are in [configuration](configuration.md).
 
 ## XSFP4 and FP4-Local's formats as stored
 
