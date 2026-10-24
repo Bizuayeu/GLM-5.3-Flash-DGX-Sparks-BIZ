@@ -68,6 +68,11 @@ class EngineLockTests(unittest.TestCase):
             self.assertEqual(args[f"{arg}_URL"], media[name]["url"], name)
             self.assertEqual(args[f"{arg}_SHA256"], media[name]["sha256"], name)
 
+    def test_the_image_carries_the_repositorys_notices_and_the_licenses_they_name(self):
+        text = (LINE / "docker/Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/doc/tf3/\n", text)
+        self.assertIn("COPY LICENSES/ /usr/share/doc/tf3/LICENSES/\n", text)
+
     def test_the_bases_are_pinned_by_digest(self):
         args = dockerfile_args()
         for name in ("BUILD_IMAGE", "RUNTIME_IMAGE"):

@@ -131,6 +131,21 @@ class ServeScriptTests(unittest.TestCase):
                 lines[at + 1].startswith("# CONTEXT=245760 "), lines[at + 1]
             )
 
+    def test_serve_sh_names_rank_0s_address_once_for_both_tp_sizes(self):
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertEqual(serve.count("export NCCL_COMM_ID="), 1)
+        self.assertLess(
+            serve.index('export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"'),
+            serve.index('if [ "$tp" = 2 ]; then'),
+        )
+
+    def test_serve_sh_reads_the_reasoning_effort_once(self):
+        # Unset: high. Empty: no --reasoning-effort, the chat template's own.
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn("effort=${REASONING_EFFORT-high}\n", serve)
+        self.assertIn('[ -n "$effort" ] && args+=(--reasoning-effort "$effort")', serve)
+        self.assertEqual(serve.count("REASONING_EFFORT-"), 1)
+
     def test_serve_sh_waits_for_heat_by_the_band_alone(self):
         # 92/88 unless the rank file says otherwise; no ceiling (3.3.0: the engine has no TF_HEAT_CEILING).
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")

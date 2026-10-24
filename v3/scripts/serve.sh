@@ -9,10 +9,9 @@
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
 # between the hosts. TP=2 meets at MASTER:NCCL_PORT (NCCL_COMM_ID). TP=3's hosts are linked point to point with /32
 # addresses: NCCL_COMM_ID (MASTER:NCCL_PORT) names the ranks' lines, which reach rank 0 over the ring's routes, and
-# with TF_GLM_NCCL_ID_FILE (the fork's commit until upstream's TP bootstrap) each rank takes it out of NCCL's
+# with TF_GLM_NCCL_ID_FILE (the fork's commit, until upstream takes #1178) each rank takes it out of NCCL's
 # environment once the lines are up; rank 0 then writes its NCCL id to ID_FILE and the other ranks wait for it there.
-# The ranks start together and cluster.sh copies the file to the other hosts. TP=3 also needs TF_GLM_MM=0 in the rank
-# file until upstream's #1067 (the default bf16 linears refuse a TP=3 rank's KDA width).
+# The ranks start together, and cluster.sh copies the default file, /work/nccl-id, to the other hosts.
 # A prefill waits between chunks while any rank's hottest zone is above TF_HEAT_HIGH (92), until all are at or below
 # TF_HEAT_LOW (88). The rank file may set other values, the same on every rank, or empty ones for none (an empty
 # value is left unset: the engine refuses one). Without the bands a 1M prefill held one host at 94-97.7 C.
@@ -36,13 +35,12 @@ set -a
 set +a
 : "${MASTER:?$rank_env must set MASTER, rank 0 address on the link between the hosts}"
 export TF_GLM_RANK=$rank TF_GLM_WORLD=$tp
+export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"
 if [ "$tp" = 2 ]; then
   context=${CONTEXT:-524288}
-  export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"
   unset TF_GLM_NCCL_ID_FILE
 else
   context=${CONTEXT:-1048576}
-  export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"
   export TF_GLM_NCCL_ID_FILE=${ID_FILE:-/work/nccl-id}
 fi
 TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}
@@ -58,7 +56,8 @@ CHECKPOINT=${CHECKPOINT:-/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/88
 # loopback, requests without the key are refused.
 args=(--name "${MODEL_NAME:-glm-tf}" --host "${HOST:-127.0.0.1}" --port "${PORT:-8095}")
 args+=(--context "$context" --max-tokens 32768 --no-update-check)
-[ -n "${REASONING_EFFORT-high}" ] && args+=(--reasoning-effort "${REASONING_EFFORT-high}")
+effort=${REASONING_EFFORT-high}
+[ -n "$effort" ] && args+=(--reasoning-effort "$effort")
 parallel=${PARALLEL-1}
 [ -n "$parallel" ] && args+=(--parallel "$parallel")
 [ -n "${API_KEY_FILE:-}" ] && args+=(--api-key-file "$API_KEY_FILE")

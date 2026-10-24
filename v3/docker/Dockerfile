@@ -123,7 +123,7 @@ RUN mkdir /out/engine \
 FROM ${RUNTIME_IMAGE}
 ARG ENGINE_REF
 LABEL org.opencontainers.image.revision=$ENGINE_REF
-# NCCL as measured on the reference pair and in the 04/05 NCCL check (2.30.7), held there; rdma-core's verbs and
+# NCCL at the version the host pairs' NCCL checks measured (2.30.7), held there; rdma-core's verbs and
 # their providers so NCCL takes RoCE (NET/IB) rather than sockets; python3 with tokenizers for the HTTP checks.
 ARG NCCL_VERSION=2.30.7-1+cuda13.3
 ARG TOKENIZERS_VERSION=0.23.1
@@ -146,6 +146,7 @@ COPY --from=build /out/LICENSES/ /usr/share/doc/tf3/LICENSES/
 COPY --from=media /out/LICENSES/ /usr/share/doc/tf3/LICENSES/
 COPY --from=build /out/engine/ /usr/share/doc/tf3/engine/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/doc/tf3/
+COPY LICENSES/ /usr/share/doc/tf3/LICENSES/
 # The rank's start (cluster.sh runs it in the container on every host)
 COPY v3/scripts/serve.sh /opt/glm53-tf3/serve.sh
 WORKDIR /work
