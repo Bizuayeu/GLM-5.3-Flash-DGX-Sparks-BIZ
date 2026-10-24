@@ -75,6 +75,19 @@ These are upstream's own on GLM's CUDA engine since 1.1.1 ([API](../README.md#ap
 
 The request without scores or a grammar ("The capital of France is", 8 tokens) gives `token_sha256` `09a15f0582e7…` at TP=2 and `a094669ab5de…` at TP=3; TP=3's reply is a known behaviour ([XSFP4](#xsfp4)). Upstream's own check of structured output, `tools/zig/structured_served.py` in the engine's source (valid replies, drafted against plain and concurrent against solo, refusals), was not run on 3.x.
 
+## Multibyte output
+
+ModelOpt NVFP4 checkpoints whose gate and up projections carry different global scales were reported to garble multibyte text ([vLLM #54150](https://github.com/vllm-project/vllm/issues/54150)), and 1.x monitors it with `server mojibake` ([1.x's multibyte output](../../v1/docs/correctness-gates.md#multibyte-output)). `mojibake` asks 1.x's prompts for Japanese and Korean answers of at least 400 characters, three of each, at temperature 0 or sampled, and counts U+FFFD, lone surrogates and control characters other than line breaks and tabs in the answer and in the reasoning (`reasoning_content`). The full answers stay in `--out`:
+
+```sh
+python -m glm53_tf mojibake --out ../records/<run>/mojibake.json
+python -m glm53_tf mojibake --temperature 1.0 --top-p 0.95 --seed 42 --out ../records/<run>/mojibake-sampled.json
+```
+
+The requests name no reasoning effort, so the engine reasons at `serve.sh`'s default (high), within `serve.sh`'s limit of 32,768 tokens for the reasoning and the answer together. An answer that errs, is empty or short, is mostly outside its script or is cut at the limit is inconclusive (exit 2), never a pass; one broken character fails the check (exit 1). **Accepted when** every answer passes at both TP sizes.
+
+Reference, on 3.6.0's image (2026-10-24): twelve answers at each TP size, six at temperature 0 and six sampled (temperature 1.0, top_p 0.95, seeds 42 to 47), none with a broken character. They ran from 753 to 1,301 characters, 91 to 95% in the target script, every one finished with `stop`, and the longest reply was 1,067 tokens. The reasoning was empty in 20 of the 24 and 106 or 138 characters in the other four (the sampled Japanese answers of seeds 43 and 44 at both sizes), so the reasoning text was hardly exercised.
+
 ## Prefill and decode speed
 
 A 38,960-token prompt three times with a fresh nonce at its start (median), after one uncounted prompt of the same length, then up to 512 tokens after a short fixed prompt, three times ([benchmark method](benchmarks.md#prefill-and-decode-speed)):

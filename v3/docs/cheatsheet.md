@@ -85,13 +85,14 @@ python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log 
 
 ## Checking a launch
 
-This line's acceptance tools, run from `v3/` against rank 0's loopback, each with its reference values in [validation](validation.md): the decode check's hashes, the NLL set, long inputs and speed.
+This line's acceptance tools, run from `v3/` against rank 0's loopback, each with its reference values in [validation](validation.md): the decode check's hashes, the NLL set, long inputs, speed and multibyte output.
 
 ```sh
 PROMPT_KIND=count python -m glm53_tf decode-check
 python -m glm53_tf score-nll --url http://127.0.0.1:8095 --tokenizer <snapshot>/tokenizer.json --out ../records/<run>/nll.json
 python -m glm53_tf long-input --passphrases 3 --tokens 499622
 python -m glm53_tf bench --kinds prefill,decode,edit --out ../records/<run>/bench.jsonl
+python -m glm53_tf mojibake --out ../records/<run>/mojibake.json
 ```
 
 ## A new image

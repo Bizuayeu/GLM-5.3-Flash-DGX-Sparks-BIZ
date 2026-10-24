@@ -75,6 +75,19 @@ python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
 
 scoreもgrammarも無い要求（「The capital of France is」、8 token）は、TP=2で `token_sha256` `09a15f0582e7…`、TP=3で `a094669ab5de…` を出します。TP=3の返答は既知の振る舞いです（[XSFP4](#xsfp4)）。上流自身の構造化出力の検査、エンジンのsourceの `tools/zig/structured_served.py`（正しい返答、draftありとplain、同時とsolo、拒否）は、3.x系では回していません。
 
+## マルチバイト出力
+
+gateとupの射影のglobal scaleが違うModelOptのNVFP4のcheckpointでは、マルチバイトの文字が化けると報告されています（[vLLM #54150](https://github.com/vllm-project/vllm/issues/54150)）。1.x系はこれを `server mojibake` で監視しています（[1.x系のマルチバイト出力](../../v1/docs/correctness-gates.ja.md#マルチバイト出力)）。`mojibake` は1.x系のpromptで、400文字以上の日本語と韓国語の答えを3本ずつ、temperature 0またはsampledで求め、答えと思考（`reasoning_content`）の中の置換文字（U+FFFD）・孤立サロゲート・改行とタブ以外の制御文字を数えます。答えの全文は `--out` に残ります：
+
+```sh
+python -m glm53_tf mojibake --out ../records/<run>/mojibake.json
+python -m glm53_tf mojibake --temperature 1.0 --top-p 0.95 --seed 42 --out ../records/<run>/mojibake-sampled.json
+```
+
+要求は思考のeffortを指定しないので、エンジンは `serve.sh` の既定（high）で考え、思考と答えを合わせて32,768 tokenという `serve.sh` の上限の中で答えます。エラーの、空の、短い、大半が対象の文字でない、上限で切れた答えはinconclusive（終了の値2）で、passにはなりません。化けた文字が一つでもあれば不合格です（終了の値1）。**合格の条件**：両TPで全ての答えがpassすること。
+
+基準値（3.6.0のimage、2026-10-24）：各TPで12本、temperature 0で6本とsampled（temperature 1.0、top_p 0.95、seed 42〜47）で6本、化けた文字はありませんでした。答えは753〜1,301文字、対象の文字が91〜95%で、どれも `stop` で終わり、最も長い応答は1,067 tokenでした。思考は24本中20本で空で、残る4本（両TPのsampledの日本語、seed 43と44）は106字と138字だったので、思考の文章はほとんど試されていません。
+
 ## prefillとdecodeの速さ
 
 38,960 tokenのpromptを、先頭に毎回新しいnonceを入れて3回（中央値）、同じ長さの数えないpromptを1本流した後に。続いて短い固定promptの後に最大512 tokenを3回（[ベンチマークの方法](benchmarks.ja.md#prefillとdecodeの速さ)）：

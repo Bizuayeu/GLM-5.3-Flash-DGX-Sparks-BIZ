@@ -85,13 +85,14 @@ python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log 
 
 ## 起動を確かめる
 
-この系列の受け入れの道具で、`v3/` からrank 0のloopbackに向けて回します。それぞれの基準値は[検証](validation.ja.md)にあります：decode検査のhash、NLLの集合、長い入力、速さです。
+この系列の受け入れの道具で、`v3/` からrank 0のloopbackに向けて回します。それぞれの基準値は[検証](validation.ja.md)にあります：decode検査のhash、NLLの集合、長い入力、速さ、マルチバイト出力です。
 
 ```sh
 PROMPT_KIND=count python -m glm53_tf decode-check
 python -m glm53_tf score-nll --url http://127.0.0.1:8095 --tokenizer <snapshot>/tokenizer.json --out ../records/<run>/nll.json
 python -m glm53_tf long-input --passphrases 3 --tokens 499622
 python -m glm53_tf bench --kinds prefill,decode,edit --out ../records/<run>/bench.jsonl
+python -m glm53_tf mojibake --out ../records/<run>/mojibake.json
 ```
 
 ## 新しいimage

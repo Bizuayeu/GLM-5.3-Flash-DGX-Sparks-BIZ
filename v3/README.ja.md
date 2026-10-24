@@ -10,7 +10,7 @@
 
 ## 要約
 
-- **状況。** 3.6.0はエンジンを上流1.1.3の上へ移し、XSFP4だけを配信します。リリースのimageを、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動すると、TP=2とTP=3の各2回の起動で3.3.0のXSFP4のdecode検査のhashと編集の返答を、さらに同じNLLを返し、TP=3の1,035,295 tokenのpromptを含めて長い入力の合言葉をすべて見つけました（[リリースでの測定値](#リリースでの測定値)）。TP=3ではstop文字列の要求が上限まで走り、短いgreedyの返答が自分のhashを持ちます。どちらもそこに書いた既知の振る舞いです。[検証](docs/validation.ja.md)の基準値は、2026-10-22の参照機での3.3.0の受け入れで、visionのtowerを読み込んで決めました。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
+- **状況。** 3.6.0はエンジンを上流1.1.3の上へ移し、XSFP4だけを配信します。リリースのimageを、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動すると、TP=2とTP=3の各2回の起動で3.3.0のXSFP4のdecode検査のhashと編集の返答を、さらに同じNLLを返し、TP=3の1,035,295 tokenのpromptを含めて長い入力の合言葉をすべて見つけました（[リリースでの測定値](#リリースでの測定値)）。TP=3ではstop文字列の要求が上限まで走り、短いgreedyの返答が自分のhashを持ちます。どちらもそこに書いた既知の振る舞いです。3.7.0は、日本語と韓国語の答えの化けた文字を数える1.x系の検査 `mojibake` を加えました。そのimageでは、両TPで、temperature 0でもsampledでも、化けた文字はありませんでした（[マルチバイト出力](docs/validation.ja.md#マルチバイト出力)）。[検証](docs/validation.ja.md)の基準値は、2026-10-22の参照機での3.3.0の受け入れで、visionのtowerを読み込んで決めました。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
 - **何であるか。** XSFP4を、TensorFoldのネイティブエンジンの固定したcommitで一つのOpenAI互換endpointとして配信するための、build手順・起動の台本・受け入れ検査です。2台なら直結のConnectX-7リンクでTP=2、3台ならswitchなしのリングでTP=3です。公開している測定値はMSI EdgeXpert（MS-C931）で取りました。
 - **反復性。** draftした応答はserialと同じで、起動は同じTPの前の起動のtoken idを出します。ネイティブエンジンのtokenはそれ自身のもので、2.x系のものではありません：kernelとBF16のKV cacheの丸めが違うので、二つの系列はtokenごとではなくteacher-forced NLLで比べます（[2.x系との違い](#2x系との違い)）。
 - **構造化出力とpromptのscore。** JSON schemaつきの `response_format`、`required` か名指しの関数の `tool_choice`（GLM自身のtoolのmarkupで書く）、`/v1/completions` の `prompt_logprobs` は、1.1.1からGLMのCUDAのエンジンで上流のTensorFold自身のものです。この系列のpull request #1016・#1017・#1018の後に上流が書きました（[API](#api)）。
@@ -310,7 +310,7 @@ v3/
   SETUP.md          配備の手順書
   CHANGELOG.md      3.x系のリリース。v3.* のtagがその節を公開する
   glm53_tf/         Pythonの道具：download・verify-download・tool-gate・
-                    decode-check・decode-divergence・score-nll・bench・long-input
+                    decode-check・decode-divergence・score-nll・bench・long-input・mojibake
   config/           xsfp4.lock.json（XSFP4）、engine.lock.json（エンジンのcommit、Zigのcompiler、
                     xgrammar）、nll_set.json（NLL採点セット）
   requirements/     huggingface.lock.txt：ダウンロードとその検証に使うHugging Faceのclient

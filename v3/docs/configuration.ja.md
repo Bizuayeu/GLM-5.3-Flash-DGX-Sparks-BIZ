@@ -216,6 +216,7 @@ rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serv
 | `score-nll` | `--url`・`--tokenizer`・`--out` は必須。`--set`（`config/nll_set.json`）、`--model`（serverの最初のもの）、`--seed`（42） | `TENSORFOLD_API_KEY`。tokenizerかtextが集合のものでなければ2、serverが `prompt_logprobs` を断れば3、集合が失敗すれば1で終わる |
 | `bench` | `--kinds`（`prefill,decode`。`edit` は求めたとき）、`--runs`（3）、`--lines`（3200、prefillの行数）、`--warmup`（1）、`--out` | `BASE`・`MODEL`・`TENSORFOLD_API_KEY` |
 | `long-input` | `--passphrases`（1か3）と、`--lines` か `--tokens` は必須。`--out` | `BASE`・`MODEL`・`TENSORFOLD_API_KEY`。合言葉を見落とすと1で終わる |
+| `mojibake` | `--out` は必須。`--repeats`（1言語に3本）、`--temperature`・`--top-p`・`--seed` は3つともか、どれも付けないか（sampled。i本目はseedにiを足して引く）、`--max-tokens`（32768、`serve.sh` のもの） | `BASE`・`MODEL`・`TENSORFOLD_API_KEY`。化けた文字のある答えがあれば1、なくてinconclusiveの答えがあれば2で終わる |
 
 ## lock
 

@@ -216,6 +216,7 @@ The commands of `python -m glm53_tf`, run from `v3/`; what each check does is in
 | `score-nll` | `--url`, `--tokenizer` and `--out`, required; `--set` (`config/nll_set.json`), `--model` (the server's first), `--seed` (42) | `TENSORFOLD_API_KEY`; exits 2 when the tokenizer or a text is not the set's, 3 when the server refuses `prompt_logprobs`, 1 when the set fails |
 | `bench` | `--kinds` (`prefill,decode`; `edit` on request), `--runs` (3), `--lines` (3200, the prefill's), `--warmup` (1), `--out` | `BASE`, `MODEL`, `TENSORFOLD_API_KEY` |
 | `long-input` | `--passphrases` (1 or 3) and `--lines` or `--tokens`, required; `--out` | `BASE`, `MODEL`, `TENSORFOLD_API_KEY`; exits 1 when a passphrase is missed |
+| `mojibake` | `--out`, required; `--repeats` (3 answers a language), `--temperature`, `--top-p` and `--seed`, all three or none (sampled; answer *i* draws with seed + *i*), `--max-tokens` (32768, `serve.sh`'s) | `BASE`, `MODEL`, `TENSORFOLD_API_KEY`; exits 1 when an answer has a broken character, else 2 when one is inconclusive |
 
 ## Locks
 
