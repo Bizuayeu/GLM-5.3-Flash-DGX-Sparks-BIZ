@@ -49,7 +49,7 @@ The NLL set of [`config/nll_set.json`](../config/nll_set.json), a byte copy of 1
 
 ```sh
 python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
-  --tokenizer ~/.cache/huggingface/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/59c49ac98221848ac981226c85f77a7b55fa8469/tokenizer.json \
+  --tokenizer ~/.cache/huggingface/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/88736f916f8939607fde8a4b881dcae749f7551d/tokenizer.json \
   --out ../records/<run>/nll.json
 ```
 
