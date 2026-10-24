@@ -1,6 +1,5 @@
-"""Wait for the existing downloader, then verify a locked checkpoint's HF cache checksums
-(XSFP4 by default, or with --checkpoint pinned or axl NVIDIA's NVFP4 checkpoint or the
-published AXL weights)."""
+"""Wait for the existing downloader, then verify the locked checkpoint's HF cache checksums
+(XSFP4)."""
 
 import argparse
 import json
@@ -54,15 +53,7 @@ def main(argv=None):
         # A host that received a copied cache has no download status until download
         # registers the snapshot (it reuses the copied files).
         save("failed", reason="no download status")
-        print(
-            f"no {STATUS_FILE} in {state}: run download first"
-            + (
-                ""
-                if args.checkpoint == DEFAULT_CHECKPOINT
-                else f" --checkpoint {args.checkpoint}"
-            ),
-            file=sys.stderr,
-        )
+        print(f"no {STATUS_FILE} in {state}: run download first", file=sys.stderr)
         raise SystemExit(1)
     while True:
         status = json.loads((state / STATUS_FILE).read_text())

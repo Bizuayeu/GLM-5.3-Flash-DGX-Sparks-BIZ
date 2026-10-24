@@ -13,7 +13,7 @@ LINE = Path(__file__).resolve().parents[1]
 class LoadLockTests(unittest.TestCase):
     def load(self, **lock):
         with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / "model.lock.json"
+            path = Path(tmp) / "xsfp4.lock.json"
             values = {"model": "m", "revision": "0" * 40, **lock}
             path.write_text(json.dumps(values), encoding="utf-8")
             with patch.object(config, "LOCK_PATH", path):
@@ -37,23 +37,24 @@ class CheckoutLayoutTests(unittest.TestCase):
         self.assertEqual(config.ROOT, LINE.parent)
         self.assertTrue((config.ROOT / "LICENSE").is_file())
         self.assertEqual(config.STATE, config.ROOT / "state")
-        self.assertEqual(config.LOCK_PATH, LINE / "config/model.lock.json")
+        self.assertEqual(config.LOCK_PATH, LINE / "config/xsfp4.lock.json")
+
+    def test_the_line_keeps_no_lock_of_the_checkpoints_it_no_longer_serves(self):
+        # 3.6.0 took NVIDIA's NVFP4 (model.lock.json) and the AXL weights off 3.x.
+        locks = sorted(p.name for p in (LINE / "config").glob("*.lock.json"))
+        self.assertEqual(locks, ["engine.lock.json", "xsfp4.lock.json"])
 
 
 class CheckpointTests(unittest.TestCase):
-    def test_the_pinned_checkpoint_keeps_state_itself(self):
-        state = Path("state")
-        lock = config.load_lock()
-        self.assertEqual(
-            config.checkpoint("pinned", state),
-            (lock["model"], lock["revision"], state),
-        )
-
-    def test_axl_is_its_own_full_revision_in_its_own_state_folder(self):
-        model, revision, state = config.checkpoint("axl", Path("state"))
-        self.assertEqual(model, "Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16")
-        self.assertRegex(revision, r"^[0-9a-f]{40}$")
-        self.assertEqual(state, Path("state/axl"))
+    def test_xsfp4_is_the_only_choice(self):
+        self.assertEqual(config.CHECKPOINTS, ("xsfp4",))
+        self.assertEqual(config.DEFAULT_CHECKPOINT, "xsfp4")
+        for name in ("pinned", "axl"):
+            with (
+                self.subTest(checkpoint=name),
+                self.assertRaisesRegex(ValueError, "unknown checkpoint"),
+            ):
+                config.checkpoint(name, Path("state"))
 
     def test_xsfp4_is_its_own_full_revision_in_its_own_state_folder(self):
         model, revision, state = config.checkpoint("xsfp4", Path("state"))

@@ -51,8 +51,6 @@ class VerifyDownloadTests(unittest.TestCase):
         for extra, hint in (
             ((), "run download first\n"),
             (("--checkpoint", "xsfp4"), "run download first\n"),
-            (("--checkpoint", "pinned"), "run download first --checkpoint pinned\n"),
-            (("--checkpoint", "axl"), "run download first --checkpoint axl\n"),
         ):
             with self.subTest(extra=extra):
                 err = io.StringIO()
@@ -120,18 +118,25 @@ class VerifyDownloadTests(unittest.TestCase):
                 self.assertIn("--fail-on-missing-files", command)
                 self.assertIn("--fail-on-extra-files", command)
 
-    def test_axl_reads_its_own_folder_and_verifies_its_own_revision(self):
-        model, revision, folder = config.checkpoint("axl", self.state)
-        folder.mkdir()
-        record = {"model": model, "revision": revision, "status": "complete"}
-        (folder / STATUS_FILE).write_text(json.dumps(record))
-        self.download("complete", revision="other")  # the default's is not read
-        code, saved, run, _ = self.run_main("--checkpoint", "axl")
-        self.assertEqual(
-            (code, saved["status"], saved["model"]), (0, "complete", model)
-        )
-        command = run.call_args.args[0]
-        self.assertEqual(command[3:6], [model, "--revision", revision])
+    def test_nvidias_nvfp4_and_the_axl_weights_are_no_longer_a_choice(self):
+        # 3.6.0: 3.x serves XSFP4 alone; 1.x and 2.x keep both.
+        for name in ("pinned", "axl"):
+            with (
+                self.subTest(checkpoint=name),
+                contextlib.redirect_stderr(io.StringIO()),
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    verify_download.main(
+                        [
+                            "--hf",
+                            "hf",
+                            "--output",
+                            str(self.output),
+                            "--checkpoint",
+                            name,
+                        ]
+                    )
+                self.assertEqual(raised.exception.code, 2)
 
     def test_output_is_required(self):
         with (

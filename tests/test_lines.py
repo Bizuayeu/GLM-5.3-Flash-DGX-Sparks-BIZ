@@ -40,18 +40,15 @@ class LineTests(unittest.TestCase):
 
 
 class SharedCheckpointTests(unittest.TestCase):
-    """Every line serves one pinned checkpoint; each keeps its own copy of what it reads."""
+    """1.x and 2.x serve one pinned checkpoint (3.x serves XSFP4, from its own lock, from
+    3.6.0); each line keeps its own copy of what it reads."""
 
-    def test_the_lines_pin_the_same_model_and_revision(self):
+    def test_1x_and_2x_pin_the_same_model_and_revision(self):
         v1 = json.loads((REPO / "v1/config/runtime.lock.json").read_text("utf-8"))
-        for name in ("v2", "v3"):
-            with self.subTest(line=name):
-                lock = json.loads(
-                    (REPO / name / "config/model.lock.json").read_text("utf-8")
-                )
-                self.assertEqual(
-                    (v1["model"], v1["revision"]), (lock["model"], lock["revision"])
-                )
+        lock = json.loads((REPO / "v2/config/model.lock.json").read_text("utf-8"))
+        self.assertEqual(
+            (v1["model"], v1["revision"]), (lock["model"], lock["revision"])
+        )
 
     def test_the_copies_the_lines_read_are_byte_identical(self):
         # The NLL set makes the lines' figures comparable; the lock installs one client.

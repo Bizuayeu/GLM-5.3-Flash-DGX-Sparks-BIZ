@@ -440,18 +440,21 @@ LINE_REQUIRED = {
     "CHANGELOG.md",
     "CHANGELOG.ja.md",
     "pyproject.toml",
-    "config/model.lock.json",
 }
+# Each line's pin of the checkpoint it serves: 2.x NVIDIA's NVFP4 (as 1.x does), 3.x XSFP4
+# (from 3.6.0 its only one).
+LINE_LOCK = {"v2": "config/model.lock.json", "v3": "config/xsfp4.lock.json"}
 
 
 def line_problems(line, root, files):
     """A TensorFold line's checks, on ``files`` named relative to its directory ``root``."""
+    pin = LINE_LOCK[line]
     problems = [
         f"missing required file: {line}/{name}"
-        for name in sorted(LINE_REQUIRED - files)
+        for name in sorted((LINE_REQUIRED | {pin}) - files)
     ]
-    if "config/model.lock.json" in files:
-        lock = json.loads((root / "config/model.lock.json").read_text(encoding="utf-8"))
+    if pin in files:
+        lock = json.loads((root / pin).read_text(encoding="utf-8"))
         if not lock.get("model") or not re.fullmatch(
             r"[0-9a-f]{40}", str(lock.get("revision", ""))
         ):

@@ -10,8 +10,7 @@ prefill: one user message, a line `nonce <a fresh UUID>`, --lines fixed lines an
 decode: `Write the numbers from 1 to 1000, one per line, and nothing else.`, streamed, up to 512 tokens.
   The rate is the completion tokens after the first over the time after the first streamed token. The
   reply counts until the limit cuts it (`finish_reason` `length`, the count in the 200s), so every token
-  rated is the counting itself, and at TP=2 the pinned and the published AXL weights give the same tokens;
-  a row with another `finish_reason` stopped early and does not compare. Before 2.5.0 the request was
+  rated is the counting itself; a row with another `finish_reason` stopped early and does not compare. Before 2.5.0 the request was
   `Count upward from one, one number per line.` with ignore_eos: the model stops by itself after about
   100 tokens, and the rest of the 512 was a conversation the model made up past its end, different per
   weights and TP. The row adds `finish_reason` and the reply's rounds, tokens_per_round and token_sha256.

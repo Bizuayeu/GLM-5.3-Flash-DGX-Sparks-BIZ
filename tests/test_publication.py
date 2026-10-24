@@ -510,6 +510,42 @@ class Line2Tests(unittest.TestCase):
         self.assertIn("missing required file: v3/SETUP.md", found)
 
 
+LINE3 = dict(
+    {k: v for k, v in LINE2.items() if k != "config/model.lock.json"},
+    **{
+        "CHANGELOG.md": "# Changelog\n\n## 3.6.0 — 2026-10-24\n\n- x\n",
+        "CHANGELOG.ja.md": "# 変更履歴\n\n## 3.6.0 — 2026-10-24\n\n- x\n",
+        "pyproject.toml": '[project]\nname = "x"\nversion = "3.6.0"\nlicense = "Apache-2.0"\n',
+        "config/xsfp4.lock.json": '{"model": "Bizuayeu/GLM-5.3-Flash-XSFP4", "revision": "'
+        + "b" * 40
+        + '"}',
+    },
+)
+
+
+class Line3Tests(unittest.TestCase):
+    """3.x pins the checkpoint it serves, XSFP4, in its own lock (from 3.6.0)."""
+
+    def check(self, **changes):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            files = dict(LINE3, **changes)
+            names = write(root, {k: v for k, v in files.items() if v is not None})
+            return line_problems("v3", root, names)
+
+    def test_a_complete_line_passes_without_nvidias_lock(self):
+        self.assertEqual(self.check(), [])
+
+    def test_its_own_lock_is_required(self):
+        found = self.check(**{"config/xsfp4.lock.json": None})
+        self.assertIn("missing required file: v3/config/xsfp4.lock.json", found)
+
+    def test_an_unpinned_revision_is_reported(self):
+        lock = '{"model": "m", "revision": "main"}'
+        found = self.check(**{"config/xsfp4.lock.json": lock})
+        self.assertIn("v3: model and revision must be pinned", found)
+
+
 class DuplicateNumberTests(unittest.TestCase):
     """A warning: measured-looking numbers on more than one English page of a line."""
 

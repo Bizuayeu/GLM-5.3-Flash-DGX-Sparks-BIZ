@@ -5,7 +5,7 @@ import os
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -42,15 +42,13 @@ class BackgroundTests(unittest.TestCase):
         )
         self.assertEqual(popen.call_args.kwargs["cwd"], LINE)
 
-    def test_a_pinned_job_passes_its_checkpoint_on_and_logs_in_state_itself(self):
-        popen, logs = self.background("--checkpoint", "pinned")
-        self.assertEqual(logs, ["download.log"])
-        self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "pinned"])
-
-    def test_an_axl_job_passes_its_checkpoint_on_and_logs_in_its_folder(self):
-        popen, logs = self.background("--checkpoint", "axl")
-        self.assertEqual(logs, ["axl/download.log"])
-        self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "axl"])
+    def test_nvidias_nvfp4_and_the_axl_weights_are_no_longer_a_choice(self):
+        # 3.6.0: 3.x serves XSFP4 alone; 1.x and 2.x keep both.
+        for name in ("pinned", "axl"):
+            with self.subTest(checkpoint=name), redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as raised:
+                    self.background("--checkpoint", name)
+                self.assertEqual(raised.exception.code, 2)
 
     def test_an_xsfp4_job_passes_its_checkpoint_on_and_logs_in_its_folder(self):
         popen, logs = self.background("--checkpoint", "xsfp4")
@@ -75,7 +73,7 @@ INDEX = json.dumps({"weight_map": {"a": "model-1.safetensors"}})
 class DownloadTests(unittest.TestCase):
     """download() records why it stopped, so the status file is the job's verdict."""
 
-    def run_download(self, sha=None, files=None, sizes=None, which="pinned"):
+    def run_download(self, sha=None, files=None, sizes=None, which="xsfp4"):
         with tempfile.TemporaryDirectory() as tmp:
             root, snapshot = Path(tmp) / "state", Path(tmp) / "snapshot"
             model, revision, state = config.checkpoint(which, root)
@@ -109,15 +107,6 @@ class DownloadTests(unittest.TestCase):
         self.assertIsNone(code)
         self.assertEqual(status["status"], "complete")
         self.assertEqual((status["file_count"], status["weight_shards"]), (2, 1))
-
-    def test_axl_records_its_own_model_and_revision_in_its_own_folder(self):
-        code, status = self.run_download(which="axl")
-        model, revision, _ = config.checkpoint("axl", Path("state"))
-        self.assertIsNone(code)
-        self.assertEqual(
-            (status["model"], status["revision"], status["status"]),
-            (model, revision, "complete"),
-        )
 
     def test_xsfp4_records_its_own_model_and_revision_in_its_own_folder(self):
         code, status = self.run_download(which="xsfp4")

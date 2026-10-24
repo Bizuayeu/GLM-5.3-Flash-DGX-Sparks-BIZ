@@ -1,6 +1,5 @@
-"""Download a locked GLM checkpoint into the shared Hugging Face cache: XSFP4 by default
-(config/xsfp4.lock.json), or with --checkpoint pinned or axl NVIDIA's NVFP4 checkpoint
-(config/model.lock.json) or the published AXL weights (config/axl.lock.json)."""
+"""Download the locked GLM checkpoint, XSFP4 (config/xsfp4.lock.json), into the shared
+Hugging Face cache."""
 
 import argparse
 import json
