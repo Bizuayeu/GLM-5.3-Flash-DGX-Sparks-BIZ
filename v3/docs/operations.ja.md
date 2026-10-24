@@ -2,7 +2,7 @@
 
 [English](operations.md) · [3.x系の概要](../README.ja.md) · [配備の手順書](../SETUP.ja.md) · [検証](validation.ja.md)
 
-3.x系の起動がうまくいかないときにすることと、その周りの日常の作業（新しいcontainer、新しいimage、電源が落ちたホスト、ホストを2.x系へ渡す）です。各節は、台本が何をするかと、参照機がどの場合に出会ったかを書きます。出会っていない場合はそう書きます。コマンドはcheckoutのルートから、clusterのファイルを `state/cluster.env` に置いて実行します（[手順書 §5](../SETUP.ja.md#5-起動)）。ホストを変える他のコマンドと同じく、運用者が許可した時間の中で行います。
+3.x系の起動がうまくいかないときにすることと、その周りの日常の作業（新しいcontainer、新しいimage、電源が落ちたホスト、ホストを2.x系か1.x系へ渡す）です。各節は、台本が何をするかと、参照機がどの場合に出会ったかを書きます。出会っていない場合はそう書きます。コマンドはcheckoutのルートから、clusterのファイルを `state/cluster.env` に置いて実行します（[手順書 §5](../SETUP.ja.md#5-起動)）。ホストを変える他のコマンドと同じく、運用者が許可した時間の中で行います。
 
 ## 起動の結果
 
@@ -83,3 +83,12 @@ docker stop glm53-tf3          # 全ホストで
 ```
 
 3.x系と2.x系のcontainerはどちらも全GPUを要求するので、エンジンは一度に一つの系列だけを動かします。`docker start glm53-tf` と2.x系の `cluster.sh` でホストを2.x系へ渡し（[2.x系の手順書](../../v2/SETUP.ja.md)）、`docker start glm53-tf3` で、同じcontainerと作業ディレクトリのまま戻します。
+
+## ホストを1.x系へ渡す
+
+```sh
+v3/scripts/cluster.sh state/cluster.env stop
+docker stop glm53-tf3          # 全ホストで
+```
+
+エンジンを止めるだけでは足りません。containerは全GPUを指定して作られており、1.x系の `server preflight` は、他の動いているcontainerがGPUを要求していると起動を拒みます（`exclusive_gpu`）。2026-10-04には、2.x系のcontainerが眠っているだけでGPUのプロセスが無いときに、そう拒みました（[1.x系の起動検査](../../v1/docs/operations.ja.md#フルモデルの起動検査)）。その後は1.x系の[手順書](../../v1/SETUP.ja.md)がサーバーを起動します。`docker start glm53-tf3` で同じcontainerと作業ディレクトリのままホストを戻す前に、それを止めます（[必要な環境](../README.ja.md#必要な環境)）。

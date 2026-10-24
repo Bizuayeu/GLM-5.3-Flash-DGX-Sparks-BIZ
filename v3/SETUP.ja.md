@@ -89,4 +89,4 @@ toolを使うclientは、以後port 8896と話します。ゲートはエンジ�
 v3/scripts/cluster.sh state/cluster.env stop
 ```
 
-rank 0を先に止め（他はそれで抜けます）、残ったrankを止め、各ホストのエンジンのprocessの数と `MemAvailable` を出します。数が0より大きければ、そのrankはまだ動いています。containerは残ります。`docker stop glm53-tf3` でGPUの確保を外します。一つのrankだけが止まったとき、エンジンが残る停止、新しいimageは[運用](docs/operations.ja.md)にあります。
+rank 0を先に止め（他はそれで抜けます）、残ったrankを止め、各ホストのエンジンのprocessの数と `MemAvailable` を出します。数が0より大きければ、そのrankはまだ動いています。containerは残ります。`docker stop glm53-tf3` でGPUの確保を外し、2.x系と1.x系は起動の前にそれが要ります（[ホストを2.x系へ渡す](docs/operations.ja.md#ホストを2x系へ渡す)、[1.x系へ](docs/operations.ja.md#ホストを1x系へ渡す)）。一つのrankだけが止まったとき、エンジンが残る停止、新しいimageは[運用](docs/operations.ja.md)にあります。

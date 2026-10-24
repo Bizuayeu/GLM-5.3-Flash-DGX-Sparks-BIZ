@@ -89,4 +89,4 @@ What 3.x is accepted for, image by image, is the README's [status](README.md#sum
 v3/scripts/cluster.sh state/cluster.env stop
 ```
 
-It stops rank 0 first (the others leave when it does), then any rank left, and prints each host's engine-process count and `MemAvailable`; a count above 0 means that rank is still running. The containers stay; `docker stop glm53-tf3` frees their GPU claim. A rank that stops alone, a stop that leaves an engine and a new image are in [operations](docs/operations.md).
+It stops rank 0 first (the others leave when it does), then any rank left, and prints each host's engine-process count and `MemAvailable`; a count above 0 means that rank is still running. The containers stay; `docker stop glm53-tf3` frees their GPU claim, which 2.x and 1.x need before they start ([hand the hosts to 2.x](docs/operations.md#hand-the-hosts-to-2x), [to 1.x](docs/operations.md#hand-the-hosts-to-1x)). A rank that stops alone, a stop that leaves an engine and a new image are in [operations](docs/operations.md).

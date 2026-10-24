@@ -2,7 +2,7 @@
 
 [日本語](operations.ja.md) · [3.x overview](../README.md) · [Setup runbook](../SETUP.md) · [Validation](validation.md)
 
-What to do when a 3.x launch goes wrong, and the routine changes around it: a new container, a new image, a host that powered off, handing the hosts to 2.x. Each section says what the scripts do and which cases the reference hosts met; a case they did not meet is marked as such. Commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized.
+What to do when a 3.x launch goes wrong, and the routine changes around it: a new container, a new image, a host that powered off, handing the hosts to 2.x or 1.x. Each section says what the scripts do and which cases the reference hosts met; a case they did not meet is marked as such. Commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized.
 
 ## Start outcomes
 
@@ -83,3 +83,12 @@ docker stop glm53-tf3          # on every host
 ```
 
 The 3.x and 2.x containers both claim every GPU; run one line's engine at a time. `docker start glm53-tf` and 2.x's `cluster.sh` give the hosts to 2.x ([2.x setup](../../v2/SETUP.md)); `docker start glm53-tf3` gives them back, with the same container and work directory.
+
+## Hand the hosts to 1.x
+
+```sh
+v3/scripts/cluster.sh state/cluster.env stop
+docker stop glm53-tf3          # on every host
+```
+
+A stopped engine is not enough. The container was created with every GPU, and 1.x's `server preflight` refuses a launch while another running container requests a GPU (`exclusive_gpu`), as it refused on 2026-10-04 while 2.x's containers only slept, with no GPU process ([1.x launch checks](../../v1/docs/operations.md#full-model-launch-checks)). 1.x's [setup](../../v1/SETUP.md) then starts its server; stop it before `docker start glm53-tf3` gives the hosts back, with the same container and work directory ([requirements](../README.md#requirements)).

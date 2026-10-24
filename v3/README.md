@@ -323,7 +323,7 @@ v3/
   examples/         the reference hosts' rank files and cluster files, TP=2 and TP=3
   docs/             validation.md     the acceptance checks and reference values
                     benchmarks.md     how the release figures were taken
-                    operations.md     failures and routine changes: a rank that stops, a new image, handing hosts to 2.x
+                    operations.md     failures and routine changes: a rank that stops, a new image, handing hosts to 2.x or 1.x
                     configuration.md  every setting, its default and the ranks that read it
                     decisions.md      what was chosen, what was not, and what would reopen each
                     cheatsheet.md     what this setup does beyond upstream's recipe, as lines to copy

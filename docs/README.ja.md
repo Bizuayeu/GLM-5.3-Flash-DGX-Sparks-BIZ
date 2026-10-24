@@ -40,7 +40,7 @@
 | 3.xのREADME | 3.x系の概要：TensorFoldのネイティブエンジンで何を配信するか、どう始めるか、既定値と測定値、制約と、何が変われば見直すか | [EN](../v3/README.md) | [JA](../v3/README.ja.md) |
 | 3.xのセットアップ手順書 | ホストから受け入れ・停止までの順序 | [EN](../v3/SETUP.md) | [JA](../v3/SETUP.ja.md) |
 | 3.xの検証 | 3.xの起動を受け入れる基準値 | [EN](../v3/docs/validation.md) | [JA](../v3/docs/validation.ja.md) |
-| 3.xの運用 | 起動の結果、止まったrank、エンジンが残る停止、socketに落ちたNCCL、新しいcontainerやimage、電源が落ちたホスト、ホストを2.x系へ渡す | [EN](../v3/docs/operations.md) | [JA](../v3/docs/operations.ja.md) |
+| 3.xの運用 | 起動の結果、止まったrank、エンジンが残る停止、socketに落ちたNCCL、新しいcontainerやimage、電源が落ちたホスト、ホストを2.x系か1.x系へ渡す | [EN](../v3/docs/operations.md) | [JA](../v3/docs/operations.ja.md) |
 | 3.xの設定 | 3.xの配信が読む全ての設定：どこで決め、既定は何で、何をし、どのrankが読むか | [EN](../v3/docs/configuration.md) | [JA](../v3/docs/configuration.ja.md) |
 | 3.xの決定 | 3.xが選んだもの・選ばなかったものを、日付・測った効き目・見直すときとともに。3.xで未評価のもの | [EN](../v3/docs/decisions.md) | [JA](../v3/docs/decisions.ja.md) |
 | 3.xのチートシート | 上流のTensorFold自身のrecipeを越えて3.xの構成でできることを、写せる行と代価で。harnessのclientの注意 | [EN](../v3/docs/cheatsheet.md) | [JA](../v3/docs/cheatsheet.ja.md) |

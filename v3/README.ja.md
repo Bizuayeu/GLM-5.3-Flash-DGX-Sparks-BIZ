@@ -323,7 +323,7 @@ v3/
   examples/         参照機のrankのファイルとclusterのファイル（TP=2とTP=3）
   docs/             validation.md     受け入れの検査と基準値
                     benchmarks.md     リリースの値の取り方
-                    operations.md     失敗と日常の作業：止まったrank、新しいimage、ホストを2.x系へ渡す
+                    operations.md     失敗と日常の作業：止まったrank、新しいimage、ホストを2.x系か1.x系へ渡す
                     configuration.md  全ての設定、その既定と読むrank
                     decisions.md      選んだもの、選ばなかったもの、それぞれを見直すとき
                     cheatsheet.md     上流のrecipeを越えてこの構成でできること、写せる行で
