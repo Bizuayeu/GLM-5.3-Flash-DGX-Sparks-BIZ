@@ -121,32 +121,9 @@ XSFP4の[測定値](#リリースでの測定値)の速さはXSFP4のもので�
 
 ## 設定
 
-配信は三か所で決まります。二つのファイルは [`examples/`](examples/) から写して自分の値に直し、Gitには入れないでください。
+配信は三か所で決まります：各ホストのrankのファイル（`serve.sh` が読む）、制御機のclusterのファイル（`cluster.sh` が読む）、`create_container.sh` の環境です。二つのファイルは [`examples/`](examples/) から写して自分の値に直し、Gitには入れないでください。よく変える設定は、窓（`CONTEXT`）、同時にdecodeする要求（`PARALLEL`）、textだけ（`VISION=`）、待ち受けとそのkey（`HOST`・`API_KEY_FILE`）、containerのcore（`CPUSET`）です。
 
-| 場所 | 設定 | 既定 | 意味 |
-|---|---|---|---|
-| rankのファイル（`/work/rank.env`、`serve.sh` が読む） | `MASTER` | なし（必須） | リンク上のrank 0のアドレス。全rankで同じ |
-| | `NCCL_PORT` | `29583` | `NCCL_COMM_ID` の `MASTER` 上のrank 0のport：TP=2ではNCCLのbootstrap。rankどうしの生存の線は、どちらのTPでもその次のportを使う |
-| | `ID_FILE`（TP=3） | `/work/nccl-id` | rank 0がNCCLのidを書き、他のrankがそれを読む場所（`cluster.sh` がホストの間で写すのは `/work/nccl-id` だけ） |
-| | `NCCL_IB_HCA`・`NCCL_IB_GID_INDEX`・`NCCL_SOCKET_IFNAME` | 参照機の値 | リンクのRDMAデバイス（両rail）、RoCE v2のGIDのindex、bootstrapのinterface |
-| | `NCCL_NET`・`NCCL_IB_DISABLE`・`NCCL_IB_ROCE_VERSION_NUM`・`NCCL_IB_ADDR_FAMILY`・`NCCL_SOCKET_FAMILY`・`NCCL_MIN_NCHANNELS`・`NCCL_MAX_NCHANNELS` | RoCE v2とIPv4の上のNCCLのIBのtransport、4 channel | 2.x系と同じ（[2.x系の決定](../v2/docs/decisions.ja.md#fabric)）。TP=3はsubnet-aware routingと `NCCL_NET_PLUGIN=none` が加わります（[`tp3-rank0.env`](examples/tp3-rank0.env)） |
-| | `NCCL_DEBUG`・`NCCL_DEBUG_SUBSYS` | `INFO`・`INIT,NET` | NCCLが起動時に各接続のtransportを一度だけ書き、[手順書 §5](SETUP.ja.md#5-起動)がそれを読みます |
-| | `PARALLEL` | `1` | 同時にdecodeする要求。空ならエンジン自身の選択（[配信の既定](#配信の既定)）。全rankで同じ |
-| | `CONTEXT` | TP=2で `524288`、TP=3で `1048576` | 窓。全rankで同じ |
-| | `VISION` | `1` | 画像と動画の入力。rank 0でcheckpointのvision towerが読む（`--vision`）。空ならtextだけ。全rankで同じ |
-| | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け |
-| | `REASONING_EFFORT` | `high` | effortを指定しない要求にrank 0が使うeffort（`low`・`medium`・`high`・`xhigh`・`max`。空：chat template自身のもの） |
-| | `API_KEY_FILE` | なし | loopbackの外で配信するときのrank 0のkeyのファイル（上記） |
-| | `CHECKPOINT` | `/hub` の下のXSFP4のsnapshot（lockのrevision） | container内のcheckpointのdirectory。全rankで同じ。3.x系の受け入れはXSFP4だけ（[checkpoint](#checkpoint)） |
-| | `TF_HEAT_HIGH`・`TF_HEAT_LOW` | `92`・`88`（°C） | prefillの熱の待ちの帯。空にすると無し。全rankで同じ |
-| | `TF_GLM_MM` | 無し（tiledのkernel） | `0` はBF16のlinearを代わりにエンジンのglueのkernelで回し、別のtokenを返す（[検証](docs/validation.ja.md)）。全rankで同じ |
-| `serve.sh` の引数 | `TP RANK RANK_ENV` の後 | なし | 既定の後ろで `tensorfold-native serve` に渡るので、こちらが勝ちます（`--context 131072`） |
-| clusterのファイル（`cluster.sh`） | `TP`・`HOSTS`・`CHECKOUT` | なし（必須） | TPの大きさ、rank順のSSH名、各ホスト上のこのリポジトリのルート |
-| | `SSH`・`CONTAINER`・`WORK` | `ssh -o ConnectTimeout=20`・`glm53-tf3`・`$HOME/glm53-tf3` | ホストへの入り方、container、`/work` に見せるホストのdirectory |
-| `create_container.sh` | `IMAGE WORK_DIR`・`CONTAINER`・`HF_HUB` | なし（必須）；`glm53-tf3`・`~/.cache/huggingface/hub` | image、作業directory（rankのファイル・NCCLのid・log）、container名、`/hub` に読み取り専用で見せるHugging Faceのcache |
-| | `CPUSET` | 最大周波数の最も低いcore（GB10では `0-4,10-14`） | containerのcore（[理由](#配信の既定)）。空なら全core、またはdockerの `--cpuset-cpus` に渡すリスト |
-
-エンジンは起動時に設定をrankの間で比べ（draft、窓、prefillと熱の設定、checkpoint、binary）、違えば起動を断ります。rankのファイルは `bash` が全変数をexportしながら読むので、他の `TF_GLM_*`、`TF_HEAT_*`、`NCCL_*` の設定もエンジンに届きます。この表に無い設定は、この系列では測っていません。2.x系がPythonのエンジンに使った設定の多くは、ここでは読まれません：`TF_GLM_HEAT_*`（このエンジンのものは `TF_HEAT_*`）、`TF_GLM_CACHE_*`、`TF_GLM_KV`、`TF_GLM_COPY_DRAFTS`、`TF_GLM_B16_DECODE_TABLE`、`TF_GLM_LOOP_GUARD` です。
+[設定](docs/configuration.ja.md)は全ての設定を、それぞれの既定と読むrankとともに挙げます：rankのファイル、`serve.sh`、エンジンのflagと環境変数、NCCL、clusterのファイル、container、道具、lockのものです。エンジンはその多くを起動時にrankの間で比べ、違えば起動を断ります。既定以外の値は、その頁が名指すものを除き、3.x系の受け入れが測った範囲の外です。
 
 ## API
 
@@ -344,9 +321,10 @@ v3/
                     cluster.sh           操作する機械から全rankを起動・停止・状態確認
                     hostwatch.sh         メモリの見張り（MemAvailableが5 GiBを切るとエンジンを止める）
   examples/         参照機のrankのファイルとclusterのファイル（TP=2とTP=3）
-  docs/             validation.md  受け入れの検査と基準値
-                    benchmarks.md  リリースの値の取り方
-                    operations.md  失敗と日常の作業：止まったrank、新しいimage、ホストを2.x系へ渡す
+  docs/             validation.md     受け入れの検査と基準値
+                    benchmarks.md     リリースの値の取り方
+                    operations.md     失敗と日常の作業：止まったrank、新しいimage、ホストを2.x系へ渡す
+                    configuration.md  全ての設定、その既定と読むrank
   assets/           banner.webp：このページのbanner
   tests/            glm53_tf/と、これらの頁が引く事実のCPUテスト
   pyproject.toml    3.x系の版

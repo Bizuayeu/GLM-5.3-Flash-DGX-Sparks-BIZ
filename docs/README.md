@@ -41,6 +41,7 @@ This map lists the repository's own pages, the pages every serving line shares a
 | 3.x setup runbook | Ordered steps from hosts to acceptance and stop | [EN](../v3/SETUP.md) | [JA](../v3/SETUP.ja.md) |
 | 3.x validation | The reference values a 3.x launch is accepted against | [EN](../v3/docs/validation.md) | [JA](../v3/docs/validation.ja.md) |
 | 3.x operations | Start outcomes, a rank that stops, a stop that leaves an engine, NCCL over sockets, a new container or image, a host that powered off, handing the hosts to 2.x | [EN](../v3/docs/operations.md) | [JA](../v3/docs/operations.ja.md) |
+| 3.x configuration | Every setting a 3.x deployment reads: where it is set, its default, what it does and which ranks read it | [EN](../v3/docs/configuration.md) | [JA](../v3/docs/configuration.ja.md) |
 | 3.x benchmark method | How the release figures and the reference values were taken: hosts, cores, cooling, prompts | [EN](../v3/docs/benchmarks.md) | [JA](../v3/docs/benchmarks.ja.md) |
 | 3.x changelog | 3.x releases; the English file is canonical | [EN](../v3/CHANGELOG.md) | [JA](../v3/CHANGELOG.ja.md) |
 

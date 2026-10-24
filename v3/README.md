@@ -121,32 +121,9 @@ XSFP4's [measured](#measured-on-the-release) speeds are its own: the drafts' acc
 
 ## Configuration
 
-Three places set a deployment. Copy the two files from [`examples/`](examples/), put your own values and keep them out of Git.
+Three places set a deployment: each host's rank file, which `serve.sh` reads; the control machine's cluster file, which `cluster.sh` reads; and `create_container.sh`'s environment. Copy the two files from [`examples/`](examples/), put your own values and keep them out of Git. The settings most often changed are the window (`CONTEXT`), the requests decoded at once (`PARALLEL`), text alone (`VISION=`), the listener and its keys (`HOST`, `API_KEY_FILE`) and the container's cores (`CPUSET`).
 
-| Where | Setting | Default | Meaning |
-|---|---|---|---|
-| Rank file (`/work/rank.env`, sourced by `serve.sh`) | `MASTER` | none, required | rank 0's address on the link, the same on every rank |
-| | `NCCL_PORT` | `29583` | rank 0's port on `MASTER` in `NCCL_COMM_ID`: NCCL's bootstrap at TP=2; the ranks' liveness lines take the port after it at both TP sizes |
-| | `ID_FILE` (TP=3) | `/work/nccl-id` | where rank 0 writes its NCCL id and the other ranks read it (`cluster.sh` copies `/work/nccl-id` alone between the hosts) |
-| | `NCCL_IB_HCA`, `NCCL_IB_GID_INDEX`, `NCCL_SOCKET_IFNAME` | the reference hosts' values | the RDMA devices on the links (both rails), the RoCE v2 GID index, the bootstrap interface |
-| | `NCCL_NET`, `NCCL_IB_DISABLE`, `NCCL_IB_ROCE_VERSION_NUM`, `NCCL_IB_ADDR_FAMILY`, `NCCL_SOCKET_FAMILY`, `NCCL_MIN_NCHANNELS`, `NCCL_MAX_NCHANNELS` | NCCL's IB transport over RoCE v2 and IPv4, four channels | as in 2.x ([2.x decisions](../v2/docs/decisions.md#fabric)); TP=3 adds subnet-aware routing and `NCCL_NET_PLUGIN=none` ([`tp3-rank0.env`](examples/tp3-rank0.env)) |
-| | `NCCL_DEBUG`, `NCCL_DEBUG_SUBSYS` | `INFO`, `INIT,NET` | NCCL logs each connection's transport once at start, which [setup §5](SETUP.md#5-start) reads |
-| | `PARALLEL` | `1` | requests decoded at once; empty for the engine's own choice ([serving defaults](#serving-defaults)); the same on every rank |
-| | `CONTEXT` | `524288` at TP=2, `1048576` at TP=3 | the window; the same on every rank |
-| | `VISION` | `1` | image and video input, read by the checkpoint's vision tower on rank 0 (`--vision`); empty for text alone; the same on every rank |
-| | `MODEL_NAME`, `HOST`, `PORT` | `glm-tf`, `127.0.0.1`, `8095` | rank 0's model id and listener |
-| | `REASONING_EFFORT` | `high` | rank 0's effort for a request that names none (`low`, `medium`, `high`, `xhigh`, `max`; empty: the chat template's own) |
-| | `API_KEY_FILE` | none | rank 0's key file for serving beyond loopback (above) |
-| | `CHECKPOINT` | XSFP4's snapshot at its lock's revision under `/hub` | the checkpoint directory inside the container, the same on every rank; 3.x's acceptance covers XSFP4 alone ([checkpoints](#checkpoints)) |
-| | `TF_HEAT_HIGH`, `TF_HEAT_LOW` | `92`, `88` (°C) | the prefill heat wait's band; empty values for none; the same on every rank |
-| | `TF_GLM_MM` | unset (the tiled kernels) | `0` runs the BF16 linears on the engine's glue kernels instead, which give other tokens ([validation](docs/validation.md)); the same on every rank |
-| `serve.sh` arguments | after `TP RANK RANK_ENV` | none | passed to `tensorfold-native serve` after the defaults, so they win (`--context 131072`) |
-| Cluster file (`cluster.sh`) | `TP`, `HOSTS`, `CHECKOUT` | none, required | the TP size, SSH names in rank order, this repository's root on every host |
-| | `SSH`, `CONTAINER`, `WORK` | `ssh -o ConnectTimeout=20`, `glm53-tf3`, `$HOME/glm53-tf3` | how to reach the hosts, the container, the host directory at `/work` |
-| `create_container.sh` | `IMAGE WORK_DIR`, `CONTAINER`, `HF_HUB` | none, required; `glm53-tf3`, `~/.cache/huggingface/hub` | the image, the work directory (rank file, NCCL id, logs), the container name, the Hugging Face cache mounted read-only at `/hub` |
-| | `CPUSET` | the cores with the lowest maximum frequency (`0-4,10-14` on a GB10) | the container's cores ([why](#serving-defaults)); empty for every core, or a list for docker's `--cpuset-cpus` |
-
-The engine compares its settings across the ranks at start (drafts, the window, the prefill and heat settings, the checkpoint and the binary) and refuses to start when they differ. The rank file is sourced by `bash` with every variable exported, so any other `TF_GLM_*`, `TF_HEAT_*` or `NCCL_*` setting in it reaches the engine. Settings outside this table were not measured on this line. Most of 2.x's settings for its Python engine are not read here: `TF_GLM_HEAT_*` (this engine's are `TF_HEAT_*`), `TF_GLM_CACHE_*`, `TF_GLM_KV`, `TF_GLM_COPY_DRAFTS`, `TF_GLM_B16_DECODE_TABLE` and `TF_GLM_LOOP_GUARD`.
+[Configuration](docs/configuration.md) lists every setting, each with its default and the ranks that read it: the rank file's, `serve.sh`'s, the engine's flags and environment, NCCL's, the cluster file's, the container's, the tools' and the locks. The engine compares most of them across the ranks at start and refuses to start when they differ. Values other than the defaults are outside what 3.x's acceptance measured, but for those that page names.
 
 ## API
 
@@ -344,9 +321,10 @@ v3/
                     cluster.sh           start, stop and status of every rank from a control machine
                     hostwatch.sh         the memory guard (stops the engine below 5 GiB MemAvailable)
   examples/         the reference hosts' rank files and cluster files, TP=2 and TP=3
-  docs/             validation.md  the acceptance checks and reference values
-                    benchmarks.md  how the release figures were taken
-                    operations.md  failures and routine changes: a rank that stops, a new image, handing hosts to 2.x
+  docs/             validation.md     the acceptance checks and reference values
+                    benchmarks.md     how the release figures were taken
+                    operations.md     failures and routine changes: a rank that stops, a new image, handing hosts to 2.x
+                    configuration.md  every setting, its default and the ranks that read it
   assets/           banner.webp: this page's banner
   tests/            CPU tests of glm53_tf/ and of the facts these pages quote
   pyproject.toml    the 3.x version

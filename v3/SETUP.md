@@ -43,7 +43,7 @@ cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # this host's rank
 
 `create_container.sh` prints the cores it gives the container: unless `CPUSET` is set, the cores with the lowest maximum frequency, `cpuset 0-4,10-14` on a GB10, whose efficiency cores keep the CPU cooler while the engine's threads spin ([serving defaults](README.md#serving-defaults)). `CPUSET=` before it gives every core, and `CPUSET=<list>` the cores listed.
 
-Edit `~/glm53-tf3/rank.env` with this host's values: `MASTER` (rank 0's address on the link, the same on every rank), `NCCL_IB_HCA` (the RDMA devices on the links, both rails), `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`; also `NCCL_PORT` if 29583 is taken. The examples are the reference hosts' files and say what each line was measured as. The file is sourced by `bash`, not passed to `docker --env-file`. Lines the examples leave commented out change a default: `PARALLEL`, `CONTEXT`, `VISION` and the heat bands for every rank alike, and `API_KEY_FILE` on rank 0 alone ([configuration](README.md#configuration)).
+Edit `~/glm53-tf3/rank.env` with this host's values: `MASTER` (rank 0's address on the link, the same on every rank), `NCCL_IB_HCA` (the RDMA devices on the links, both rails), `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`; also `NCCL_PORT` if 29583 is taken. The examples are the reference hosts' files and say what each line was measured as. The file is sourced by `bash`, not passed to `docker --env-file`. Lines the examples leave commented out change a default: `PARALLEL`, `CONTEXT`, `VISION` and the heat bands for every rank alike, and `API_KEY_FILE` on rank 0 alone ([configuration](docs/configuration.md#rank-file)).
 
 The engine needs no build step on the host: its kernels are in the binary.
 
