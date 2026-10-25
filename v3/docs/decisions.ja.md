@@ -10,7 +10,7 @@
 |---|---|---|---|
 | TensorFoldのネイティブエンジン（ZigとCUDA、kernelはbinaryの中）で配信し、Pythonのエンジンの2.x系と並べる | 2026-10-18（3.0.0） | 上流はPythonのエンジンを凍結し（issue #286）、GLMをネイティブの方で配信します。tokenはネイティブエンジン自身のもの（別のkernel、BF16のKV）なので、二つの系列はNLLで比べます：3.0.0のNLLは、2.x系の基準値と領域ごとに0.021以内でした（[2.x系との違い](../README.ja.md#2x系との違い)） | — |
 | 上流のリリースに付いていく。他の利用者にも役立つものは上流へpull requestで出し、残りをrelease branchが持つ | 3.0.0〜3.6.0 | 上流1.0.12（3.0.0）、1.1.1（3.1.0）、1.1.2（3.3.0）、1.1.3（3.6.0）。この系列の#1016・#1017・#1018は1.1.1で上流自身のものになり、#1179のpatchは3.3.0〜3.5.xが持って1.1.3から上流自身のものです。#1050（FP4-Localの読み込み）は開いたままで、そのcommitはrelease branchが持ちます | 上流が#1050をリリースに入れる → その上へ移り、XSFP4を受け入れ直す（[Next Action](../README.ja.md#next-action)） |
-| TP=3をswitchの無いリングで、rank 0のNCCLのidをファイルで渡して（`TF_GLM_NCCL_ID_FILE`、この系列のcommit） | 2026-10-18（3.0.0） | NCCLはリングの点と点の `/32` のアドレスではbootstrapできません。bootstrapは管理用のWi-Fiに載せません（`/32` を置く前は、Wi-Fiがそれを運んで不安定でした：[3台をリングにつなぐ](../../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。1.1.1からrankどうしの生存の線は `NCCL_COMM_ID` で会うので、線がつながると各rankがそれをNCCLの環境から外します | 上流が#1178（rank 0のidをrankの線で送る。上流はTPのbootstrapの#636を閉じた）を取り込む → その上でTP=3を起動し、idのファイルをやめる（[Next Action](../README.ja.md#next-action)） |
+| TP=3をswitchの無いリングで、bootstrapは管理用のWi-Fiに載せずに：rank 0のNCCLのidをrankどうしの生存の線で。この系列の#1178からの上流のもの | 2026-10-18（3.0.0）。上流のbootstrapは3.8.0から | `NCCL_COMM_ID` があると、NCCLのbootstrapはrank 0のsubnetに入るinterfaceを探し、リングの点と点の `/32` のアドレスではそれを持つのがrank 0のホストだけです。bootstrapは管理用のWi-Fiに載せません（`/32` を置く前は、Wi-Fiがそれを運んで不安定でした：[3台をリングにつなぐ](../../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。3.0.0〜3.7.0はidをファイルで渡し（`TF_GLM_NCCL_ID_FILE`、この系列のcommit）、線がつながると各rankが `NCCL_COMM_ID` をNCCLの環境から外しました。上流が2026-10-25に#1178を取り込んだので、他のrankはidを線で受け取り、`NCCL_SOCKET_IFNAME` を名指すとNCCLの最初の呼び出しの前に `NCCL_COMM_ID` を外します | — |
 
 ## checkpoint
 

@@ -14,7 +14,7 @@ CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-FP4-Local/snapshots/<revision>
 
 ## TP=3 on a ring without a switch
 
-Three hosts cabled in a ring, each with a `/32` address routed over the links ([three hosts in a ring](../../docs/qsfp-network.md#8-three-hosts-in-a-ring)). `cluster.sh` starts the ranks together and hands rank 0's NCCL id to the others in a file, a commit of this line's until upstream takes pull request #1178 ([setup §5](../SETUP.md#5-start)):
+Three hosts cabled in a ring, each with a `/32` address routed over the links ([three hosts in a ring](../../docs/qsfp-network.md#8-three-hosts-in-a-ring)). `cluster.sh` starts the ranks together, and rank 0's NCCL id reaches the others over the ranks' lines, upstream's bootstrap since this line's pull request #1178 ([setup §5](../SETUP.md#5-start)):
 
 ```sh
 cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKOUT

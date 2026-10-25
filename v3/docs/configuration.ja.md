@@ -24,8 +24,7 @@
 | 設定 | 既定 | 意味 | rank |
 |---|---|---|---|
 | `MASTER` | なし（必須） | ホストの間のリンク上のrank 0のアドレス。`serve.sh` がエンジンに `NCCL_COMM_ID=MASTER:NCCL_PORT` を渡す | 全rankで同じ |
-| `NCCL_PORT` | `29583` | `NCCL_COMM_ID` のrank 0のport：TP=2ではNCCLのbootstrap。rankどうしの生存の線は、どちらのTPでもその次のportを使う | 同じ |
-| `ID_FILE` | `/work/nccl-id` | TP=3だけ：rank 0がNCCLのidを書き、他のrankがそれを待つ場所（`TF_GLM_NCCL_ID_FILE`）。`cluster.sh` がホストの間で写すのは、この既定のpathだけ | 同じ |
+| `NCCL_PORT` | `29583` | `NCCL_COMM_ID` のrank 0のport。rank 0のNCCLのbootstrapがここで待ち受ける。rankどうしの生存の線はその次のportを使う | 同じ |
 | `CONTEXT` | TP=2で `524288`、TP=3で `1048576`。空の値は既定になる | 窓（`--context`） | 同じ。起動時に比べる |
 | `PARALLEL` | `1` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（TP=2で受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
 | `VISION` | `1` | 画像と動画の入力（`--vision`）。rank 0でcheckpointのvision towerが読む。空でない値は `0` も含めてどれもこれを渡すので、textだけにするのは `VISION=` だけ | 同じ。起動時に比べる |
@@ -42,7 +41,7 @@
 
 - `--max-tokens 32768`：`max_tokens` を指定しない要求の応答の上限、推論を含む（エンジン自身の既定は4,096）。
 - `--no-update-check`：このエンジンはflagを受け取り、何もしません。
-- `NCCL_COMM_ID`・`TF_GLM_RANK`・`TF_GLM_WORLD`、TP=3では `TF_GLM_NCCL_ID_FILE`（TP=2ではunset）を、引数とrankのファイルから。
+- `NCCL_COMM_ID`・`TF_GLM_RANK`・`TF_GLM_WORLD` を、引数とrankのファイルから。
 - 窓・effort・stream・vision tower・checkpointを、上のとおりrankのファイルから。2か3以外のTP、その外のrankは、エンジンが起動する前に `serve.sh` を止めます。
 
 `TP RANK RANK_ENV` の後の引数（`cluster.sh` からはlabelの後）はこれらの後ろに付くので、もう一度与えた値のflagは後の値になり（`CONTEXT` より `--context 131072`）、`--api-key` と `--alias` は一覧に加わります。`cluster.sh` はそれらをSSHと `bash -c` にquoteせずに渡します：空白やquoteを含む引数は、そのままでは届きません。
@@ -99,6 +98,7 @@ labelの後に付けられるflagと、エンジンの既定です。「比べ�
 | `TF_GLM_PROMPT_K` | `one` | `shape`：promptに固定のKのslice、試しのもの。`TF_GLM_MM=1` が要る |
 | `TF_GLM_DENSE_BITS`・`TF_GLM_HEAD_BITS` | `16` | `4`・`6`・`8`：denseのlinear、またはheadを、読み込み時にそのbit数へ詰める |
 | `TF_GLM_LAYERS` | 全ての層 | 最初のN層だけ。GPU 1台で確かめるための細いモデル |
+| `TF_KV_PAGES` | unset：`auto` と同じ | streamのKV cacheの置き場：`auto` は3 rankでは全streamのcacheとエンジン自身のsequenceを1つのpoolのpageに置き、2 rankではstreamごとの窓のまま。`off` か `0` はどのTPでも窓。`on`・`all`・他の値（空も含む）はどのTPでもpage。`--kv-cache fp8` では `auto` と `off` は窓のままで、`on` か `all` は起動を止める |
 
 rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vision` とその4つの上限、窓、checkpointの `config.json`、エンジンのbinary、checkpointのdigestも比べます。digestはmetadataと全shardのbyteのもので、containerの中のcacheに残るので、新しいcontainerの最初の起動はcheckpointを全部読みます。
 
@@ -114,6 +114,7 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 | `TF_ROCE_MAX_KB` | `4096` | rankがその経路で送る最も大きいgather、KiB単位。空の値・`0`・数でない語は起動を止める |
 | `TF_GLM_PDL` | 有効 | `0` はdependent launch（前のkernelが終わる間に行列積の重みを流し込む）を止める |
 | `TF_NVFP4_DECODE_WARPS` | `4` | NVFP4のexpertのdecodeのkernelのwarp、`1` か `4`。他の値は空も含めて読み込みを失敗させる |
+| `TF_QMMF_HALF_BELOW` | `96` | decodeのMXFP8とBF16のmatmulは、64列のblockがこの数より少ないとき半分のtileを使う。和は同じ。`0` は使わない。数でない値は既定 |
 | `TF_GLM_PROMPT_STEPS` | 有効 | rank 0だけ：`0` はpromptの処理を丸ごと回し、chunkの合間に他のstreamのroundを挟まない |
 | `TF_GLM_SHARED` | 有効 | rank 0だけ：`0` は各streamのdraftの窓に、他のstreamと共有するforwardではなく専用のforwardを与える |
 | `TF_GLM_LINK_WAIT` | 無効 | `1` は他のrankへの各stepをuploadして待つ。以前のエンジンの振る舞い |
@@ -136,6 +137,7 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 | `TENSORFOLD_API_KEY` | なし | commaで区切ったAPIのkey（[APIのkey](#apiのkey)） |
 | `TF_DRAIN_S` | `20` | 止まるserverが流し切る秒数：新しい要求は `Retry-After` 付きの503を受け、`/health` は `draining` を返す |
 | `TF_SSE_KEEPALIVE_S` | `15` | streamのkeepaliveの間隔（秒） |
+| `TENSORFOLD_PREFILL_SHARE` | `1` | 他のstreamがdecodeしている間の、長いpromptのstepの時間の取り分。`0.01` から `1`（他の値は既定）：tかかったstepは、decodeするstreamがt ×（1 − 取り分）/ 取り分のroundを回すまで次を待つ。残りが512行以下のpromptは待たず、変わるのは丸ごとのstepの順だけ。`1` はstepとroundを1つずつ交互に |
 | `TENSORFOLD_REQUEST_LOG` | なし | 全てのchatとcompletionの要求の本文を、1行のJSONとして受けるファイル。画像のURLは伏せ、textは残る |
 | `TENSORFOLD_SEED_SALT` | `0` | `--prompt-seed` がpromptから作るseedに混ぜる整数 |
 | `TENSORFOLD_NO_LIVE`・`COLUMNS` | 無効・端末のもの | `1` で実況の表示を止める。その幅 |
@@ -145,17 +147,17 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 
 GLMを配信する経路は、binaryが挙げる `TENSORFOLD_NO_UPDATE_CHECK` と `HF_HUB_OFFLINE`、`TENSORFOLD_CUDA_KERNELS`（取り込んだkernelの組で、GLMは使わない）、`TF_GRAPH_CACHE`（他のfamilyのもの）、`TF_HEAT_CEILING`（3.3.0のエンジンから無い）、2.x系の `TF_GLM_HEAT_*`・`TF_GLM_CACHE_*`・`TF_GLM_KV`・`TF_GLM_COPY_DRAFTS`・`TF_GLM_B16_DECODE_TABLE`・`TF_GLM_LOOP_GUARD` を読みません。
 
-**空の値。** rankのファイルの `NAME=` という行は、エンジンにunsetではなく空の値を渡します。エンジンは空の `TF_GLM_MM`・`TF_GLM_PREFILL_REDUCE`・`TF_GLM_OVERLAP_PIECES`・`TF_GLM_KDA_DECODE_WIDE`・`TF_GLM_PROMPT_K`・`TF_GLM_DENSE_BITS`・`TF_GLM_HEAD_BITS`・`TF_GLM_LAYERS`・`TF_ROCE_MAX_KB`・`TF_NVFP4_DECODE_WARPS` を断り、空の `TF_GLM_PDL`・`TF_ROCE`・`TF_GLM_PROMPT_STEPS`・`TF_GLM_SHARED`・`TF_GLM_LINK_WAIT` はunsetと同じに扱います。空の `TF_HEAT_HIGH` と `TF_HEAT_LOW` は `serve.sh` 自身がunsetします。
+**空の値。** rankのファイルの `NAME=` という行は、エンジンにunsetではなく空の値を渡します。エンジンは空の `TF_GLM_MM`・`TF_GLM_PREFILL_REDUCE`・`TF_GLM_OVERLAP_PIECES`・`TF_GLM_KDA_DECODE_WIDE`・`TF_GLM_PROMPT_K`・`TF_GLM_DENSE_BITS`・`TF_GLM_HEAD_BITS`・`TF_GLM_LAYERS`・`TF_ROCE_MAX_KB`・`TF_NVFP4_DECODE_WARPS` を断り、空の `TF_GLM_PDL`・`TF_ROCE`・`TF_GLM_PROMPT_STEPS`・`TF_GLM_SHARED`・`TF_GLM_LINK_WAIT`・`TF_QMMF_HALF_BELOW`・`TENSORFOLD_PREFILL_SHARE` はunsetと同じに扱い、空の `TF_KV_PAGES` は `on` と同じくpageにします。空の `TF_HEAT_HIGH` と `TF_HEAT_LOW` は `serve.sh` 自身がunsetします。
 
 ## NCCL
 
-rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serve.sh` が組み立てる `NCCL_COMM_ID` としてNCCLに届きます。TP=3では、rankどうしの生存の線がつながると各rankがそれをNCCLの環境から外し、rank 0はNCCLのidを `ID_FILE` で渡します。
+rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serve.sh` が組み立てる `NCCL_COMM_ID` としてNCCLに届きます。rank 0はそこでNCCLのidを作り、他のrankはそのidをrankどうしの生存の線で受け取ります（#1178からの上流のbootstrap）。ファイルが `NCCL_SOCKET_IFNAME` を名指すrank 0以外のrankは（例のファイルはどれも名指します）、NCCLの最初の呼び出しの前に `NCCL_COMM_ID` を外すので、そのNCCLのbootstrapはそのinterfaceを使います。TP=3ではそれが要ります：`NCCL_COMM_ID` があると、NCCLのbootstrapはそのアドレスのsubnetに入る自分のinterfaceを探し、リングの `/32` のアドレスではそれを持つのがrank 0のホストだけだからです。`~/.nccl.conf` や `/etc/nccl.conf` の `NCCL_COMM_ID` の行は、その呼び出しで戻ってきます。
 
 | 変数 | TP=2の例 | TP=3の例 | 意味 |
 |---|---|---|---|
 | `NCCL_IB_HCA` | リンク上のそのrankの2つのデバイス | `=` と4つのデバイス、port 1 | RDMAのデバイス、両rail。このホストのもの |
 | `NCCL_IB_GID_INDEX` | `3` | `3` | portのRoCE v2の項目。このホストのもので、リンクが落ちた後に動くことがある（[GID indexが動く](../../docs/nccl-validation.ja.md#gid-indexが動く)） |
-| `NCCL_SOCKET_IFNAME` | リンクのinterface | `=` とホストの `/32` のinterface | NCCLのbootstrapのinterface、管理用のWi-Fiは使わない。このホストのもの |
+| `NCCL_SOCKET_IFNAME` | リンクのinterface | `=` とホストの `/32` のinterface | NCCLのbootstrapのinterface、管理用のWi-Fiは使わない。rank 0以外のrankでは、エンジンが `NCCL_COMM_ID` を外す合図にもなる。このホストのもの |
 | `NCCL_SOCKET_FAMILY`・`NCCL_IB_ADDR_FAMILY` | `AF_INET` | `AF_INET` | IPv4 |
 | `NCCL_NET`・`NCCL_IB_DISABLE`・`NCCL_IB_ROCE_VERSION_NUM` | `IB`・`0`・`2` | `IB`・`0`・`2` | RoCE v2の上のNCCLのIBのtransportを明示 |
 | `NCCL_NET_PLUGIN` | 無し | `none` | imageのpluginではなくNCCL自身のIBのtransport |
@@ -176,13 +178,13 @@ rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serv
 | `CONTAINER` | `glm53-tf3` | 各ホストのcontainer |
 | `WORK` | `$HOME/glm53-tf3`、ホストで展開される | `/work` に見せるホストのdirectory |
 
-`cluster.sh` は時間を固定しています：TP=2ではrankを3秒おきに大きい番号から起動し、TP=3では一緒に起動して、rank 0にNCCLのidを書くまで5分を与えます。`start` はrank 0の `serving` の行を15分待ちます。`stop` は各rankを60秒まで待ち、残ったrankにもう一度 `TERM` を送って、さらに30秒待ちます。
+`cluster.sh` は時間を固定しています：TP=2ではrankを3秒おきに大きい番号から起動し、TP=3では一緒に起動してrank 0を最後にします。`start` はrank 0の `serving` の行を15分待ちます。`stop` は各rankを60秒まで待ち、残ったrankにもう一度 `TERM` を送って、さらに30秒待ちます。
 
 ## container
 
 | 設定 | 既定 | 意味 |
 |---|---|---|
-| `IMAGE WORK_DIR`（引数） | なし（必須） | imageと、`/work` に見せるホストのdirectory：rankのファイル・NCCLのid・log |
+| `IMAGE WORK_DIR`（引数） | なし（必須） | imageと、`/work` に見せるホストのdirectory：rankのファイルとlog |
 | `CONTAINER` | `glm53-tf3` | containerの名前 |
 | `HF_HUB` | `~/.cache/huggingface/hub` | Hugging Faceのcache、`/hub` に読み取り専用で |
 | `HUB_RW` | `0` | `1` はcacheを書き込めるように見せる。そこへ書くbuild用のホスト向け |
@@ -199,7 +201,7 @@ rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serv
 これらを変える設定はありません（sourceから読んだもの）：
 
 - **rankどうしの生存の線。** rank 0は他の各rankの線を300秒待ち、他のrankは300秒の間つなぎ直します。全rankの準備の記録は15分以内に届かなければならず、消えたホストは約20秒で分かります。
-- **NCCLのid。** TP=3では、他のrankは `ID_FILE` を10分まで待ちます。
+- **NCCLのid。** 他のrankは、rank 0のidを線で15分まで待ちます。
 - **media。** 画像・要求のmedia・動画のbyte数と動画のframeには、flagの無い上限があります（[制限](../README.ja.md#制限)）。
 
 ## 道具

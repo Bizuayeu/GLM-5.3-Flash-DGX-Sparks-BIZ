@@ -101,14 +101,14 @@ XSFP4's [measured](#measured-on-the-release) speeds are its own: the drafts' acc
 | Setting | TP=2 (two hosts) | TP=3 (three hosts) |
 |---|---|---|
 | Checkpoint | XSFP4 at its lock's revision (`CHECKPOINT` unset, [checkpoints](#checkpoints)) | same |
-| KV cache | BF16 latent and index keys (the engine's default; `--kv-cache fp8` opts into its FP8 latent cache, outside the acceptance: [limits](#limits)) | same |
+| KV cache | BF16 latent and index keys (the engine's default; `--kv-cache fp8` opts into its FP8 latent cache, outside the acceptance: [limits](#limits)), a window per stream | the same keys on KV pages: every stream's cache and the engine's own sequence take pages of one pool (the engine's default at three ranks, `TF_KV_PAGES`; `TF_KV_PAGES=off` in every rank file keeps a window per stream, as up to 3.7.0) |
 | Drafts | the checkpoint's MTP head (the engine's default) | same |
 | Window (`--context`) | 524,288 tokens: one stream and a prompt cache beside XSFP4 on each rank | 1,048,576 tokens (the model's limit) |
 | Requests decoded at once (`--parallel`) | 1 (`PARALLEL=1`); an empty `PARALLEL=` leaves it to the engine, which sizes the streams and the prompt cache from the memory free at start | same |
 | Prompt cache (kept prompt states, at the starts of 2,048-token chunks) | what the window leaves, at most 16 GiB (rank 0's load line; it moves with the memory free at the start): on the reference hosts with the vision tower loaded, 5.2 to 5.5 GiB on XSFP4 at 524,288 tokens (8.9 GiB at 245,760) | 16.0 GiB on the reference ring, the cap (`--prompt-cache-gib` sets another) |
 | Reply limit when a request names none | 32,768 tokens (`--max-tokens`) | same |
 | Reasoning effort when a request names none | `high` (`--reasoning-effort`) | same |
-| NCCL | two rails per link, four channels, the IB transport named, from each rank's file; rank 0's address and port as `NCCL_COMM_ID` | two rails, four channels, the IB transport named, subnet-aware routing; rank 0's address and port as `NCCL_COMM_ID` for the ranks' liveness lines alone, and rank 0's NCCL id handed over in a file |
+| NCCL | two rails per link, four channels, the IB transport named, from each rank's file; rank 0's address and port as `NCCL_COMM_ID`, and rank 0's NCCL id over the ranks' liveness lines | two rails, four channels, the IB transport named, subnet-aware routing; rank 0's address and port as `NCCL_COMM_ID`, rank 0's NCCL id over the ranks' liveness lines, and the other ranks' NCCL bootstrap on their `/32` interfaces (`NCCL_SOCKET_IFNAME`) |
 | BF16 linears | upstream's tiled kernels (the engine's default) | same: since upstream 1.1.2 (issue #1067) they leave a TP=3 rank's KDA input untiled, where 3.1.0 and 3.2.0 needed the glue kernels (`TF_GLM_MM=0`) |
 | Prefill pause for heat | before each prompt chunk, every rank together, while any rank's hottest ACPI zone is above 92 °C, until all are at or below 88 °C (`TF_HEAT_HIGH`, `TF_HEAT_LOW`; 3.0.0 to 3.2.0 also paused ahead of a 93 °C ceiling, which 3.3.0's engine does not have) | same |
 | Image and video input | on (`VISION=1`, the engine's `--vision`): the checkpoint's vision tower on rank 0, PNG, JPEG and WebP images and videos as data URLs, at the engine's limits ([limits](#limits)); `VISION=` for text alone, every rank the same | same |
@@ -344,8 +344,6 @@ v3/
 
 Each item is a trigger and what this line then does.
 
-- Upstream takes this line's pull request #1178 (rank 0's NCCL id over the ranks' lines; upstream closed its TP bootstrap, #636) → start TP=3 on it and drop the NCCL id file from the release branch.
-- Upstream takes pull request #1050 (FP4-Local's loader) in a release → move onto it and drop its commits from the release branch; accept XSFP4 again.
 - 3.3.0's engine has upstream's pull request #1053 (the waiting ranks sleep while rank 0 has no stream, in 1.1.2); the releases since ran on the efficiency cores, so it is still open → measure again whether the container still needs them.
 - `chat_template_kwargs.clear_thinking` → pass it to the chat template as 2.x does, and offer it upstream.
 

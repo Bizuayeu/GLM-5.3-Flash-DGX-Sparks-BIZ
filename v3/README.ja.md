@@ -101,14 +101,14 @@ XSFP4の[測定値](#リリースでの測定値)の速さはXSFP4のもので�
 | 設定 | TP=2（2台） | TP=3（3台） |
 |---|---|---|
 | checkpoint | XSFP4、lockのrevision（`CHECKPOINT` を書かない、[checkpoint](#checkpoint)） | 同じ |
-| KV cache | latentとindexのkeyをBF16（エンジンの既定。`--kv-cache fp8` で選べるFP8のlatent cacheは受け入れの外：[制限](#制限)） | 同じ |
+| KV cache | latentとindexのkeyをBF16（エンジンの既定。`--kv-cache fp8` で選べるFP8のlatent cacheは受け入れの外：[制限](#制限)）、streamごとの窓 | 同じkeyをKVのpageに：全streamのcacheとエンジン自身のsequenceが1つのpoolのpageを取る（3 rankでのエンジンの既定、`TF_KV_PAGES`。全rankのファイルの `TF_KV_PAGES=off` は3.7.0までと同じくstreamごとの窓） |
 | draft | checkpointのMTP head（エンジンの既定） | 同じ |
 | 窓（`--context`） | 524,288 token：各rankでXSFP4の隣に1本のstreamとprompt cacheが入る | 1,048,576 token（モデルの上限） |
 | 同時にdecodeする要求（`--parallel`） | 1（`PARALLEL=1`）。空の `PARALLEL=` ではエンジンに任せ、エンジンは起動時の空きメモリからstreamとprompt cacheの大きさを決める | 同じ |
 | prompt cache（保持するpromptの状態、2,048 tokenのchunkの始まりごと） | 窓の残り、最大16 GiB（rank 0のloadの行。起動時の空きメモリで動きます）：参照機で、vision towerを読み込んで、XSFP4は524,288 tokenで5.2〜5.5 GiB（245,760では8.9 GiB） | 参照リングで16.0 GiB、その上限（`--prompt-cache-gib` で別の値に） |
 | 要求が指定しないときの応答の上限 | 32,768 token（`--max-tokens`） | 同じ |
 | 要求が指定しないときの推論のeffort | `high`（`--reasoning-effort`） | 同じ |
-| NCCL | 各リンク2本のrail・4 channel・IBのtransportを明示、rankごとのファイルから。rank 0のアドレスとportを `NCCL_COMM_ID` に | 2本のrail・4 channel・IBのtransportを明示・subnet-aware routing。rank 0のアドレスとportを `NCCL_COMM_ID` に（rankどうしの生存の線のためだけ）、rank 0のNCCLのidをファイルで渡す |
+| NCCL | 各リンク2本のrail・4 channel・IBのtransportを明示、rankごとのファイルから。rank 0のアドレスとportを `NCCL_COMM_ID` に、rank 0のNCCLのidはrankどうしの生存の線で | 2本のrail・4 channel・IBのtransportを明示・subnet-aware routing。rank 0のアドレスとportを `NCCL_COMM_ID` に、rank 0のNCCLのidはrankどうしの生存の線で、他のrankのNCCLのbootstrapはそれぞれの `/32` のinterfaceで（`NCCL_SOCKET_IFNAME`） |
 | BF16のlinear | 上流のtiledのkernel（エンジンの既定） | 同じ：上流1.1.2から（issue #1067）、TP=3のrankのKDAの入力をtileせずに回す。3.1.0と3.2.0はglueのkernel（`TF_GLM_MM=0`）が要った |
 | 熱によるprefillの休止 | prompt chunkの前ごとに全rankそろって、どれかのrankのACPIの最も熱いzoneが92 °Cを超えている間、全rankが88 °C以下になるまで待つ（`TF_HEAT_HIGH`・`TF_HEAT_LOW`。3.0.0〜3.2.0は93 °Cの天井の手前でも待ったが、3.3.0のエンジンは天井を持たない） | 同じ |
 | 画像と動画の入力 | 有効（`VISION=1`、エンジンの `--vision`）：rank 0にcheckpointのvision tower、PNG・JPEG・WebPの画像と動画をdata URLで、エンジンの制限の中で（[制限](#制限)）。`VISION=` でtextだけ、全rankで同じに | 同じ |
@@ -344,8 +344,6 @@ v3/
 
 各項目は、きっかけと、そのときこの系列がすることです。
 
-- 上流がこの系列のpull request #1178（rank 0のNCCLのidをrankどうしの線で送る。上流はTPのbootstrap #636を閉じた）を取り込む → TP=3をその上で起動し、リリースのbranchからNCCLのidのファイルを外す。
-- 上流がpull request #1050（FP4-Localの読み込み）をリリースに入れる → その上へ移り、リリースのbranchからそのcommitを外す。XSFP4をもう一度受け入れる。
 - 3.3.0のエンジンは上流のpull request #1053（rank 0にstreamが無い間、待つrankが眠る。1.1.2に入った）を持つ。その後のリリースは効率coreで回したので、まだ開いている → containerにまだ効率coreが要るかを測り直す。
 - `chat_template_kwargs.clear_thinking` → 2.x系と同じくchat templateに渡し、上流にも出す。
 

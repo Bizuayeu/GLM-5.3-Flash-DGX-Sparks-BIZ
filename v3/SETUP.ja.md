@@ -6,7 +6,7 @@
 
 ## 1. 機体とfabric
 
-[2.x系の手順1](../v2/SETUP.ja.md#1-機体とfabric)のとおりです：ConnectX-7のリンクを持つDGX Sparkまたは互換のGB10機を2台か3台、対は直結、3台はリングにし、各ホストのRDMAデバイス名、RoCE v2のGIDのindex、rankが待ち合わせるアドレスを記録し、長い処理の前にGPUクロックに上限を設けます。参照機のリングでは、TP=3の各ホストのアドレスはdummyのinterfaceの `/32` で、リンクの上に経路を張ります（[3台をリングにつなぐ](../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。rankどうしの生存の線は `NCCL_COMM_ID` でそこのrank 0に届きますが、NCCLはそれで集まれないので、TP=3では各rankがNCCLの環境からそれを外し、rank 0がNCCLのidをファイルに書き、他のrankがそれを読みます（[手順5](#5-起動)）。
+[2.x系の手順1](../v2/SETUP.ja.md#1-機体とfabric)のとおりです：ConnectX-7のリンクを持つDGX Sparkまたは互換のGB10機を2台か3台、対は直結、3台はリングにし、各ホストのRDMAデバイス名、RoCE v2のGIDのindex、rankが待ち合わせるアドレスを記録し、長い処理の前にGPUクロックに上限を設けます。参照機のリングでは、TP=3の各ホストのアドレスはdummyのinterfaceの `/32` で、リンクの上に経路を張ります（[3台をリングにつなぐ](../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。rankどうしの生存の線は `NCCL_COMM_ID` でそこのrank 0に届き、rank 0のNCCLのidを他のrankへ運びます。他のrankのNCCLのbootstrapは、rankのファイルが `NCCL_SOCKET_IFNAME` に名指すinterfaceを使います。別のホストの `/32` からは、NCCLは `NCCL_COMM_ID` でbootstrapできないからです（[手順5](#5-起動)、[NCCL](docs/configuration.ja.md#nccl)）。
 
 ## 2. checkoutとcheckpoint
 
@@ -55,7 +55,7 @@ cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # このホスト�
 v3/scripts/cluster.sh state/cluster.env start first
 ```
 
-TP=2では大きいrankから起動し、rank 0を最後にします。TP=3では3つのrankをまとめて起動し、rank 0を最後にします。全rankの生存の線がつながると、rank 0が `/work/nccl-id` にNCCLのid（16進256文字）を書き、scriptがそのファイルを他のホストへ写し、そこのrankはそれを待って読みます。各rankはcontainerの中で `serve.sh TP RANK /work/rank.env` を動かします。全ホストでメモリの見張り（`hostwatch.sh`：`MemAvailable` が5 GiBを切るとエンジンを止める）を起動し、rank 0の `[tensorfold] serving` の行を待ちます。終わりは、`READY` とかかった秒数、rankが断ったかエンジンが消えたかrank 0がidを書かなかったときの `FAILED` と各rankのlogの末尾、15分たっての `TIMEOUT` のどれかです。各rankのlogは `<WORK>/logs/serve-r<RANK>-<LABEL>.log`、見張りのlogは `hostwatch-<LABEL>.log` です。labelの後の引数は全rankの `tensorfold-native serve` に渡り、`cluster.sh state/cluster.env status` は各rankのエンジンのprocessを数えます。`FAILED` か `TIMEOUT` の後は[運用](docs/operations.ja.md#起動の結果)を見ます。
+TP=2では大きいrankから起動し、rank 0を最後にします。TP=3では3つのrankをまとめて起動し、rank 0を最後にします。全rankの生存の線がつながると、rank 0がNCCLのidを線で他のrankへ送ります。各rankはcontainerの中で `serve.sh TP RANK /work/rank.env` を動かします。全ホストでメモリの見張り（`hostwatch.sh`：`MemAvailable` が5 GiBを切るとエンジンを止める）を起動し、rank 0の `[tensorfold] serving` の行を待ちます。終わりは、`READY` とかかった秒数、rankが断ったかエンジンが消えたときの `FAILED` と各rankのlogの末尾、15分たっての `TIMEOUT` のどれかです。各rankのlogは `<WORK>/logs/serve-r<RANK>-<LABEL>.log`、見張りのlogは `hostwatch-<LABEL>.log` です。labelの後の引数は全rankの `tensorfold-native serve` に渡り、`cluster.sh state/cluster.env status` は各rankのエンジンのprocessを数えます。`FAILED` か `TIMEOUT` の後は[運用](docs/operations.ja.md#起動の結果)を見ます。
 
 各rankの起動の行を読みます：
 

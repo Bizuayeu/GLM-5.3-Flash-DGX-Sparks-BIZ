@@ -10,7 +10,6 @@
 
 - **`READY after N s`** とrank 0の最後の8行の `[tensorfold]` と `[serve.sh]`。起動の行と、参照機で起動にかかった時間は[手順書 §5](../SETUP.ja.md#5-起動)にあります。
 - **`FAILED on rank R`**：あるrankのlogに `REFUSE` の行があるか、あるrankのcontainerでエンジンが動いていない。台本は全rankのlogの最後の25行（NCCLの `INFO` の行を除く）を表示して終わり、何も止めません。他のrankとメモリの見張りは動いたままのことがあるので、次の起動の前に `cluster.sh state/cluster.env status`、続いて `stop` を実行します。
-- **`FAILED: rank 0 wrote no NCCL id`**（TP=3）：rank 0が5分以内に `/work/nccl-id` を書かなかったか、そのエンジンが先に終わった。rank 0は全rankの生存の線がつながってから書くので、全rankのlogを読みます。
 - **`TIMEOUT`**：15分以内にrank 0の `serving` の行が出ない。全rankのlogを読み、上と同じく `stop` します。
 
 各rankのlogは `<WORK>/logs/serve-r<RANK>-<LABEL>.log` で、同じlabelの起動が上書きします。前のlogを残すには、起動ごとに別のlabelを付けます。メモリの見張りは `hostwatch-<LABEL>.log` に追記します：2秒ごとの時刻とGiB単位の `MemAvailable`、エンジンを止めたときの `KILLED`、エンジンがいなくなったときの `done` です。

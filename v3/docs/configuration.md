@@ -24,8 +24,7 @@ Every setting a 3.x deployment reads: where it is set, its default, what it does
 | Setting | Default | Meaning | Ranks |
 |---|---|---|---|
 | `MASTER` | none, required | rank 0's address on the link between the hosts; `serve.sh` gives the engine `NCCL_COMM_ID=MASTER:NCCL_PORT` | the same on every rank |
-| `NCCL_PORT` | `29583` | rank 0's port in `NCCL_COMM_ID`: NCCL's bootstrap at TP=2; the ranks' liveness lines take the port after it at both TP sizes | the same |
-| `ID_FILE` | `/work/nccl-id` | TP=3 only: where rank 0 writes its NCCL id and the other ranks wait for it (`TF_GLM_NCCL_ID_FILE`); `cluster.sh` copies only this default path between the hosts | the same |
+| `NCCL_PORT` | `29583` | rank 0's port in `NCCL_COMM_ID`, where rank 0's NCCL bootstrap listens; the ranks' liveness lines take the port after it | the same |
 | `CONTEXT` | `524288` at TP=2, `1048576` at TP=3; an empty value takes the default | the window (`--context`) | the same; compared at start |
 | `PARALLEL` | `1` | requests decoded at once (`--parallel`); an empty value passes none, and the engine takes up to 8 streams as the memory free at start allows (accepted at TP=2); a number that does not fit is refused at start | rank 0, which sizes every rank's streams by the smallest room among them |
 | `VISION` | `1` | image and video input (`--vision`), read by the checkpoint's vision tower on rank 0; any value but an empty one passes it, `0` included, so only `VISION=` serves text alone | the same; compared at start |
@@ -42,7 +41,7 @@ The example files hold the reference hosts' values, with the lines that change a
 
 - `--max-tokens 32768`: the reply limit, reasoning included, for a request that names no `max_tokens` (the engine's own default is 4,096).
 - `--no-update-check`: this engine takes the flag and does nothing with it.
-- `NCCL_COMM_ID`, `TF_GLM_RANK` and `TF_GLM_WORLD`, and at TP=3 `TF_GLM_NCCL_ID_FILE` (unset at TP=2), from its arguments and the rank file.
+- `NCCL_COMM_ID`, `TF_GLM_RANK` and `TF_GLM_WORLD`, from its arguments and the rank file.
 - The window, the effort, the streams, the vision tower and the checkpoint from the rank file, as above. A TP other than 2 or 3, or a rank outside it, stops `serve.sh` before the engine starts.
 
 Arguments after `TP RANK RANK_ENV` (after the label, through `cluster.sh`) follow these, so a value flag given again takes the later value (`--context 131072` over `CONTEXT`), and `--api-key` and `--alias` add to their lists. `cluster.sh` passes them through SSH and `bash -c` unquoted: an argument with a space or a quote does not arrive whole.
@@ -99,6 +98,7 @@ The engine compares these at start, before the weights load, and every rank stop
 | `TF_GLM_PROMPT_K` | `one` | `shape`: fixed K slices for prompts, an experiment; needs `TF_GLM_MM=1` |
 | `TF_GLM_DENSE_BITS`, `TF_GLM_HEAD_BITS` | `16` | `4`, `6` or `8`: the dense linears, or the head, packed at load to that many bits |
 | `TF_GLM_LAYERS` | every layer | the first N layers only, a thin model for one-GPU checks |
+| `TF_KV_PAGES` | unset: as `auto` | where the streams' KV cache lives: `auto` puts every stream's cache and the engine's own sequence on pages of one pool at three ranks and keeps a window per stream at two; `off` or `0` keeps the windows at any TP; `on`, `all` or another value, an empty one included, pages at any TP. With `--kv-cache fp8`, `auto` and `off` keep the windows and `on` or `all` stops the start |
 
 The ranks also compare the world and their ranks, `--kv-cache`, the drafts and `--drafter`, `--vision` and its four limits, the window, the checkpoint's `config.json`, the engine binary and the checkpoint's digest: its metadata and every shard byte, kept in a cache in the container, so the first start in a new container reads the whole checkpoint.
 
@@ -114,6 +114,7 @@ A rank may differ from the others in these without a refusal.
 | `TF_ROCE_MAX_KB` | `4096` | the largest gather a rank sends on that path, in KiB; an empty value, `0` or another word stops the start |
 | `TF_GLM_PDL` | on | `0` turns off dependent launches (a matmul's weights stream in while the kernel before it finishes) |
 | `TF_NVFP4_DECODE_WARPS` | `4` | the warps of the NVFP4 experts' decode kernel, `1` or `4`; another value, an empty one included, fails the load |
+| `TF_QMMF_HALF_BELOW` | `96` | decode's MXFP8 and BF16 matmuls take half tiles while their 64-column blocks are fewer than this, with the same sums; `0` never; a value that is not a number takes the default |
 | `TF_GLM_PROMPT_STEPS` | on | rank 0 only: `0` runs each prompt pass whole, with no other stream's round between its chunks |
 | `TF_GLM_SHARED` | on | rank 0 only: `0` gives each stream's draft window a forward of its own instead of one shared with the other streams |
 | `TF_GLM_LINK_WAIT` | off | `1` uploads every step for the other ranks and waits for it, as the engine did before |
@@ -136,6 +137,7 @@ The engine sets `NCCL_RUNTIME_CONNECT=0`, `NCCL_CUMEM_HOST_ENABLE=0` and `NCCL_C
 | `TENSORFOLD_API_KEY` | none | API keys, separated by commas ([API keys](#api-keys)) |
 | `TF_DRAIN_S` | `20` | the seconds a stopping server drains: new requests get 503 with `Retry-After`, and `/health` says `draining` |
 | `TF_SSE_KEEPALIVE_S` | `15` | the seconds between a stream's keepalives |
+| `TENSORFOLD_PREFILL_SHARE` | `1` | a long prompt's steps' share of the time while other streams decode, from `0.01` to `1` (another value takes the default): a step that took t waits until the decoding streams have had t × (1 − share) / share of rounds; a prompt with at most 512 rows left never waits, and only the order of whole steps changes. `1` alternates one step with one round |
 | `TENSORFOLD_REQUEST_LOG` | none | a file that receives every chat and completion request's body as a JSON line, image URLs redacted and the text kept |
 | `TENSORFOLD_SEED_SALT` | `0` | an integer mixed into the seed `--prompt-seed` takes from a prompt |
 | `TENSORFOLD_NO_LIVE`, `COLUMNS` | off, the terminal's | `1` turns the live display off; its width |
@@ -145,17 +147,17 @@ The engine sets `NCCL_RUNTIME_CONNECT=0`, `NCCL_CUMEM_HOST_ENABLE=0` and `NCCL_C
 
 Nothing that serves GLM reads `TENSORFOLD_NO_UPDATE_CHECK` or `HF_HUB_OFFLINE`, which the binary lists, `TENSORFOLD_CUDA_KERNELS` (a captured kernel set, which GLM does not use), `TF_GRAPH_CACHE` (other families'), `TF_HEAT_CEILING` (gone since 3.3.0's engine), or 2.x's `TF_GLM_HEAT_*`, `TF_GLM_CACHE_*`, `TF_GLM_KV`, `TF_GLM_COPY_DRAFTS`, `TF_GLM_B16_DECODE_TABLE` and `TF_GLM_LOOP_GUARD`.
 
-**Empty values.** A line `NAME=` in the rank file gives the engine an empty value, not an unset one. The engine refuses an empty `TF_GLM_MM`, `TF_GLM_PREFILL_REDUCE`, `TF_GLM_OVERLAP_PIECES`, `TF_GLM_KDA_DECODE_WIDE`, `TF_GLM_PROMPT_K`, `TF_GLM_DENSE_BITS`, `TF_GLM_HEAD_BITS`, `TF_GLM_LAYERS`, `TF_ROCE_MAX_KB` or `TF_NVFP4_DECODE_WARPS`; an empty `TF_GLM_PDL`, `TF_ROCE`, `TF_GLM_PROMPT_STEPS`, `TF_GLM_SHARED` or `TF_GLM_LINK_WAIT` acts as unset. `serve.sh` itself unsets an empty `TF_HEAT_HIGH` or `TF_HEAT_LOW`.
+**Empty values.** A line `NAME=` in the rank file gives the engine an empty value, not an unset one. The engine refuses an empty `TF_GLM_MM`, `TF_GLM_PREFILL_REDUCE`, `TF_GLM_OVERLAP_PIECES`, `TF_GLM_KDA_DECODE_WIDE`, `TF_GLM_PROMPT_K`, `TF_GLM_DENSE_BITS`, `TF_GLM_HEAD_BITS`, `TF_GLM_LAYERS`, `TF_ROCE_MAX_KB` or `TF_NVFP4_DECODE_WARPS`; an empty `TF_GLM_PDL`, `TF_ROCE`, `TF_GLM_PROMPT_STEPS`, `TF_GLM_SHARED`, `TF_GLM_LINK_WAIT`, `TF_QMMF_HALF_BELOW` or `TENSORFOLD_PREFILL_SHARE` acts as unset, and an empty `TF_KV_PAGES` pages as `on` does. `serve.sh` itself unsets an empty `TF_HEAT_HIGH` or `TF_HEAT_LOW`.
 
 ## NCCL
 
-The rank files' NCCL lines. Rank 0's address and port reach NCCL as `NCCL_COMM_ID`, which `serve.sh` builds; at TP=3 each rank takes it out of NCCL's environment once the ranks' liveness lines are up, and rank 0 hands its NCCL id over in `ID_FILE`.
+The rank files' NCCL lines. Rank 0's address and port reach NCCL as `NCCL_COMM_ID`, which `serve.sh` builds: rank 0 makes its NCCL id there, and the other ranks take the id over the ranks' liveness lines (upstream's bootstrap since #1178). A rank other than 0 whose file names `NCCL_SOCKET_IFNAME`, as every example's does, drops `NCCL_COMM_ID` before NCCL's first call, so its NCCL bootstrap uses that interface. At TP=3 it has to: with `NCCL_COMM_ID` set, NCCL's bootstrap looks for a local interface in that address's subnet, which the ring's `/32` addresses give rank 0's host alone. An `NCCL_COMM_ID` line in `~/.nccl.conf` or `/etc/nccl.conf` would come back at that call.
 
 | Variable | TP=2 example | TP=3 example | Meaning |
 |---|---|---|---|
 | `NCCL_IB_HCA` | the rank's two devices on the link | `=` and the four devices, port 1 | the RDMA devices, both rails; this host's |
 | `NCCL_IB_GID_INDEX` | `3` | `3` | the ports' RoCE v2 entry; this host's, and it can move after a link drops ([a GID index that moves](../../docs/nccl-validation.md#a-gid-index-that-moves)) |
-| `NCCL_SOCKET_IFNAME` | the link's interface | `=` and the host's `/32` interface | NCCL's bootstrap interface, never the management Wi-Fi; this host's |
+| `NCCL_SOCKET_IFNAME` | the link's interface | `=` and the host's `/32` interface | NCCL's bootstrap interface, never the management Wi-Fi; on a rank other than 0 it also has the engine drop `NCCL_COMM_ID`; this host's |
 | `NCCL_SOCKET_FAMILY`, `NCCL_IB_ADDR_FAMILY` | `AF_INET` | `AF_INET` | IPv4 |
 | `NCCL_NET`, `NCCL_IB_DISABLE`, `NCCL_IB_ROCE_VERSION_NUM` | `IB`, `0`, `2` | `IB`, `0`, `2` | NCCL's IB transport over RoCE v2, named |
 | `NCCL_NET_PLUGIN` | unset | `none` | NCCL's own IB transport, not the image's plugin |
@@ -176,13 +178,13 @@ The values other than each host's own came from 2.x, where they were measured; w
 | `CONTAINER` | `glm53-tf3` | the container on every host |
 | `WORK` | `$HOME/glm53-tf3`, expanded on the host | the host directory at `/work` |
 
-`cluster.sh` fixes its timings: at TP=2 the ranks start 3 s apart, the highest first, and at TP=3 together, rank 0 having 5 minutes to write its NCCL id; `start` waits 15 minutes for rank 0's `serving` line; `stop` waits up to 60 s for each rank, sends `TERM` again to a rank left and waits 30 s more.
+`cluster.sh` fixes its timings: at TP=2 the ranks start 3 s apart, the highest first, and at TP=3 together, rank 0 last; `start` waits 15 minutes for rank 0's `serving` line; `stop` waits up to 60 s for each rank, sends `TERM` again to a rank left and waits 30 s more.
 
 ## Container
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `IMAGE WORK_DIR` (arguments) | none, required | the image, and the host directory at `/work`: the rank file, the NCCL id and the logs |
+| `IMAGE WORK_DIR` (arguments) | none, required | the image, and the host directory at `/work`: the rank file and the logs |
 | `CONTAINER` | `glm53-tf3` | the container's name |
 | `HF_HUB` | `~/.cache/huggingface/hub` | the Hugging Face cache, at `/hub` read-only |
 | `HUB_RW` | `0` | `1` mounts the cache writable, for a build host that writes into it |
@@ -199,7 +201,7 @@ Fixed in `create_container.sh`: host network and IPC, every GPU, `/dev/infiniban
 No setting changes these (read from the source):
 
 - **The ranks' liveness lines.** Rank 0 waits 300 s for each other rank's line, and the others retry for 300 s; every rank's ready record must arrive within 15 minutes, and a host that vanishes shows within about 20 s.
-- **The NCCL id.** At TP=3 the other ranks wait up to 10 minutes for `ID_FILE`.
+- **The NCCL id.** The other ranks wait up to 15 minutes for rank 0's id over their lines.
 - **Media.** The bytes of an image, of a request's media and of a video, and a video's frames, have limits without a flag ([limits](../README.md#limits)).
 
 ## Tools

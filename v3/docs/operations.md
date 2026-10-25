@@ -10,7 +10,6 @@ What to do when a 3.x launch goes wrong, and the routine changes around it: a ne
 
 - **`READY after N s`** and rank 0's last eight `[tensorfold]` and `[serve.sh]` lines. Read the startup lines, and how long a start took on the reference hosts, in [setup §5](../SETUP.md#5-start).
 - **`FAILED on rank R`**: a rank's log has a `REFUSE` line, or a rank's container runs no engine. The script prints the last 25 lines of every rank's log (without NCCL's `INFO` lines) and exits; it stops nothing. The other ranks and the memory guards may still be running, so run `cluster.sh state/cluster.env status`, then `stop`, before the next start.
-- **`FAILED: rank 0 wrote no NCCL id`** (TP=3): rank 0 did not write `/work/nccl-id` within 5 minutes, or its engine ended first. Rank 0 writes it once every rank's liveness line is up, so read every rank's log.
 - **`TIMEOUT`**: no `serving` line from rank 0 within 15 minutes. Read every rank's log, then `stop` as above.
 
 Each rank logs to `<WORK>/logs/serve-r<RANK>-<LABEL>.log`, which a start with the same label overwrites; give every start its own label to keep the earlier logs. The memory guard appends to `hostwatch-<LABEL>.log`: the time and `MemAvailable` in GiB every 2 s, `KILLED` when it stopped the engine, `done` when the engine is gone.

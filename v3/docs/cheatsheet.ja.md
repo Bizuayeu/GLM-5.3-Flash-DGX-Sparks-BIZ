@@ -14,7 +14,7 @@ CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-FP4-Local/snapshots/<revision>
 
 ## switchの無いリングでTP=3
 
-3台をリングにつなぎ、各台にリンクの上で経路を引いた `/32` のアドレスを置きます（[3台をリングにつなぐ](../../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。`cluster.sh` はrankを一緒に起動し、rank 0のNCCLのidをファイルで他へ渡します。上流がpull request #1178を取り込むまでの、この系列のcommitです（[手順書 §5](../SETUP.ja.md#5-起動)）：
+3台をリングにつなぎ、各台にリンクの上で経路を引いた `/32` のアドレスを置きます（[3台をリングにつなぐ](../../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。`cluster.sh` はrankを一緒に起動し、rank 0のNCCLのidはrankどうしの線で他へ届きます。この系列のpull request #1178からの上流のbootstrapです（[手順書 §5](../SETUP.ja.md#5-起動)）：
 
 ```sh
 cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKOUT

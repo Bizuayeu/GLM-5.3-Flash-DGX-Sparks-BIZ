@@ -6,11 +6,10 @@
 # engine, which sizes the streams and the prompt cache from the memory free at start, so they can differ between
 # starts. CONTEXT in the rank file sets another window, every rank the same.
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
-# between the hosts. TP=2 meets at MASTER:NCCL_PORT (NCCL_COMM_ID). TP=3's hosts are linked point to point with /32
-# addresses: NCCL_COMM_ID (MASTER:NCCL_PORT) names the ranks' lines, which reach rank 0 over the ring's routes, and
-# with TF_GLM_NCCL_ID_FILE (the fork's commit, until upstream takes #1178) each rank takes it out of NCCL's
-# environment once the lines are up; rank 0 then writes its NCCL id to ID_FILE and the other ranks wait for it there.
-# The ranks start together, and cluster.sh copies the default file, /work/nccl-id, to the other hosts.
+# between the hosts (at TP=3, whose hosts are linked point to point, a /32 address the ring's routes reach). Rank 0
+# makes its NCCL id at NCCL_COMM_ID (MASTER:NCCL_PORT), and the ranks' liveness lines meet it at the next port; the
+# other ranks take the id over their lines, and where the rank file names NCCL_SOCKET_IFNAME, as every example's
+# does, the engine drops NCCL_COMM_ID before NCCL's first call, so NCCL's bootstrap uses that interface (#1178).
 # A prefill waits between chunks while any rank's hottest zone is above TF_HEAT_HIGH (92), until all are at or below
 # TF_HEAT_LOW (88). The rank file may set other values, the same on every rank, or empty ones for none (an empty
 # value is left unset: the engine refuses one). Without the bands a 1M prefill held one host at 94-97.7 C.
@@ -37,10 +36,8 @@ export TF_GLM_RANK=$rank TF_GLM_WORLD=$tp
 export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"
 if [ "$tp" = 2 ]; then
   context=${CONTEXT:-524288}
-  unset TF_GLM_NCCL_ID_FILE
 else
   context=${CONTEXT:-1048576}
-  export TF_GLM_NCCL_ID_FILE=${ID_FILE:-/work/nccl-id}
 fi
 TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}
 for v in TF_HEAT_HIGH TF_HEAT_LOW; do
