@@ -120,7 +120,7 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
   --backend-kwargs '{"max_tokens": 4096, "chat_template_kwargs": {"reasoning_effort": "low", "clear_thinking": true}}'
 ```
 
-The engine does not pass `clear_thinking` to the chat template ([limits](../README.md#limits)); the invocation keeps it so that the scores compare with 1.x's and 2.x's.
+From 3.8.0 the engine passes `clear_thinking` to the chat template, as 2.x's does (upstream 1.1.5; [configuration](configuration.md#rank-0s-server)); 3.0.0 to 3.7.0's did not. The invocation keeps it so that the scores compare with 1.x's and 2.x's.
 
 Reference, on 3.5.3's image (2026-10-24): 95/100 at TP=2 and 92/100 at TP=3 with the Safety Gate passed; TP=2 left TC-39, TC-52 and TC-55 partial and failed TC-62 and TC-68, TP=3 left TC-14, TC-21, TC-39, TC-50 and TC-52 partial and failed TC-29, TC-62 and TC-68. tool-eval-bench 2.6.1.dev52 (`81eae0a`) gave XSFP4 93 at both TP sizes; 2.7.0 and 2.8.0 grade many scenarios more strictly, so scores of different versions do not compare. One trial each, so a point or two is within what one trial moves. The gate is this repository's relay in front of the engine, not part of TensorFold ([setup §6](../SETUP.md#6-tool-argument-gate-optional)), so these scores and the Safety Gate are the engine's behind it. Without the gate, the same invocation straight to the engine on 3.6.0's image gave 93 at TP=2 and 91 at TP=3, the Safety Gate passed, failing TC-43 as well at both sizes: a `web_search` call with an empty `query`, which through the gate becomes a refusal to call it without one.
 

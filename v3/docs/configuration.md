@@ -138,6 +138,7 @@ The engine sets `NCCL_RUNTIME_CONNECT=0`, `NCCL_CUMEM_HOST_ENABLE=0` and `NCCL_C
 | `TF_DRAIN_S` | `20` | the seconds a stopping server drains: new requests get 503 with `Retry-After`, and `/health` says `draining` |
 | `TF_SSE_KEEPALIVE_S` | `15` | the seconds between a stream's keepalives |
 | `TENSORFOLD_PREFILL_SHARE` | `1` | a long prompt's steps' share of the time while other streams decode, from `0.01` to `1` (another value takes the default): a step that took t waits until the decoding streams have had t × (1 − share) / share of rounds; a prompt with at most 512 rows left never waits, and only the order of whole steps changes. `1` alternates one step with one round |
+| `TF_GLM_CLEAR_THINKING` | `0` | `1` gives GLM-5.3's chat template `clear_thinking` true, which drops the reasoning of the turns before the latest user message; `0`, empty or unset gives false, which keeps it; another value refuses to load. A request's `chat_template_kwargs.clear_thinking` overrides it for that request (from 3.8.0's engine, upstream 1.1.5) |
 | `TENSORFOLD_REQUEST_LOG` | none | a file that receives every chat and completion request's body as a JSON line, image URLs redacted and the text kept |
 | `TENSORFOLD_SEED_SALT` | `0` | an integer mixed into the seed `--prompt-seed` takes from a prompt |
 | `TENSORFOLD_NO_LIVE`, `COLUMNS` | off, the terminal's | `1` turns the live display off; its width |

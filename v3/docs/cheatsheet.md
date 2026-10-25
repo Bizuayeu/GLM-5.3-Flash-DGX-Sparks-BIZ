@@ -6,7 +6,7 @@ What this line's setup does beyond [upstream TensorFold's own recipe](https://gi
 
 ## XSFP4 and FP4-Local's formats as stored
 
-The engine loads NVIDIA's GLM-5.3-Flash-FP4-Local and XSFP4, its derivative, as stored, with the code of pull request #1050, which upstream has not taken; upstream's own release takes NVIDIA's NVFP4 recipe (`modelopt-nvfp4`) alone for GLM. XSFP4 is `serve.sh`'s default, so nothing is set. FP4-Local itself, which the tools do not download, or another folder is `CHECKPOINT` in every rank file, outside the acceptance ([checkpoints](../README.md#checkpoints)):
+The engine loads NVIDIA's GLM-5.3-Flash-FP4-Local and XSFP4, its derivative, as stored, with the code of pull request #1050, upstream's own from 1.1.5 (upstream's releases before it took NVIDIA's NVFP4 recipe, `modelopt-nvfp4`, alone for GLM). XSFP4 is `serve.sh`'s default, so nothing is set. FP4-Local itself, which the tools do not download, or another folder is `CHECKPOINT` in every rank file, outside the acceptance ([checkpoints](../README.md#checkpoints)):
 
 ```sh
 CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-FP4-Local/snapshots/<revision>

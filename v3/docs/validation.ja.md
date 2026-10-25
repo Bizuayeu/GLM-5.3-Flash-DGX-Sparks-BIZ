@@ -120,7 +120,7 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
   --backend-kwargs '{"max_tokens": 4096, "chat_template_kwargs": {"reasoning_effort": "low", "clear_thinking": true}}'
 ```
 
-エンジンは `clear_thinking` をchat templateに渡しません（[制限](../README.ja.md#制限)）。呼び方は、点数を1.x系・2.x系と比べられるよう、それを残します。
+3.8.0から、エンジンは2.x系と同じく `clear_thinking` をchat templateに渡します（上流1.1.5。[設定](configuration.ja.md#rank-0のserver)）。3.0.0〜3.7.0は渡しませんでした。呼び方は、点数を1.x系・2.x系と比べられるよう、それを残します。
 
 基準値（3.5.3のimage、2026-10-24）：TP=2で95/100、TP=3で92/100、Safety Gateは合格。TP=2はTC-39・TC-52・TC-55が部分点でTC-62とTC-68を落とし、TP=3はTC-14・TC-21・TC-39・TC-50・TC-52が部分点でTC-29・TC-62・TC-68を落としました。tool-eval-bench 2.6.1.dev52（`81eae0a`）ではXSFP4は両TPで93でした。2.7.0と2.8.0は多くのシナリオをより厳しく採点するので、版の違う点数は比べられません。各1回なので、1〜2点は1回の試行で動く範囲です。ゲートはエンジンの前に立つこのリポジトリの中継で、TensorFoldにはありません（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。したがってこれらの点数とSafety Gateは、ゲートの後ろのエンジンのものです。ゲートなしで同じ呼び方をエンジンへ直に当てると、3.6.0のimageでTP=2は93、TP=3は91で、Safety Gateは合格でした。両TPでTC-43も落としました：空の `query` で `web_search` を呼んだもので、ゲート越しではqueryなしでは呼ばずに断る返答になります。
 

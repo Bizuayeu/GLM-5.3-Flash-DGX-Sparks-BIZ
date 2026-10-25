@@ -138,6 +138,7 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 | `TF_DRAIN_S` | `20` | 止まるserverが流し切る秒数：新しい要求は `Retry-After` 付きの503を受け、`/health` は `draining` を返す |
 | `TF_SSE_KEEPALIVE_S` | `15` | streamのkeepaliveの間隔（秒） |
 | `TENSORFOLD_PREFILL_SHARE` | `1` | 他のstreamがdecodeしている間の、長いpromptのstepの時間の取り分。`0.01` から `1`（他の値は既定）：tかかったstepは、decodeするstreamがt ×（1 − 取り分）/ 取り分のroundを回すまで次を待つ。残りが512行以下のpromptは待たず、変わるのは丸ごとのstepの順だけ。`1` はstepとroundを1つずつ交互に |
+| `TF_GLM_CLEAR_THINKING` | `0` | `1` でGLM-5.3のchat templateに `clear_thinking` をtrueで渡し、最新のuser messageより前のturnの推論を落とす。`0`・空・未設定はfalseで、それを残す。他の値は読み込みを断る。要求の `chat_template_kwargs.clear_thinking` が、その要求ではこれに優先する（3.8.0のエンジン、上流1.1.5から） |
 | `TENSORFOLD_REQUEST_LOG` | なし | 全てのchatとcompletionの要求の本文を、1行のJSONとして受けるファイル。画像のURLは伏せ、textは残る |
 | `TENSORFOLD_SEED_SALT` | `0` | `--prompt-seed` がpromptから作るseedに混ぜる整数 |
 | `TENSORFOLD_NO_LIVE`・`COLUMNS` | 無効・端末のもの | `1` で実況の表示を止める。その幅 |
