@@ -6,6 +6,19 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.8.1 — 2026-10-26
+
+文書だけの版です。imageのファイルは変わらず、3.8.0のままです（`glm53-tf3:3.8.0`、`sha256:1055b9feee2ef704c8dd736495bfc8d231df5a59406b17eb0655eefdd830b7a2`）。
+
+### Documentation
+
+- READMEは今の版の[リリースでの測定値](README.ja.md#リリースでの測定値)、3.8.0のものだけを持ちます。3.6.0から3.0.0までは、新しい頁の[前の版の測定値](docs/measurements.ja.md)へ一字一句そのまま、版ごとの見出しの下に移しました。次の版が出ると、その版の項がそこへ移ります。移した版を指していた頁はそこへリンクし、文書の地図とREADMEの構成にその頁を足しました。READMEの冒頭の段落は各版で何が変わったかを並べず、この変更履歴へリンクします。
+- 3.8.0のエンジンに合わせた直しで、そのsourceと3.8.0の受け入れで確かめました：[手順書](SETUP.ja.md)§5は、各rankの `NCCL_COMM_ID … leaves NCCL's environment` を読ませなくなりました。これは3.7.0までのリリースのbranchが持ったidのファイルのcommitの行で、1.1.5は出しません。rank 0のloadの行は、TP=3ではKVのpageで書きます。READMEの免責事項は、3.8.0のリリースのbranchがこの系列のcommitを持たない上流v1.1.5そのものだと書きます。[ベンチマークの方法](docs/benchmarks.ja.md)は、TP=2の各checkpointで1回の起動を `PARALLEL=` を空にして走らせたとは書かなくなり、冷却の上限を3.8.0のものでもあると書きます。[運用](docs/operations.ja.md)は、測定値を載せたどの版の受け入れでも（3.8.0を含めて）見張りがエンジンを止めなかったと書き、どの停止もエンジンを残さなかった受け入れに3.8.0を数えます。
+
+### Not in 3.8.1
+
+3.x系でのNVIDIAのNVFP4と公開したAXLの重み（1.x系と2.x系が配信します）、生成したtokenのlog確率（[制限](README.ja.md#制限)）。
+
 ## 3.8.0 — 2026-10-26
 
 エンジンを上流のTensorFold 1.1.5そのものの上へ移します。この系列のpull requestを持つ上流の最初のリリースなので、リリースのbranchにこの系列のcommitはありません。TP=3ではKV cacheがpageに移り、rank 0のNCCLのidはrankどうしの線で他のrankへ届き、`clear_thinking` がchat templateに届きます。文書の測定値は3.8.0の受け入れのものです。

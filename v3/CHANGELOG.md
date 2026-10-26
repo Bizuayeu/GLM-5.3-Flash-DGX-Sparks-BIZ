@@ -4,6 +4,19 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.8.1 — 2026-10-26
+
+Documents only. No file of the image changes; it stays 3.8.0's (`glm53-tf3:3.8.0`, `sha256:1055b9feee2ef704c8dd736495bfc8d231df5a59406b17eb0655eefdd830b7a2`).
+
+### Documentation
+
+- The README keeps the current release's [measured on the release](README.md#measured-on-the-release), 3.8.0's. 3.6.0's back to 3.0.0's move word for word to a new page, [measurements of earlier releases](docs/measurements.md), under a heading for each release; a release's part goes there when the next one replaces it. The pages that pointed at a moved release link it there, and the document map and the README's layout list the page. The README's opening paragraph no longer lists what each release changed; it links this changelog.
+- Corrections for 3.8.0's engine, checked against its source and 3.8.0's acceptance: [setup](SETUP.md) §5 no longer has the operator read each rank's `NCCL_COMM_ID … leaves NCCL's environment`, a line of the id-file commit that the release branches up to 3.7.0 carried and that 1.1.5 does not log, and describes rank 0's load line at TP=3 by its KV pages; the README's disclaimer says that 3.8.0's release branch is upstream v1.1.5 with no commit of this line's; the [benchmark method](docs/benchmarks.md) no longer says that one TP=2 launch on each checkpoint ran with `PARALLEL=` empty, and gives its cooling caps as 3.8.0's too; [operations](docs/operations.md) says that no watcher stopped an engine in the acceptance of any release whose measurements are published, 3.8.0's included, and counts 3.8.0's among the acceptances where every stop left no engine.
+
+### Not in 3.8.1
+
+NVIDIA's NVFP4 and the published AXL weights on 3.x (1.x and 2.x serve them) and log-probabilities of generated tokens ([limits](README.md#limits)).
+
 ## 3.8.0 — 2026-10-26
 
 The engine moves onto upstream TensorFold 1.1.5 itself, upstream's first release with this line's pull requests, so the release branch carries no commit of this line's. At TP=3 the KV cache moves onto pages and rank 0's NCCL id reaches the other ranks over their lines, and `clear_thinking` reaches the chat template. The documents' measured values are 3.8.0's acceptance's.
