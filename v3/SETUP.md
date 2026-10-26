@@ -28,16 +28,16 @@ The engine reads the checkpoint from each host's Hugging Face cache, by default 
 Build on one of the GB10 hosts (linux/arm64), from the checkout root:
 
 ```sh
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.6.0 .
-docker image inspect --format '{{.Id}}' glm53-tf3:3.6.0
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.8.0 .
+docker image inspect --format '{{.Id}}' glm53-tf3:3.8.0
 ```
 
-The build compiles the engine from the BIZ release of TensorFold at the commit in [`config/engine.lock.json`](config/engine.lock.json) (`ENGINE_REF`), with the Zig compiler the lock names and checks by SHA-256, and builds `libtfgrammar` (structured output) from the xgrammar release the lock pins, checked by commit. For image and video input it builds libjpeg-turbo, libwebp's decoder and a static FFmpeg from the release tarballs the lock pins by SHA-256, and the engine's `libtfvideo` over that FFmpeg. The runtime image holds `tensorfold-native` and `tf-cuda-test` in `/usr/local/bin`, `libtfgrammar.so`, `libturbojpeg.so.0`, `libwebpdecoder.so.3` and `libtfvideo.so` in `/usr/local/lib`, NCCL 2.30.7 and the RDMA userspace, `serve.sh` in `/opt/glm53-tf3/`, `/usr/share/doc/tf3/ENGINE`, which names the engine commit, the media releases and every binary's and library's SHA-256, and the notices of this repository, xgrammar, libjpeg-turbo, libwebp, FFmpeg and the engine under `/usr/share/doc/tf3/`. Both base images are pinned by digest. The build of 3.2.0's image took about 13 minutes on a reference host, the base images pulled first. The same commit built on another host can give binaries with other SHA-256s (the reference hosts' builds did); the decode check, not the hash, tells whether two builds answer alike. Copy the image to the other hosts (`docker save glm53-tf3:3.6.0 | ssh <host> docker load`, over the link) and compare the image IDs of every host; they must be equal.
+The build compiles the engine from the BIZ release of TensorFold at the commit in [`config/engine.lock.json`](config/engine.lock.json) (`ENGINE_REF`), with the Zig compiler the lock names and checks by SHA-256, and builds `libtfgrammar` (structured output) from the xgrammar release the lock pins, checked by commit. For image and video input it builds libjpeg-turbo, libwebp's decoder and a static FFmpeg from the release tarballs the lock pins by SHA-256, and the engine's `libtfvideo` over that FFmpeg. The runtime image holds `tensorfold-native` and `tf-cuda-test` in `/usr/local/bin`, `libtfgrammar.so`, `libturbojpeg.so.0`, `libwebpdecoder.so.3` and `libtfvideo.so` in `/usr/local/lib`, NCCL 2.30.7 and the RDMA userspace, `serve.sh` in `/opt/glm53-tf3/`, `/usr/share/doc/tf3/ENGINE`, which names the engine commit, the media releases and every binary's and library's SHA-256, and the notices of this repository, xgrammar, libjpeg-turbo, libwebp, FFmpeg and the engine under `/usr/share/doc/tf3/`. Both base images are pinned by digest. The build of 3.2.0's image took about 13 minutes on a reference host, the base images pulled first. The same commit built on another host can give binaries with other SHA-256s (the reference hosts' builds did); the decode check, not the hash, tells whether two builds answer alike. Copy the image to the other hosts (`docker save glm53-tf3:3.8.0 | ssh <host> docker load`, over the link) and compare the image IDs of every host; they must be equal.
 
 ## 4. Container and rank file on each host
 
 ```sh
-v3/scripts/create_container.sh glm53-tf3:3.6.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
+v3/scripts/create_container.sh glm53-tf3:3.8.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # this host's rank: tp2-rank0/1 or tp3-rank0/1/2
 ```
 
@@ -65,7 +65,7 @@ Read each rank's startup lines:
 - each rank's NCCL lines (`via NET/IB`, logged once at start by the rank file's `NCCL_DEBUG` lines) name `NET/IB` for every connection, none over sockets
 - the `serving` line: the model name (`glm-tf` unless `MODEL_NAME` is set in the rank file), `127.0.0.1:8095` unless `HOST` and `PORT` are, and the window
 
-Rank 0 serves the OpenAI-compatible API on loopback. On the reference hosts 3.6.0's release image logged `loaded in 371.5s` at TP=2 and `322.7s` at TP=3 on rank 0's `serving` line in each new container's first start, which also reads the whole checkpoint for its digest (165.7 GiB in about 44 s, `checkpoint digest: … 0/39 cached files` in rank 0's log); later starts in the same container read the digest from its cache and logged 318.1 to 327.8 s at TP=2 and 275.7 s at TP=3. `cluster.sh` reports READY a few seconds after rank 0's `serving` line.
+Rank 0 serves the OpenAI-compatible API on loopback. On the reference hosts 3.8.0's release image logged `loaded in 371.0s` at TP=2 and `311.5s` at TP=3 on rank 0's `serving` line in each new container's first start, which also reads the whole checkpoint for its digest (165.7 GiB in about 44 s, `checkpoint digest: … 0/39 cached files` in rank 0's log); later starts in the same container read the digest from its cache and logged 317.0 to 323.0 s at TP=2 and 265.6 to 268.3 s at TP=3. `cluster.sh` reports READY a few seconds after rank 0's `serving` line.
 
 ## 6. Tool-argument gate (optional)
 

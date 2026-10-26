@@ -6,6 +6,37 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.8.0 — 2026-10-26
+
+エンジンを上流のTensorFold 1.1.5そのものの上へ移します。この系列のpull requestを持つ上流の最初のリリースなので、リリースのbranchにこの系列のcommitはありません。TP=3ではKV cacheがpageに移り、rank 0のNCCLのidはrankどうしの線で他のrankへ届き、`clear_thinking` がchat templateに届きます。文書の測定値は3.8.0の受け入れのものです。
+
+### Engine
+
+- forkのbranch `release/3.8.0` は上流v1.1.5（`84e0d560`）そのもので、commitを足していません。上流は2026-10-25に、この系列のpull requestをmainへ取り込みました：#1050（NVIDIAのGLM-5.3-Flash-FP4-LocalとXSFP4の読み込み。3.6.0のリリースのbranchが持っていたもの）、#1163と#1211（GLMのKVのpage）、#1178（rank 0のNCCLのidをrankの生存の線で送る。上流はTPのbootstrap #636を閉じていました）。Zig・xgrammar・mediaのlibraryは3.6.0の版のままで、1.1.5もその版を固定しています。
+- TP=3では、全streamのKV cacheとエンジン自身のsequenceが、一つのpoolのpageを取ります。3 rankでのエンジンの既定です（`TF_KV_PAGES` が未設定か `auto`）。TP=2はstreamごとの窓のままです。rank 0の読み込みの行はpageを名指し、そのmodelの数にはエンジン自身のsequenceが入らなくなりました（[checkpoint](README.ja.md#checkpoint)）。全rankのファイルに `TF_KV_PAGES=off` を書けば、3.7.0までと同じく窓のままです。
+- GLM-5.3のchat templateに `clear_thinking` が届きます（上流の `c767bd766`）：既定はfalse、rank 0のファイルの `TF_GLM_CLEAR_THINKING=1` でtrue、要求の `chat_template_kwargs.clear_thinking` がその要求では優先します。XSFP4のtemplateは未指定をfalseとするので、指定しない要求の描き方は前と同じです。
+
+### Image and launch
+
+- `serve.sh` は `TF_GLM_NCCL_ID_FILE` を設定せず、`cluster.sh` はrank 0の `/work/nccl-id` を待たず、他のホストへも写さないので、`FAILED: rank 0 wrote no NCCL id` はなくなりました。rank 0は `NCCL_COMM_ID` でNCCLのidを作り、他のrankは線でそれを受け取ります。ファイルが `NCCL_SOCKET_IFNAME` を名指すrank 0以外のrankは（どの例のファイルも名指します）、NCCLの最初の呼び出しの前に `NCCL_COMM_ID` を外します。TP=2のrank 1もこの道でbootstrapします。
+- TP=3のrankのファイルは、commentの `ID_FILE` の行に代えて、commentの `TF_KV_PAGES=off` の行を持ちます。
+- `config/engine.lock.json` とDockerfileの `ENGINE_REF` は、`release/3.8.0` を `84e0d560`（上流1.1.5）に固定します。
+
+### Documentation
+
+- 文書の測定値は3.8.0の受け入れのものです：[検証](docs/validation.ja.md)の基準値（そのうちdecode検査のhash・編集の返答・NLLは3.3.0の受け入れが決めたまま）、READMEのcheckpoint・配信の既定・制限・[リリースでの測定値](README.ja.md#リリースでの測定値)（3.8.0の表を先頭に置き、前の版の表は残します）、設定の `PARALLEL`、手順書の起動の時間。
+- [設定](docs/configuration.ja.md)に、`TF_KV_PAGES`・`TF_GLM_CLEAR_THINKING` と、上流が2026-10-25に足したGLMの道が読む二つの設定、`TENSORFOLD_PREFILL_SHARE` と `TF_QMMF_HALF_BELOW` を、空の値で何をするかとともに載せました。そのNCCLの節・手順書§1と§5・運用・決定・チートシートは、上流のbootstrapを書きます。
+- READMEのエンジンの行と2.x系との違いは1.1.5を名指し、`clear_thinking` の制限と、Next Actionの#1178・#1050・`clear_thinking` の項目はなくなりました。決定の、上流のリリースの行とTP=3のbootstrapの行は、3.8.0のリリースのbranchがtagそのものだと書きます。
+- README・手順書・運用のコマンドは `glm53-tf3:3.8.0` をbuildして名指します。
+
+### Accepted
+
+2026-10-26に参照機で、リリースのimage（`glm53-tf3:3.8.0`）をそれ自身の `serve.sh` と `cluster.sh` で、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて起動しました：各TPの2回の起動で、XSFP4のdecode検査のhashと `bench --kinds edit` の返答は3.3.0と同じで、1回目ではNLLと199,307 tokenのpromptへの返答も3.3.0と同じで、499,254 tokenのpromptと、TP=3では1,035,295 tokenのpromptの3つの合言葉を全部見つけました。`PARALLEL=` を空にすると、エンジンはTP=2の524,288 tokenの窓で1本、245,760で3本、TP=3ではKVのpageの上で8本のstreamを取り、どれもcountのhashを返しました。tool-eval-bench 2.8.0は、ゲート越しでTP=2が95・TP=3が92、ゲートなしで93と91で、3.6.0と同じ点と、同じ部分点・失敗のシナリオでした。Safety Gateは合格で、`mojibake` は化けた文字を見つけませんでした。同じエンジンで、NVIDIAのNVFP4とFP4-Localも、XSFP4と同じく、BF16の重みに対する次tokenの数が両TPで3.3.0と同じでした（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
+### Not in 3.8.0
+
+3.x系でのNVIDIAのNVFP4と公開したAXLの重み（1.x系と2.x系が配信します）、生成したtokenのlog確率（[制限](README.ja.md#制限)）。
+
 ## 3.7.0 — 2026-10-24
 
 道具と文書の版です。imageのファイルは変わらず、3.6.0のままです（`glm53-tf3:3.6.0`、`sha256:cad32a5c50462d4223d16937a83940b5f7a5419ff66278e86e420e46d9fc5083`）。

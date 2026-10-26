@@ -51,7 +51,7 @@ rankどうしはTCPのsocketではなくRoCEで話す必要があります：
 
 ```sh
 docker rm -f glm53-tf3                                  # containerは起動の合間は眠っているだけ
-v3/scripts/create_container.sh glm53-tf3:3.6.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.8.0 ~/glm53-tf3
 ```
 
 `create_container.sh` はcontainerに名前を付けるので、古いものを先に消します（または改名します：`docker rename glm53-tf3 glm53-tf3-old` の後に `docker stop`）。ホストのディレクトリは残ります：rankのファイルとlogです。containerの中では何もbuildしません。

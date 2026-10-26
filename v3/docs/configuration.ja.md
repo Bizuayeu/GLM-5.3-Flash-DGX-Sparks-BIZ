@@ -26,7 +26,7 @@
 | `MASTER` | なし（必須） | ホストの間のリンク上のrank 0のアドレス。`serve.sh` がエンジンに `NCCL_COMM_ID=MASTER:NCCL_PORT` を渡す | 全rankで同じ |
 | `NCCL_PORT` | `29583` | `NCCL_COMM_ID` のrank 0のport。rank 0のNCCLのbootstrapがここで待ち受ける。rankどうしの生存の線はその次のportを使う | 同じ |
 | `CONTEXT` | TP=2で `524288`、TP=3で `1048576`。空の値は既定になる | 窓（`--context`） | 同じ。起動時に比べる |
-| `PARALLEL` | `1` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（TP=2で受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
+| `PARALLEL` | `1` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（両TPで受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
 | `VISION` | `1` | 画像と動画の入力（`--vision`）。rank 0でcheckpointのvision towerが読む。空でない値は `0` も含めてどれもこれを渡すので、textだけにするのは `VISION=` だけ | 同じ。起動時に比べる |
 | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け（`--name`・`--host`・`--port`） | rank 0 |
 | `REASONING_EFFORT` | `high` | effortを指定しない要求のeffort（`--reasoning-effort`）：`low`・`medium`・`high`・`xhigh`。他の値は `max` も含めて起動時に全rankを止める。空の値は何も渡さず、chat templateに任せる。要求そのものは `none`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max` を指定できる | rank 0 |

@@ -10,14 +10,14 @@
 
 ## 要約
 
-- **状況。** 3.6.0はエンジンを上流1.1.3の上へ移し、XSFP4だけを配信します。リリースのimageを、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動すると、TP=2とTP=3の各2回の起動で3.3.0のXSFP4のdecode検査のhashと編集の返答を、さらに同じNLLを返し、TP=3の1,035,295 tokenのpromptを含めて長い入力の合言葉をすべて見つけました（[リリースでの測定値](#リリースでの測定値)）。TP=3ではstop文字列の要求が上限まで走り、短いgreedyの返答が自分のhashを持ちます。どちらもそこに書いた既知の振る舞いです。3.7.0は、日本語と韓国語の答えの化けた文字を数える1.x系の検査 `mojibake` を加えました。そのimageでは、両TPで、temperature 0でもsampledでも、化けた文字はありませんでした（[マルチバイト出力](docs/validation.ja.md#マルチバイト出力)）。[検証](docs/validation.ja.md)の基準値は、2026-10-22の参照機での3.3.0の受け入れで、visionのtowerを読み込んで決めました。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
+- **状況。** 3.8.0はエンジンを上流1.1.5そのものの上へ移し（この系列のpull requestを持つ上流の最初のリリース）、TP=3ではKV cacheをpageに置きます。リリースのimageを、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動すると、TP=2とTP=3の各2回の起動で3.3.0のXSFP4のdecode検査のhashと編集の返答を、さらに同じNLLを返し、TP=3の1,035,295 tokenのpromptを含めて長い入力の合言葉をすべて見つけました（[リリースでの測定値](#リリースでの測定値)）。`mojibake` は、両TPで、temperature 0でもsampledでも、日本語と韓国語の答えに化けた文字を見つけませんでした（[マルチバイト出力](docs/validation.ja.md#マルチバイト出力)）。TP=3ではstop文字列の要求が上限まで走り、短いgreedyの返答が自分のhashを持ちます。どちらもそこに書いた既知の振る舞いです。[検証](docs/validation.ja.md)の基準値は、2026-10-26の参照機での3.8.0の受け入れで、visionのtowerを読み込んで決めたもので、そのうちdecode検査のhash・編集の返答・NLLは3.3.0のものと同じです。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
 - **何であるか。** XSFP4を、TensorFoldのネイティブエンジンの固定したcommitで一つのOpenAI互換endpointとして配信するための、build手順・起動の台本・受け入れ検査です。2台なら直結のConnectX-7リンクでTP=2、3台ならswitchなしのリングでTP=3です。公開している測定値はMSI EdgeXpert（MS-C931）で取りました。Macでは、TensorFoldが自身のMLXの重みでGLM-5.3-Flashを配信します（[Macでは](../README.ja.md#macでは)）。
 - **反復性。** draftした応答はserialと同じで、起動は同じTPの前の起動のtoken idを出します。ネイティブエンジンのtokenはそれ自身のもので、2.x系のものではありません：kernelとBF16のKV cacheの丸めが違うので、二つの系列はtokenごとではなくteacher-forced NLLで比べます（[2.x系との違い](#2x系との違い)）。
 - **構造化出力とpromptのscore。** JSON schemaつきの `response_format`、`required` か名指しの関数の `tool_choice`（GLM自身のtoolのmarkupで書く）、`/v1/completions` の `prompt_logprobs` は、1.1.1からGLMのCUDAのエンジンで上流のTensorFold自身のものです。この系列のpull request #1016・#1017・#1018の後に上流が書きました（[API](#api)）。
 - **画像と動画。** chatの要求は、PNG・JPEG・WebPの画像と、H.264・HEVC・VP8・VP9・MPEG-4の動画をdata URLで持てます。rank 0にあるcheckpointのvision towerが、エンジンの `--vision` で読みます。`serve.sh` は既定でこれを渡します（[制限](#制限)）。
 - **精度。** XSFP4ではrouted expertはW4A16、他のprojectionはcheckpointが保存する形のままで、多くは8 bit、vision towerのMLPとmergerはNVFP4です（[checkpoint](#checkpoint)）。KVはBF16です（2.x系はFP8のKV cacheを持ちます）。NVIDIAのmodel cardは別のレシピ・別の機材でFP4-Localを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
 - **ライセンス。** コードとエンジンはApache-2.0、重みは運用者がダウンロードし、NVIDIA Open Model Agreement（XSFP4、商用に使える）です。imageには構造化出力のためにxgrammar（Apache-2.0）、画像と動画のためにlibjpeg-turbo・libwebp（BSD系）とFFmpegのdecoder（LGPL-2.1）が入ります。配信の経路に非商用の条件はありません（[ライセンスの早見表](../README.ja.md#ライセンスの早見表)）。
-- **未検証。** 画像と動画のURL（`--vision-urls`、無効）、同時に2つ以上の要求（受け入れは一度に一つずつ送りました）、他のrank数と機材（[制限](#制限)）。ハーネス連携（ZCode・Claude Code）、アプリケーション全体の品質と本番の信頼性。
+- **未検証。** 画像と動画のURL（`--vision-urls`、無効）、同時に2つ以上の要求（受け入れの検査は一度に一つずつ送ります）、他のrank数と機材（[制限](#制限)）。ハーネス連携（ZCode・Claude Code）、アプリケーション全体の品質と本番の信頼性。
 
 ## 何であるか
 
@@ -48,10 +48,10 @@ python -m glm53_tf download --background
 python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
 
 # 1台がimageをbuildし、他はそれを読み込む。image IDを比べる（SETUP §3）
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.6.0 .
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.8.0 .
 
 # 各ホストで、checkoutのルートから（SETUP §4）
-v3/scripts/create_container.sh glm53-tf3:3.6.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.8.0 ~/glm53-tf3
 cp v3/examples/tp2-rank0.env ~/glm53-tf3/rank.env     # もう1台は tp2-rank1。その後このホストの値に直す
 
 # 操作する機械で（SETUP §5・§8）
@@ -83,7 +83,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | 作り手 | 本リポジトリの管理者、NVIDIAの[`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)（revision `76348ddb`）とZ.aiのBF16の重みから |
 | routed expert | XSFP4、W4A16で配信：平滑化を重みに畳み込み、BF16の重みからNVFP4のblockを当てはめ直したもので、実行時にkernelが何も掛けません。MTP層のexpertも同じ。3〜44層はblockのスケールを可逆に圧縮して持ち（`csf_32x2_v1`、FP4-Localと同じ）、エンジンが読み込みの時にホストで元に戻します |
 | その他 | FP4-Localのtensorを保存の形のまま：MXFP8（dense MLP、KDA、`lm_head`、MTP層のattentionとshared expert）、128×128 blockのFP8（MLAとshared expert）、BF16（KDAの小さいprojection、MLAの `kv_b` とindexer、router、embeddings）、BF16とF32のnorm。vision towerはMXFP8とNVFP4 |
-| TP=2（245,760 tokenの窓）・TP=3のrank 0のmodel（読み込みの行） | 93.44・76.36 GiB |
+| TP=2（245,760 tokenの窓）・TP=3（KV cacheはpage）のrank 0のmodel（読み込みの行） | 93.44・63.60 GiB |
 | このエンジンのTP=2でBF16の重みと比べた次token（128文書、144,285位置）：top-1の一致 / BF16に対するNLLの上がり / KLの下限 | 93.26% / +0.85% / 0.0431 |
 | 同じものをTP=3で | 93.30% / +0.85% / 0.0436 |
 | ライセンス | NVIDIA Open Model Agreement（FP4-Localの派生物。repositoryに `LICENSE` と `NOTICE`） |
@@ -105,7 +105,7 @@ XSFP4の[測定値](#リリースでの測定値)の速さはXSFP4のもので�
 | draft | checkpointのMTP head（エンジンの既定） | 同じ |
 | 窓（`--context`） | 524,288 token：各rankでXSFP4の隣に1本のstreamとprompt cacheが入る | 1,048,576 token（モデルの上限） |
 | 同時にdecodeする要求（`--parallel`） | 1（`PARALLEL=1`）。空の `PARALLEL=` ではエンジンに任せ、エンジンは起動時の空きメモリからstreamとprompt cacheの大きさを決める | 同じ |
-| prompt cache（保持するpromptの状態、2,048 tokenのchunkの始まりごと） | 窓の残り、最大16 GiB（rank 0のloadの行。起動時の空きメモリで動きます）：参照機で、vision towerを読み込んで、XSFP4は524,288 tokenで5.2〜5.5 GiB（245,760では8.9 GiB） | 参照リングで16.0 GiB、その上限（`--prompt-cache-gib` で別の値に） |
+| prompt cache（保持するpromptの状態、2,048 tokenのchunkの始まりごと） | 窓の残り、最大16 GiB（rank 0のloadの行。起動時の空きメモリで動きます）：参照機で、vision towerを読み込んで、XSFP4は524,288 tokenで5.2〜5.5 GiB（245,760で `PARALLEL=` を空にすると、3本のstreamの横で2.0 GiB） | 参照リングで16.0 GiB、その上限（`--prompt-cache-gib` で別の値に） |
 | 要求が指定しないときの応答の上限 | 32,768 token（`--max-tokens`） | 同じ |
 | 要求が指定しないときの推論のeffort | `high`（`--reasoning-effort`） | 同じ |
 | NCCL | 各リンク2本のrail・4 channel・IBのtransportを明示、rankごとのファイルから。rank 0のアドレスとportを `NCCL_COMM_ID` に、rank 0のNCCLのidはrankどうしの生存の線で | 2本のrail・4 channel・IBのtransportを明示・subnet-aware routing。rank 0のアドレスとportを `NCCL_COMM_ID` に、rank 0のNCCLのidはrankどうしの生存の線で、他のrankのNCCLのbootstrapはそれぞれの `/32` のinterfaceで（`NCCL_SOCKET_IFNAME`） |
@@ -114,7 +114,7 @@ XSFP4の[測定値](#リリースでの測定値)の速さはXSFP4のもので�
 | 画像と動画の入力 | 有効（`VISION=1`、エンジンの `--vision`）：rank 0にcheckpointのvision tower、PNG・JPEG・WebPの画像と動画をdata URLで、エンジンの制限の中で（[制限](#制限)）。`VISION=` でtextだけ、全rankで同じに | 同じ |
 | containerのcore | 最大周波数の最も低いcore：GB10の効率core、0-4と10-14（`create_container.sh`、`CPUSET`） | 同じ |
 
-**一度に一要求にする理由。** `--parallel` を設定しないと、エンジンは8本のstreamを求めて収まるだけを配信するので、streamの数とprompt cacheに残る余地は、そのときの空きメモリによって起動ごとに変わります（TP=3では、ある起動が2本のstreamと0.1 GiBのprompt cacheを取りました）。2.x系と同じ1本のstreamなら、窓はどの起動でも同じで、prompt cacheは空きメモリの分だけ動きます（TP=2でvision towerありのNVIDIAのNVFP4は、3.3.0の2回の起動で5.2・5.1 GiB）。TP=2では、3.0.0のエンジンは245,760 tokenの窓の隣に2本目のstreamが収まりませんでした（各rankで4.55 GiBが要り、rank 1には4.41 GiBでした）。3.1.0からのエンジンは収まります：3.3.0ではNVIDIAのNVFP4で `PARALLEL=` を空にすると2本のstreamを取り（XSFP4では3本）、prompt cacheは1本のときの5.2 GiBに対して1.5 GiBでした。3.5.0の524,288では1本です（[制限](#制限)）。
+**一度に一要求にする理由。** `--parallel` を設定しないと、エンジンは8本のstreamを求めて収まるだけを配信するので、streamの数とprompt cacheに残る余地は、そのときの空きメモリによって起動ごとに変わります（TP=3では、3.0.0の前のある起動が2本のstreamと0.1 GiBのprompt cacheを取りました。3.8.0のKVのpageではstreamが一つのpoolを分け合い、`PARALLEL=` を空にすると、エンジンは3,398 page（21.15 GiB）の上に8本を取り、prompt cacheは16.0 GiBでした）。2.x系と同じ1本のstreamなら、窓はどの起動でも同じで、prompt cacheは空きメモリの分だけ動きます（TP=2でvision towerありのNVIDIAのNVFP4は、3.3.0の2回の起動で5.2・5.1 GiB）。TP=2では、3.0.0のエンジンは245,760 tokenの窓の隣に2本目のstreamが収まりませんでした（各rankで4.55 GiBが要り、rank 1には4.41 GiBでした）。3.1.0からのエンジンは収まります：3.3.0ではNVIDIAのNVFP4で `PARALLEL=` を空にすると2本のstreamを取り（XSFP4では3本）、prompt cacheは1本のときの5.2 GiBに対して1.5 GiBでした。3.5.0の524,288では1本です（[制限](#制限)）。
 
 **TP=2を524,288にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取ります。3.4.0までの窓245,760 tokenは2.x系の300,000 tokenより短く、決めた時の既定だったNVIDIAのNVFP4で1本のstreamが収まるほぼ最大でした。3.4.0から既定のXSFP4はrank 0で約3.9 GiB軽いので（245,760でNVIDIAの97.38 GiBに対して93.44 GiB）、3.5.0から窓は524,288 tokenです：rank 0のloadの行は1本6.71 GiBのstreamと5.5 GiBのprompt cacheを示し、499,254 tokenのpromptが返答に25,034 tokenを残して入ります。2本目のstream（`PARALLEL=2`）はさらに6.71 GiBを取り、この窓には入らないので、小さい窓（例えば `CONTEXT=245760`）が要ります。全rankのファイルの `CONTEXT` で別の値を選びます。
 
@@ -166,6 +166,32 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 二つの系列のcontainerはどちらも全GPUを要求するので、エンジンは一度に一つの系列だけを動かします（[運用](docs/operations.ja.md#ホストを2x系へ渡す)）。
 
 ## リリースでの測定値
+
+**3.8.0**（2026-10-26、エンジン `84e0d560`、上流1.1.5、image `glm53-tf3:3.8.0`）。エンジンはこの系列のcommitを持たない上流1.1.5そのもので、TP=3ではKV cacheがpageにあります。リリースのimageを、rankのファイルに、起動が名指す時のほかは `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました：TP=2で6回、TP=3で5回。各TPで全検査の起動、2回目の起動、`PARALLEL=` を空にした起動、BF16との比べのためにNVIDIAのNVFP4とFP4-Localで1回ずつ（[checkpoint](#checkpoint)）、さらにTP=2で `PARALLEL=` を空にした245,760 tokenの窓。それらを回したどの起動も、3.3.0のXSFP4のdecode検査のhashと、`bench --kinds edit` の同じ返答を190 roundで返しました。NLLは3.3.0と同じで、199,307・499,254・1,035,295 tokenのpromptの合言葉はすべて見つかりました。止まった起動はありません。
+
+| 3.8.0 | TP=2 | TP=3 |
+|---|---|---|
+| 起動（秒）：全検査の起動 / 2回目の起動 | 376 / 323 | 316 / 270 |
+| decode検査 count / prose / code（tok/s） | 48.99 / 34.11 / 45.05 | 63.94 / 44.98 / 54.94 |
+| MTPの受理長、同じタスク | 3.276 / 1.796 / 2.971 | 3.362 / 1.947 / 2.823 |
+| `bench --kinds decode`（tok/s、中央値） | 53.89 | 65.33 |
+| `bench --kinds edit`（tok/s、中央値） | 82.60 | 105.07 |
+| 38,960 tokenのprefill（tok/s、3回の中央値） | 1,417.5 | 1,703.5 |
+| 199,307 tokenのprompt（秒） | 151.5 | 128.7 |
+| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken（秒） | 429.2 / — | 376.3 / 1,013.6 |
+| 約93,000 tokenのpromptを3秒で切った後、次の要求が答えるまで（秒）、切らないpromptの最初のtokenとの比べ | 0.32 対 68.5 | 0.94 対 57.1 |
+| teacher-forced NLL、ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
+| tool-eval-bench 2.8.0、ゲート越し / ゲートなし | 95 / 93 | 92 / 91 |
+| 化けた文字のある日本語と韓国語の答え、temperature 0 / sampled | 0 / 0 | 0 / 0 |
+| 6,000 tokenのpromptの後の最大1,024 tokenの40の返答（秒、rank 0のホストの最も熱いzone） | 1,248.8、75.9 °C | 989.8、86.0 °C |
+| 起動の中の最も熱いzone、rankごと（°C） | 87.9 / 88.9 | 92.4 / 89.9 / 87.9 |
+| 最低の `MemAvailable`、rankごと（GiB） | 11 / 12 | 21 / 23 / 28 |
+
+- **3.6.0との差。** tokenは同じです。3.6.0に比べ、decode・編集の返答・prefillの速さはTP=2で+0.5〜+0.7%、TP=3で−0.5〜+0.9%、長いpromptの時間はTP=2で−1.2〜−0.9%、TP=3で−1.3〜+0.9%でした（1,035,295 tokenのpromptは熱の待ちを除いて984秒、3.6.0は994秒）。TP=2のrank 0のloadの行は3.6.0と同じmodelの大きさ（524,288 tokenの窓で96.97 GiB）で、5.5 GiBのprompt cacheでした。TP=3は次の項です。
+- **TP=3のKV pages。** rank 0のloadの行は、エンジン自身のsequenceとstreamに、512行のpageを2,049（12.76 GiB、1,048,576 tokenの窓で1本分）と、63.60 GiBのmodelを示します。3.6.0の76.36より12.76 GiB小さく、modelの数にエンジン自身のsequenceが入らなくなった分です。`PARALLEL=` を空にすると、エンジンは同じpageの上に8本のstreamを取り、countのhashを返しました。どの起動の後も、rank 0の `kv pool idle` の行はどれも全pageが空いていました。
+- **熱。** TP=3では1,035,295 tokenのpromptだけが熱で待ち、2秒の待ちを15回、計30秒でした（3.6.0：5回で10秒）。TP=2では待ったpromptはありません。熱の見張りの止める温度に届いたzoneはありません。
+- **tool。** このリポジトリの中継である[tool引数ゲート](SETUP.ja.md#6-tool引数ゲート任意)越しでは、点数と、部分点や失敗のシナリオが3.6.0と同じでした。3.8.0からはエンジンが呼び方の `clear_thinking` をchat templateへ渡し（上流の `c767bd766`）、最後のuserの文より前のturnの推論を外します。ゲートなしでは、エンジンはTP=2で93、TP=3で91で、Safety Gateは合格でした。両TPで増えた失敗はTC-43の一つで、空の `query` で `web_search` を呼んだものです。ゲート越しでは、queryなしでは呼ばずに断る返答になります。
+- **XSFP4の既知の振る舞い。** 下の3.3.0のものと同じです：TP=3ではstop文字列の要求が上限まで走り、promptのscoreと構造化出力の検査のscoreもgrammarも無い要求は自分のhashを持ちます。
 
 **3.6.0**（2026-10-24、エンジン `21778b05`、上流1.1.3にpull request #1050、image `glm53-tf3:3.6.0`）。エンジンを上流1.1.3の上へ移し、3.x系はXSFP4だけを配信します。リリースのimageを、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました：TP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回、さらに各TPで1回、ゲートなしのtool-eval-benchのために（TP=3ではprefillも測り直し。最初の起動のものは、rank 2のホストでimageを書き出した時間と重なりました）。それらを回したどの起動も、3.3.0のXSFP4のdecode検査のhashと、`bench --kinds edit` の同じ返答を190 roundで返しました。NLLと199,307 tokenのpromptへの返答は3.3.0と同じで、499,254 tokenと1,035,295 tokenのpromptの合言葉はすべて見つかりました。`PARALLEL=` を空にすると、エンジンはTP=2の524,288 tokenの窓で1本のstreamを取り、countのhashを返しました。止まった起動はありません。
 
@@ -292,7 +318,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 ## 制限
 
-- **既定では一度に一要求。** それ以上には `PARALLEL` と、TP=2では小さい窓が要ります：524,288 tokenの窓には1本のstreamだけが入り（`PARALLEL=` を空にした時も1本）、`CONTEXT=245760` なら3本が入ります（[配信の既定](#配信の既定)）。
+- **既定では一度に一要求。** それ以上には `PARALLEL` と、TP=2では小さい窓が要ります：524,288 tokenの窓には1本のstreamだけが入り（`PARALLEL=` を空にした時も1本）、`CONTEXT=245760` なら3本が入ります。TP=3ではstreamがKVのpageを分け合い、`PARALLEL=` を空にすると8本を取りました（[配信の既定](#配信の既定)）。
 - **画像と動画はエンジンの制限の中で。** 画像は1要求に最大4枚で、送られた履歴にある画像を全部数えます（前のturnを画像ごと送り直すclientはそこに届きます）。4枚で4,096 tokenを分け合い、1枚10 MiB・1要求20 MiBまで。PNG・JPEG・WebPのdata URLで、GIFと動く絵は断ります。動画はuserのmessageだけで、1要求に2本（1本16 MiB・合わせて20 MiB・1時間まで）、1秒に2 frameで最大256 frameを取り、16,384 tokenを分け合います。0.5秒より短いclipは断ります。画像と動画のtokenは窓から取られます。HTTPSのURLには `serve.sh` が渡さない `--vision-urls` が要ります。音声のpartは400で断ります。
 - **生成したtokenのlog確率は無い。** `logprobs` と `top_logprobs` は400で断ります。`prompt_logprobs` はstreamでない `/v1/completions` でだけ配信します。
 - **要求を回す間、どのrankも2つのCPUのcoreを空回りさせ続けます。** rank 0はdecodeの間、他のrankはそれを待つ間です（上流1.1.2のエンジンからは、#1053により、rank 0にstreamが無い間は他のrankは眠ります）。containerの既定のcoreは、3.0.0のエンジンでは速さの1〜3%と引き換えに（3.1.0のエンジンでは40本の返答は同じ時間で、起動は約40秒長い）、CPUのzoneを熱の見張りが止める温度より下に保ちます。全coreでは、返答の長い連続が3.0.0のエンジンではそこに達し、3.1.0のエンジンでは1 °C手前まで来ました（[効率coreにする理由](#配信の既定)）。

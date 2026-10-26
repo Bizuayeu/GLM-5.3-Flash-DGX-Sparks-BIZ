@@ -2,7 +2,7 @@
 
 [English](validation.md) · [3.x系の概要](../README.ja.md) · [配備の手順書](../SETUP.ja.md) · [ベンチマークの方法](benchmarks.ja.md)
 
-3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値は、3.x系が配信するcheckpointであるXSFP4（[checkpoint](../README.ja.md#checkpoint)）でのネイティブエンジン自身のもので、参照機で、そのリリースの `serve.sh` の既定、全containerを効率coreにして測りました。2026-10-22の3.3.0の受け入れで、tiledのBF16のlinearが両TPで回る上流1.1.2（issue #1067）の上で決めました。3.4.0と3.6.0のリリースのimageは両TPで、3.5.0のものはTP=2で、同じdecode検査のhash、編集の返答、NLLを出しました。3.3.0まで既定で3.5.x系まで選べたNVIDIAのNVFP4は自分の基準値を持ち、それはそれらのリリースのtagと[変更履歴](../CHANGELOG.ja.md)に残ります。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
+3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値は、3.x系が配信するcheckpointであるXSFP4（[checkpoint](../README.ja.md#checkpoint)）でのネイティブエンジン自身のもので、参照機で、そのリリースの `serve.sh` の既定、全containerを効率coreにして測りました。decode検査のhash・編集の返答・NLLは、2026-10-22の3.3.0の受け入れで、tiledのBF16のlinearが両TPで回る上流1.1.2（issue #1067）の上で決め、3.4.0・3.6.0・3.8.0のリリースのimageは両TPで、3.5.0のものはTP=2で、同じ値を出しました。他の基準値は、2026-10-26の上流1.1.5の上での3.8.0の受け入れのものです。3.3.0まで既定で3.5.x系まで選べたNVIDIAのNVFP4は自分の基準値を持ち、それはそれらのリリースのtagと[変更履歴](../CHANGELOG.ja.md)に残ります。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
 
 検査は、何が繰り返されるかの上に立ちます。一つの起動の中では、同じ要求はdraftの有無（`"draft": false`）によらず同じtokenを出し、prompt cacheから再開したpromptは新しいものと同じtokenを出します。起動は、同じTPとbuildの前の起動のtoken idを出します。TP=2とTP=3は設計上違い、和の取り方が違うkernel、例えばtiledのkernelに対するglueのkernel（`TF_GLM_MM`）も違います。同じcommitを別のホストでbuildすると、同じように答えながらSHA-256の違うbinaryになることがあるので、二つのbuildを見分けるのはhashではなくdecode検査です（[手順書 §3](../SETUP.ja.md#3-image)）。一度に複数の要求では、これを確かめていません。数を数える返答で一つの数を二度書くのは、生成とpromptが分かれる既知の場所です（[リリースでの測定値](../README.ja.md#リリースでの測定値)）。
 
@@ -29,7 +29,7 @@ done
 | prose | `3b1a0be713e866f7` | `065a835f86734482` | `098fe1f21f591775` | `32a387104a712248` |
 | code | `4a2d744c5cc1fb10` | `c4dfca7b73492c81` | `d2768fdc1e974d89` | `9f6e8043c234c19d` |
 
-hashは、各TPの2回目の起動と、`PARALLEL=` を空にしたTP=2の起動（count）でも保たれました。TP=2とTP=3は設計上互いに違います（rankの間での和の分け方が違うため）。受理長：TP=2で3.276／1.796／2.971、TP=3で3.362／1.947／2.823。`bench --kinds edit` は両TPで同じ返答を、190 roundで `token_sha256` `c419bce559d86b66` で返します。違う返答は受け入れを止めます。
+hashは各TPの2回目の起動でも保たれ、countは、各TPで `PARALLEL=` を空にした起動と、TP=2の245,760 tokenの窓で `PARALLEL=` を空にした起動でも保たれました。TP=2とTP=3は設計上互いに違います（rankの間での和の分け方が違うため）。受理長：TP=2で3.276／1.796／2.971、TP=3で3.362／1.947／2.823。`bench --kinds edit` は両TPで同じ返答を、190 roundで `token_sha256` `c419bce559d86b66` で返します。違う返答は受け入れを止めます。
 
 ## draftした応答とserialの一致
 
@@ -86,7 +86,7 @@ python -m glm53_tf mojibake --temperature 1.0 --top-p 0.95 --seed 42 --out ../re
 
 要求は思考のeffortを指定しないので、エンジンは `serve.sh` の既定（high）で考え、思考と答えを合わせて32,768 tokenという `serve.sh` の上限の中で答えます。エラーの、空の、短い、大半が対象の文字でない、上限で切れた答えはinconclusive（終了の値2）で、passにはなりません。化けた文字が一つでもあれば不合格です（終了の値1）。**合格の条件**：両TPで全ての答えがpassすること。
 
-基準値（3.6.0のimage、2026-10-24）：各TPで12本、temperature 0で6本とsampled（temperature 1.0、top_p 0.95、seed 42〜47）で6本、化けた文字はありませんでした。答えは753〜1,301文字、対象の文字が91〜95%で、どれも `stop` で終わり、最も長い応答は1,067 tokenでした。思考は24本中20本で空で、残る4本（両TPのsampledの日本語、seed 43と44）は106字と138字だったので、思考の文章はほとんど試されていません。
+基準値（3.8.0のimage、2026-10-26）：各TPで12本、temperature 0で6本とsampled（temperature 1.0、top_p 0.95、seed 42〜47）で6本、化けた文字はありませんでした。答えは753〜1,301文字、対象の文字が91〜95%で、どれも `stop` で終わり、最も長い応答は1,067 tokenでした。思考は24本中20本で空で、残る4本（両TPのsampledの日本語、seed 43と44）は106字と138字だったので、思考の文章はほとんど試されていません。
 
 ## prefillとdecodeの速さ
 
@@ -96,7 +96,7 @@ python -m glm53_tf mojibake --temperature 1.0 --top-p 0.95 --seed 42 --out ../re
 python -m glm53_tf bench --out ../records/<run>/bench.jsonl
 ```
 
-基準値：TP=2でprefill 1,415.1 tok/s・decode 54.15 tok/s、TP=3で1,717.3と66.23。decodeの行はどれも上限で止まり（`finish_reason` `length`）、prefillの行の `cached` はどれも0です。
+基準値：TP=2でprefill 1,417.5 tok/s・decode 53.89 tok/s、TP=3で1,703.5と65.33。decodeの行はどれも上限で止まり（`finish_reason` `length`）、prefillの行の `cached` はどれも0です。
 
 ## 長い入力
 
@@ -108,7 +108,7 @@ python -m glm53_tf long-input --passphrases 3 --tokens 499622
 python -m glm53_tf long-input --passphrases 3 --tokens 1036859
 ```
 
-目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値：199,307 tokenで合言葉を、TP=2で151.9秒、TP=3で127.9秒で見つけました。499,254 tokenでは3つ中3つで、最初のtokenまでTP=2で431.5秒（3.5.0、524,288 tokenの窓、熱の待ちなし）、TP=3で373.0秒。TP=3では1,035,295 tokenで3つ中3つ、1,015.7秒で、そのうち42秒は熱の待ちでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は3.5.0から524,288 tokenです（それより前は245,760）。
+目標に合わせた行数で、promptは199,307・499,254・1,035,295 tokenになりました。基準値：199,307 tokenで合言葉を、TP=2で151.5秒、TP=3で128.7秒で見つけました。499,254 tokenでは3つ中3つで、最初のtokenまでTP=2で429.2秒、TP=3で376.3秒。TP=3では1,035,295 tokenで3つ中3つ、1,013.6秒で、そのうち30秒は熱の待ちでした。1,036,859 tokenの目標はTP=3だけのものです。TP=2の窓は3.5.0から524,288 tokenです（それより前は245,760）。
 
 ## tool引数ゲート越しのtool
 
@@ -122,30 +122,30 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 3.8.0から、エンジンは2.x系と同じく `clear_thinking` をchat templateに渡します（上流1.1.5。[設定](configuration.ja.md#rank-0のserver)）。3.0.0〜3.7.0は渡しませんでした。呼び方は、点数を1.x系・2.x系と比べられるよう、それを残します。
 
-基準値（3.5.3のimage、2026-10-24）：TP=2で95/100、TP=3で92/100、Safety Gateは合格。TP=2はTC-39・TC-52・TC-55が部分点でTC-62とTC-68を落とし、TP=3はTC-14・TC-21・TC-39・TC-50・TC-52が部分点でTC-29・TC-62・TC-68を落としました。tool-eval-bench 2.6.1.dev52（`81eae0a`）ではXSFP4は両TPで93でした。2.7.0と2.8.0は多くのシナリオをより厳しく採点するので、版の違う点数は比べられません。各1回なので、1〜2点は1回の試行で動く範囲です。ゲートはエンジンの前に立つこのリポジトリの中継で、TensorFoldにはありません（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。したがってこれらの点数とSafety Gateは、ゲートの後ろのエンジンのものです。ゲートなしで同じ呼び方をエンジンへ直に当てると、3.6.0のimageでTP=2は93、TP=3は91で、Safety Gateは合格でした。両TPでTC-43も落としました：空の `query` で `web_search` を呼んだもので、ゲート越しではqueryなしでは呼ばずに断る返答になります。
+基準値（3.8.0のimage、2026-10-26）：TP=2で95/100、TP=3で92/100、Safety Gateは合格。TP=2はTC-39・TC-52・TC-55が部分点でTC-62とTC-68を落とし、TP=3はTC-14・TC-21・TC-39・TC-50・TC-52が部分点でTC-29・TC-62・TC-68を落としました。3.5.3と3.6.0のimage（そのエンジンは `clear_thinking` を渡しませんでした）と同じ点数とシナリオです。tool-eval-bench 2.6.1.dev52（`81eae0a`）ではXSFP4は両TPで93でした。2.7.0と2.8.0は多くのシナリオをより厳しく採点するので、版の違う点数は比べられません。各1回なので、1〜2点は1回の試行で動く範囲です。ゲートはエンジンの前に立つこのリポジトリの中継で、TensorFoldにはありません（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。したがってこれらの点数とSafety Gateは、ゲートの後ろのエンジンのものです。ゲートなしで同じ呼び方をエンジンへ直に当てると、3.8.0のimageでTP=2は93、TP=3は91で、Safety Gateは合格でした。両TPでTC-43も落としました：空の `query` で `web_search` を呼んだもので、ゲート越しではqueryなしでは呼ばずに断る返答になります。
 
 ## 応答を止める
 
-**合格の条件**（両TPで、思考を切って）：1から1,000までの数を書かせるstreamの要求を約5秒でクライアントが切ると、15秒以内に `/health` の `live` blockに接続が残らず、直後の短い要求が10秒以内に答える。同じ要求にstop文字列 `"\n300\n"` を付けると299で終わり、`finish_reason` が `stop`。約93,000 tokenの台帳のpromptを、読んでいる途中の3秒でクライアントが切ると、直後の短い要求が、prompt全体が最初のtokenまでにかかる時間の半分未満で答える。基準値：切ったpromptの後、短い要求はTP=2で0.32秒、TP=3で0.91秒で答え、prompt全体の最初のtokenまでは68.6秒と56.7秒でした。TP=3ではstop文字列の要求が上限まで走ります。既知の振る舞いです（[XSFP4](#xsfp4)）。
+**合格の条件**（両TPで、思考を切って）：1から1,000までの数を書かせるstreamの要求を約5秒でクライアントが切ると、15秒以内に `/health` の `live` blockに接続が残らず、直後の短い要求が10秒以内に答える。同じ要求にstop文字列 `"\n300\n"` を付けると299で終わり、`finish_reason` が `stop`。約93,000 tokenの台帳のpromptを、読んでいる途中の3秒でクライアントが切ると、直後の短い要求が、prompt全体が最初のtokenまでにかかる時間の半分未満で答える。基準値：切ったpromptの後、短い要求はTP=2で0.32秒、TP=3で0.94秒で答え、prompt全体の最初のtokenまでは68.5秒と57.1秒でした。TP=3ではstop文字列の要求が上限まで走ります。既知の振る舞いです（[XSFP4](#xsfp4)）。
 
 ## 返答の長い連続
 
 40の要求を続けて流します。どれも新しいnonceと約6,000 tokenのPythonのmoduleに詳しいreviewを頼むもので、それぞれ最大1,024 token、temperature 0、effort low。これが全coreでCPUのzoneを温めた負荷です（[効率coreにする理由](../README.ja.md#配信の既定)）。**合格の条件**：40本すべてが答え、熱の見張りがエンジンを止めないこと。
 
-基準値：両TPで40本中40本、TP=2で1,250秒、TP=3で981秒、rank 0のホストの最も熱いzoneは76.5 °Cと85.8 °Cでした。全coreでは、TP=2のこうした40本（NVIDIAのNVFP4、3.1.0）が、rank 0のホストを93.0 °Cにして終わり、熱の見張りの止める温度まで1 °Cでした（[効率coreにする理由](../README.ja.md#配信の既定)）。
+基準値：両TPで40本中40本、TP=2で1,248.8秒、TP=3で989.8秒、rank 0のホストの最も熱いzoneは75.9 °Cと86.0 °Cでした。全coreでは、TP=2のこうした40本（NVIDIAのNVFP4、3.1.0）が、rank 0のホストを93.0 °Cにして終わり、熱の見張りの止める温度まで1 °Cでした（[効率coreにする理由](../README.ja.md#配信の既定)）。
 
 ## メモリと温度
 
 メモリの見張りのlog（`<WORK>/logs/hostwatch-<label>.log`）に、実行中の各ホストの最低の `MemAvailable` が残ります。ホストの記録は2秒ごとにACPIの最も熱いzoneを示します。rank 0のlogは、prefillの熱の待ちごとの秒数を `heat_wait_s` の行に出します。応答はそれを運びません。
 
-基準値：起動の中の最低の `MemAvailable` は、TP=2でrank 0・1が11・13 GiB（3.5.0の524,288 tokenの窓では12・12 GiB）、TP=3でrank 0・1・2が21・22・28 GiBでした。起動全体の最も熱いzoneは、TP=2で84.1・86.3 °C（3.5.0の窓では87.3・89.0 °C）、TP=3で92.7・89.7・84.7 °Cでした。TP=3の値は1M tokenのpromptの間のもので、熱で待った要求はこれだけです（[長い入力](#長い入力)）。
+基準値：起動の中の最低の `MemAvailable` は、TP=2でrank 0・1が11・12 GiB、TP=3でrank 0・1・2が21・23・28 GiBでした。起動全体の最も熱いzoneは、TP=2で87.9・88.9 °C、TP=3で92.4・89.9・87.9 °Cでした。TP=3の値は1M tokenのpromptの間のもので、熱で待った要求はこれだけです（[長い入力](#長い入力)）。
 
 **合格の条件**：どの実行もメモリの見張りにも熱の見張り（94 °C以上の読みが2回続く）にも止められないこと。
 
 ## XSFP4
 
-上の基準値はXSFP4のもので（[checkpoint](../README.ja.md#checkpoint)）、2026-10-22の3.3.0の受け入れで決めました。各TPの2回目の起動も、decode検査のhashと編集の返答が同じでした。その受け入れが読んだのは素のblockのスケールのrevisionです。公開するrevisionは同じtensorで、3〜44層のrouted expertのblockのスケールを可逆に圧縮して持ち、各TPでもう1回の起動で、decode検査のhash・編集の返答・NLLが同じでした。`score-nll` にはXSFP4自身の `tokenizer.json`（NVIDIAのNVFP4のものとbyteまで同じ）を渡します。速さはこのcheckpointのもので、自分とだけ比べられます（[checkpoint](../README.ja.md#checkpoint)）。
+上の基準値はXSFP4のものです（[checkpoint](../README.ja.md#checkpoint)）：decode検査のhash・編集の返答・NLLは2026-10-22の3.3.0の受け入れで決め、2026-10-26の3.8.0の受け入れが同じ値を出しました（hashと編集の返答は各TPの2回の起動で、NLLは1回目で）。他の数はその受け入れのものです。3.8.0の受け入れが読んだのは公開するrevisionで、3〜44層のrouted expertのblockのスケールを可逆に圧縮して持ちます。3.3.0の受け入れが読んだのは、同じtensorで素のblockのスケールのrevisionです。`score-nll` にはXSFP4自身の `tokenizer.json`（NVIDIAのNVFP4のものとbyteまで同じ）を渡します。速さはこのcheckpointのもので、自分とだけ比べられます（[checkpoint](../README.ja.md#checkpoint)）。
 
-`PARALLEL=` を空にすると、TP=2の245,760 tokenの窓でエンジンは3本のstream（3.5.0の524,288では1本）を取り、同じcountのhashを出しました。draftした応答はserialと同じでした（絵を含む要求も）。H.264とVP9の動画はdraftしても `"draft": false` でも同じ応答で、GIFとaudioの部分は400で断られました。TP=2では熱で待った要求はありませんでした。TP=3で待ったのは1,035,295 tokenのpromptだけで、2秒の待ちを21回でした。
+`PARALLEL=` を空にすると、エンジンはTP=2の245,760 tokenの窓で3本、524,288では1本、TP=3ではKVのpageの上で8本のstreamを取り、どれもそのTPのcountのhashを出しました。TP=3の各起動の後、rank 0の `kv pool idle` の行はどれも全pageが空いていました。draftした応答はserialと同じでした（絵を含む要求も）。H.264とVP9の動画はdraftしても `"draft": false` でも同じ応答で、GIFとaudioの部分は400で断られました。TP=2では熱で待った要求はありませんでした。TP=3で待ったのは1,035,295 tokenのpromptだけで、2秒の待ちを15回でした。
 
-**TP=3の既知の振る舞い。** [応答を止める](#応答を止める)のstop文字列の要求は、4,000 tokenの上限まで走ります：数え上げが300の前で繰り返しに入るためで、上流1.1.1でも同じでした（切った応答と切ったpromptは合格）。[promptのscoreと構造化出力](#promptのscoreと構造化出力)のscoreもgrammarも無い要求は、NVIDIAのNVFP4が「… pronounced」で終わったのに対して「 Paris. In French, Paris is spelled」で終わり、そのhashは上の値です。どちらも既知の振る舞いで（[リリースでの測定値](../README.ja.md#リリースでの測定値)）、受け入れを止める理由にはしません。
+**TP=3の既知の振る舞い。** [応答を止める](#応答を止める)のstop文字列の要求は、4,000 tokenの上限まで走ります：数え上げが300の前で繰り返しに入るためで、上流1.1.1でも1.1.5でも同じでした（切った応答と切ったpromptは合格）。[promptのscoreと構造化出力](#promptのscoreと構造化出力)のscoreもgrammarも無い要求は、NVIDIAのNVFP4が「… pronounced」で終わったのに対して「 Paris. In French, Paris is spelled」で終わり、そのhashは上の値です。どちらも既知の振る舞いで（[リリースでの測定値](../README.ja.md#リリースでの測定値)）、受け入れを止める理由にはしません。

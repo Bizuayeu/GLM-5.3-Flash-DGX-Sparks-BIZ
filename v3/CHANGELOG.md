@@ -4,6 +4,37 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.8.0 — 2026-10-26
+
+The engine moves onto upstream TensorFold 1.1.5 itself, upstream's first release with this line's pull requests, so the release branch carries no commit of this line's. At TP=3 the KV cache moves onto pages and rank 0's NCCL id reaches the other ranks over their lines, and `clear_thinking` reaches the chat template. The documents' measured values are 3.8.0's acceptance's.
+
+### Engine
+
+- The fork's branch `release/3.8.0` is upstream v1.1.5 (`84e0d560`) with no commit added. Upstream took this line's pull requests into its main on 2026-10-25: #1050, the loader of NVIDIA's GLM-5.3-Flash-FP4-Local and XSFP4 that rode 3.6.0's release branch; #1163 and #1211, KV pages for GLM; and #1178, rank 0's NCCL id over the ranks' liveness lines (upstream had closed its TP bootstrap, #636). Zig, xgrammar and the media libraries stay at 3.6.0's versions, which 1.1.5 pins too.
+- At TP=3 every stream's KV cache and the engine's own sequence take pages of one pool, the engine's default at three ranks (`TF_KV_PAGES` unset or `auto`); TP=2 keeps a window per stream. Rank 0's load line names the pages, and its model figure no longer holds the engine's own sequence ([checkpoints](README.md#checkpoints)). `TF_KV_PAGES=off` in every rank file keeps the windows, as up to 3.7.0.
+- GLM-5.3's chat template gets `clear_thinking` (upstream's `c767bd766`): false, true with `TF_GLM_CLEAR_THINKING=1` in rank 0's file, and a request's `chat_template_kwargs.clear_thinking` for that request. XSFP4's template takes an unset value as false, so a request that names none renders as before.
+
+### Image and launch
+
+- `serve.sh` no longer sets `TF_GLM_NCCL_ID_FILE`, and `cluster.sh` no longer waits for rank 0's `/work/nccl-id` or copies it to the other hosts, so its `FAILED: rank 0 wrote no NCCL id` is gone. Rank 0 makes its NCCL id at `NCCL_COMM_ID` and the other ranks take it over their lines; a rank other than 0 whose file names `NCCL_SOCKET_IFNAME`, as every example's does, drops `NCCL_COMM_ID` before NCCL's first call. TP=2's rank 1 bootstraps that way too.
+- The TP=3 rank files trade their commented `ID_FILE` line for a commented `TF_KV_PAGES=off`.
+- `config/engine.lock.json` and the Dockerfile's `ENGINE_REF` pin `release/3.8.0` at `84e0d560`, upstream 1.1.5.
+
+### Documentation
+
+- The documents' measured values are 3.8.0's acceptance's: [validation](docs/validation.md)'s reference values, whose decode-check hashes, edit reply and NLL stay those 3.3.0's acceptance set, the README's checkpoints, serving defaults, limits and [measured on the release](README.md#measured-on-the-release) (3.8.0's table first, the earlier releases' kept), configuration's `PARALLEL` and setup's start times.
+- [Configuration](docs/configuration.md) lists `TF_KV_PAGES`, `TF_GLM_CLEAR_THINKING`, and two settings upstream added on 2026-10-25 that GLM's path reads, `TENSORFOLD_PREFILL_SHARE` and `TF_QMMF_HALF_BELOW`, with what their empty values do. Its NCCL section, setup §1 and §5, operations, decisions and the cheatsheet describe upstream's bootstrap.
+- The README's engine line and its differences from 2.x name 1.1.5; its limit on `clear_thinking` and Next Action's items for #1178, #1050 and `clear_thinking` go. Decisions' rows for upstream's releases and TP=3's bootstrap say that 3.8.0's release branch is the tag itself.
+- The commands in the README, setup and operations build and name `glm53-tf3:3.8.0`.
+
+### Accepted
+
+On the reference hosts on 2026-10-26, with the release image (`glm53-tf3:3.8.0`) started by its own `serve.sh` and `cluster.sh`, no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores: in two launches at each TP size XSFP4's decode-check hashes and `bench --kinds edit` reply were 3.3.0's, and in the first its NLL and 3.3.0's reply to the 199,307-token prompt, with all three passphrases found in the 499,254-token prompt and, at TP=3, the 1,035,295-token one. With `PARALLEL=` empty the engine took one stream at TP=2's 524,288-token window, three at its 245,760 and, at TP=3 on KV pages, eight, each giving the count hash. tool-eval-bench 2.8.0 gave 95 at TP=2 and 92 at TP=3 through the gate and 93 and 91 without it, 3.6.0's scores with the same scenarios left partial or failed, the Safety Gate passed, and `mojibake` found no broken character. On the same engine NVIDIA's NVFP4 and FP4-Local, like XSFP4, gave 3.3.0's next-token figures against the BF16 weights at both TP sizes ([measured on the release](README.md#measured-on-the-release)).
+
+### Not in 3.8.0
+
+NVIDIA's NVFP4 and the published AXL weights on 3.x (1.x and 2.x serve them) and log-probabilities of generated tokens ([limits](README.md#limits)).
+
 ## 3.7.0 — 2026-10-24
 
 Tools and documents. No file of the image changes; it stays 3.6.0's (`glm53-tf3:3.6.0`, `sha256:cad32a5c50462d4223d16937a83940b5f7a5419ff66278e86e420e46d9fc5083`).
