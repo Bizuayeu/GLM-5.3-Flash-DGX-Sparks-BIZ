@@ -8,14 +8,14 @@ How the 3.x figures were taken: those of [measured on the release](../README.md#
 
 - **Hosts.** The reference hosts, MSI EdgeXpert (GB10): the pair over a direct link for TP=2, three hosts in a ring for TP=3, nothing else on their GPUs (2.x's containers stopped).
 - **GPU clock** capped at 2,200 MHz by the boot unit of the [host tools](../../host/README.md) ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)).
-- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) names them, with `serve.sh`'s defaults: one stream, the windows of 245,760 tokens at TP=2 until 3.4.0 (524,288 from 3.5.0) and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. At TP=2 one launch on each checkpoint ran with an empty `PARALLEL=`, the engine's own choice of streams, and says so.
+- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) names them, with `serve.sh`'s defaults: one stream, the windows of 245,760 tokens at TP=2 until 3.4.0 (524,288 from 3.5.0) and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. A launch with an empty `PARALLEL=`, the engine's own choice of streams, says so in its release's part.
 - **Cores.** Every container on the efficiency cores 0-4 and 10-14, as `create_container.sh` creates it.
 - **Watchers.** The memory guard on every host and the thermal watch on every host of the launch.
 - **Clients.** Every request from rank 0 to the engine on loopback, one at a time, temperature 0 and reasoning effort low unless a check says otherwise; the tools ran in the container from the `v3/` of a checkout under the work directory (`/work`).
 
 ## Cooling between long requests
 
-A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or for at most 936 s at TP=3 and 600 s at TP=2 (3.3.0's acceptance), the rule of [`host/cool-gate`](../../host/README.md#during-long-runs). The band and the 936 s were calibrated on the ring's rank 0 host during 1.x's measurements, and 2.x used them too; the TP=2 pair has no calibration of its own, so its rank 0 waited for the same band with `cool-gate`'s default cap. The other ranks' hosts were recorded and not waited for: up to 3.2.0's engine they kept two CPU threads spinning even while no request ran ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
+A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or for at most 936 s at TP=3 and 600 s at TP=2 (3.3.0's and 3.8.0's acceptances), the rule of [`host/cool-gate`](../../host/README.md#during-long-runs). The band and the 936 s were calibrated on the ring's rank 0 host during 1.x's measurements, and 2.x used them too; the TP=2 pair has no calibration of its own, so its rank 0 waited for the same band with `cool-gate`'s default cap. The other ranks' hosts were recorded and not waited for: up to 3.2.0's engine they kept two CPU threads spinning even while no request ran ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
 
 ## Decode check
 

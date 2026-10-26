@@ -363,7 +363,7 @@ v3/
 - **BIZは意図であり、約束ではありません**（[リポジトリのREADME](../README.ja.md#biz)）。
 - **受け入れは参照機のものです。** 他のホストや別のimage IDでの起動は、そこで[検証](docs/validation.ja.md)を回して受け入れます。
 - **XSFP4は本リポジトリの管理者のcheckpointです。** NVIDIA Open Model Agreementの下のFP4-Localの派生物で、NVIDIAやZ.aiのリリースではありません。
-- **エンジンはこの系列による上流のforkです。** 他の利用者にも役立つものは上流のTensorFoldへpull requestとして出し（#1016・#1017・#1018は1.1.1で上流自身のものになりました）、残りはリリースのbranchが持ちます。
+- **エンジンはこの系列による上流のforkのリリースのbranchです。** 他の利用者にも役立つものは上流のTensorFoldへpull requestとして出し（#1016・#1017・#1018は1.1.1で、#1050・#1163・#1178・#1211は1.1.5で上流自身のものになりました）、残りはリリースのbranchが持ちます。3.8.0のbranchが持つものは無く、上流v1.1.5そのものです。
 
 ## Next Action
 

@@ -60,8 +60,7 @@ At TP=2 it starts the highest rank first and rank 0 last. At TP=3 it starts the 
 Read each rank's startup lines:
 
 - `[serve.sh]`: TP, rank, `MASTER`, the window (`context`: 524288 at TP=2, 1048576 at TP=3), `parallel` (1 unless the rank file sets another, `auto` for an empty `PARALLEL=`), `vision` (1, or `off` for an empty `VISION=`), the heat bands, the engine commit of the image and `TF_GLM_MM` (`unset` unless the rank file sets it)
-- at TP=3, each rank's `NCCL_COMM_ID … leaves NCCL's environment`
-- rank 0's load line, `[tensorfold] CUDA sm_121 …`: the model's GiB, `1 stream at once` and its GiB at the window, the GiB left, and the prompt cache's GiB
+- rank 0's load line, `[tensorfold] CUDA sm_121 …`: the model's GiB, `1 stream at once` and its GiB at the window (at TP=3, the KV pages that the streams and the engine's own sequence take, `taking N pages of 512 rows`), the GiB left, and the prompt cache's GiB
 - each rank's NCCL lines (`via NET/IB`, logged once at start by the rank file's `NCCL_DEBUG` lines) name `NET/IB` for every connection, none over sockets
 - the `serving` line: the model name (`glm-tf` unless `MODEL_NAME` is set in the rank file), `127.0.0.1:8095` unless `HOST` and `PORT` are, and the window
 

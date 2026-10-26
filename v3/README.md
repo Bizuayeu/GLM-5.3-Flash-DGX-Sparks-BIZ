@@ -363,7 +363,7 @@ v3/
 - **BIZ is an intent, not a promise** ([repository README](../README.md#biz)).
 - **The acceptance is the reference hosts'.** A launch elsewhere, or on another image ID, is accepted by running [validation](docs/validation.md) there.
 - **XSFP4 is this repository's maintainer's checkpoint**, a derivative of NVIDIA's FP4-Local under the NVIDIA Open Model Agreement; it is not an NVIDIA or Z.ai release.
-- **The engine is this line's fork of upstream.** What serves other users goes to upstream TensorFold as pull requests (#1016, #1017 and #1018 became upstream's own in 1.1.1); the release branch keeps the rest.
+- **The engine is the release branch of this line's fork of upstream.** What serves other users goes to upstream TensorFold as pull requests (#1016, #1017 and #1018 became upstream's own in 1.1.1; #1050, #1163, #1178 and #1211 in 1.1.5); the release branch keeps the rest, and 3.8.0's keeps nothing: it is upstream v1.1.5 itself.
 
 ## Next Action
 

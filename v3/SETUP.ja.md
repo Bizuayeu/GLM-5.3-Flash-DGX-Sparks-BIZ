@@ -60,8 +60,7 @@ TP=2では大きいrankから起動し、rank 0を最後にします。TP=3で�
 各rankの起動の行を読みます：
 
 - `[serve.sh]`：TP、rank、`MASTER`、窓（`context`：TP=2で524288、TP=3で1048576）、`parallel`（rankのファイルが別の値を書かなければ1、空の `PARALLEL=` なら `auto`）、`vision`（1、空の `VISION=` なら `off`）、熱の帯、imageのエンジンのcommit、`TF_GLM_MM`（rankのファイルが書かなければ `unset`）
-- TP=3では、各rankの `NCCL_COMM_ID … leaves NCCL's environment`
-- rank 0のloadの行 `[tensorfold] CUDA sm_121 …`：modelのGiB、`1 stream at once` とその窓でのGiB、残りのGiB、prompt cacheのGiB
+- rank 0のloadの行 `[tensorfold] CUDA sm_121 …`：modelのGiB、`1 stream at once` とその窓でのGiB（TP=3では、streamとエンジン自身のsequenceが取るKVのpage、`taking N pages of 512 rows`）、残りのGiB、prompt cacheのGiB
 - 各rankのNCCLの行（`via NET/IB`、rankのファイルの `NCCL_DEBUG` の行で起動時に一度だけ出る）：全接続が `NET/IB` で、socketは無い
 - `serving` の行：modelの名前（rankのファイルで `MODEL_NAME` を設定しなければ `glm-tf`）、`HOST` と `PORT` を設定しなければ `127.0.0.1:8095`、窓
 
