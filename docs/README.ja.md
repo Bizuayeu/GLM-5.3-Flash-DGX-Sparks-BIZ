@@ -45,6 +45,7 @@
 | 3.xの決定 | 3.xが選んだもの・選ばなかったものを、日付・測った効き目・見直すときとともに。3.xで未評価のもの | [EN](../v3/docs/decisions.md) | [JA](../v3/docs/decisions.ja.md) |
 | 3.xのチートシート | 上流のTensorFold自身のrecipeを越えて3.xの構成でできることを、写せる行と代価で。harnessのclientの注意 | [EN](../v3/docs/cheatsheet.md) | [JA](../v3/docs/cheatsheet.ja.md) |
 | 3.xのベンチマークの方法 | リリースの値と基準値の取り方：ホスト、core、冷却、prompt | [EN](../v3/docs/benchmarks.md) | [JA](../v3/docs/benchmarks.ja.md) |
+| 3.xの前の版の測定値 | 今の版より前の3.x系の各版が受け入れで測った値 | [EN](../v3/docs/measurements.md) | [JA](../v3/docs/measurements.ja.md) |
 | 3.xの変更履歴 | 3.xのリリース。英語版が正典 | [EN](../v3/CHANGELOG.md) | [JA](../v3/CHANGELOG.ja.md) |
 
 ## 約束事

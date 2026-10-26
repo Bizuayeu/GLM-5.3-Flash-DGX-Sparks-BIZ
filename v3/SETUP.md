@@ -80,7 +80,7 @@ Clients that use tools then talk to port 8896. The gate waits up to 2,400 s for 
 
 Run the checks of [validation](docs/validation.md) in its order and compare them with its reference values before routine use. Let the hosts cool between long requests.
 
-What 3.x is accepted for, image by image, is the README's [status](README.md#summary), and each item's evidence is in [measured on the release](README.md#measured-on-the-release); nothing outside that scope is qualified.
+What 3.x is accepted for, image by image, is the README's [status](README.md#summary), and each item's evidence is in [measured on the release](README.md#measured-on-the-release), an earlier image's in [measurements of earlier releases](docs/measurements.md); nothing outside that scope is qualified.
 
 ## 8. Stop
 

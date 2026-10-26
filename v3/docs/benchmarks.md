@@ -2,13 +2,13 @@
 
 [日本語](benchmarks.ja.md) · [3.x overview](../README.md) · [Validation](validation.md)
 
-How the 3.x figures were taken: those of [measured on the release](../README.md#measured-on-the-release) and the reference values of [validation](validation.md). The values live on those two pages; this page gives the conditions and the procedure behind them. The speed, long-input, decode-check and NLL figures come from this line's `glm53_tf` tools with the requests of 2.x's, so that a figure can be reproduced or compared; the checks that have no tool here are described closely enough to repeat.
+How the 3.x figures were taken: those of [measured on the release](../README.md#measured-on-the-release) and of [earlier releases](measurements.md), and the reference values of [validation](validation.md). The values live on those pages; this page gives the conditions and the procedure behind them. The speed, long-input, decode-check and NLL figures come from this line's `glm53_tf` tools with the requests of 2.x's, so that a figure can be reproduced or compared; the checks that have no tool here are described closely enough to repeat.
 
 ## Hosts and conditions
 
 - **Hosts.** The reference hosts, MSI EdgeXpert (GB10): the pair over a direct link for TP=2, three hosts in a ring for TP=3, nothing else on their GPUs (2.x's containers stopped).
 - **GPU clock** capped at 2,200 MHz by the boot unit of the [host tools](../../host/README.md) ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)).
-- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) names them, with `serve.sh`'s defaults: one stream, the windows of 245,760 tokens at TP=2 until 3.4.0 (524,288 from 3.5.0) and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. A launch with an empty `PARALLEL=`, the engine's own choice of streams, says so in its release's part.
+- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) or of [earlier releases](measurements.md) names them, with `serve.sh`'s defaults: one stream, the windows of 245,760 tokens at TP=2 until 3.4.0 (524,288 from 3.5.0) and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. A launch with an empty `PARALLEL=`, the engine's own choice of streams, says so in its release's part.
 - **Cores.** Every container on the efficiency cores 0-4 and 10-14, as `create_container.sh` creates it.
 - **Watchers.** The memory guard on every host and the thermal watch on every host of the launch.
 - **Clients.** Every request from rank 0 to the engine on loopback, one at a time, temperature 0 and reasoning effort low unless a check says otherwise; the tools ran in the container from the `v3/` of a checkout under the work directory (`/work`).

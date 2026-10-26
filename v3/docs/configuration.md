@@ -4,7 +4,7 @@
 
 Every setting a 3.x deployment reads: where it is set, its default, what it does and which ranks read it. The values a release serves, and why, are the README's [serving defaults](../README.md#serving-defaults); this page is the inventory behind them. The engine's settings are those of the commit the image pins ([`config/engine.lock.json`](../config/engine.lock.json)), read from its source; `tensorfold-native serve --help` in the container lists its flags.
 
-3.x's acceptance ran every setting here at its default; where a row names another value, a release's acceptance or a recorded trial ran it too ([measured on the release](../README.md#measured-on-the-release), [limits](../README.md#limits)). Any other value is outside what the acceptance covers, and so is what a row says it reads from the source alone.
+3.x's acceptance ran every setting here at its default; where a row names another value, a release's acceptance or a recorded trial ran it too ([measured on the release](../README.md#measured-on-the-release), [earlier releases](measurements.md), [limits](../README.md#limits)). Any other value is outside what the acceptance covers, and so is what a row says it reads from the source alone.
 
 ## Where settings live
 

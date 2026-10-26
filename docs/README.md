@@ -45,6 +45,7 @@ This map lists the repository's own pages, the pages every serving line shares a
 | 3.x decisions | What 3.x chose and did not, with dates, measured effects and what would reopen each; what 3.x has not evaluated | [EN](../v3/docs/decisions.md) | [JA](../v3/docs/decisions.ja.md) |
 | 3.x cheatsheet | What the 3.x setup does beyond upstream TensorFold's own recipe, as lines to copy, with each one's cost; notes for harness clients | [EN](../v3/docs/cheatsheet.md) | [JA](../v3/docs/cheatsheet.ja.md) |
 | 3.x benchmark method | How the release figures and the reference values were taken: hosts, cores, cooling, prompts | [EN](../v3/docs/benchmarks.md) | [JA](../v3/docs/benchmarks.ja.md) |
+| 3.x measurements of earlier releases | What each 3.x release before the current one measured at its acceptance | [EN](../v3/docs/measurements.md) | [JA](../v3/docs/measurements.ja.md) |
 | 3.x changelog | 3.x releases; the English file is canonical | [EN](../v3/CHANGELOG.md) | [JA](../v3/CHANGELOG.ja.md) |
 
 ## Conventions
