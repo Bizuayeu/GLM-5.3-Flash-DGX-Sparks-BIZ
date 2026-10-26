@@ -23,7 +23,7 @@
 - **メモリの見張り**（`hostwatch.sh`、`cluster.sh` が起動）は、`MemAvailable` が5 GiBを切るとcontainerの中の `pkill -9` でエンジンを止め、`KILLED` と書きます。
 - **熱の見張り**（[`host/thermal-watch`](../../host/README.ja.md#長い運転の間)、運用者が `--container glm53-tf3 --process 'tensorfold-native serve'` で起動）は、94 °C以上の読みが2回続くとエンジンを止め、`ABORT` と書きます。
 
-3.0.0〜3.6.0と3.8.0の受け入れでは、どちらもエンジンを止めませんでした。2.x系では、一つのrankが終わっても他のrankは一緒には終わらず、`cluster.sh stop` が終わらせるまでcollectiveで待ちました。どれかのrankが止まったら、全rankを止め、見張りのlogで原因を探し、全rankを起動し直します。
+[リリースでの測定値](../README.ja.md#リリースでの測定値)と[前の版の測定値](measurements.ja.md)が記録するどの版の受け入れでも、どちらもエンジンを止めませんでした。2.x系では、一つのrankが終わっても他のrankは一緒には終わらず、`cluster.sh stop` が終わらせるまでcollectiveで待ちました。どれかのrankが止まったら、全rankを止め、見張りのlogで原因を探し、全rankを起動し直します。
 
 エンジンの熱の待ちは、どれかのrankの最も熱いzoneが92 °Cを超えている間、chunkの合間でpromptの処理を止め、全rankが88 °C以下になるまで待ちます（[配信の既定](../README.ja.md#配信の既定)）。待ちに時間の上限はありません。待つごとの秒数は、rank 0のlogの `heat_wait_s` の行に出ます。
 

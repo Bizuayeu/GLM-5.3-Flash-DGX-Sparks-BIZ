@@ -23,7 +23,7 @@ Two watchers stop one host's engine, each on its own host only:
 - **The memory guard** (`hostwatch.sh`, started by `cluster.sh`) stops the engine with `pkill -9` inside the container when `MemAvailable` falls below 5 GiB, and writes `KILLED`.
 - **The thermal watch** ([`host/thermal-watch`](../../host/README.md#during-long-runs), started by the operator with `--container glm53-tf3 --process 'tensorfold-native serve'`) stops it after two readings in a row at or above 94 °C, and writes `ABORT`.
 
-Neither stopped an engine in the 3.0.0 to 3.6.0 acceptances, nor in 3.8.0's. Under 2.x the other ranks did not end when one did: they waited in a collective until `cluster.sh stop` ended them. After any rank stops, stop every rank, find the cause in the guard's or the watch's log, and start every rank again.
+Neither stopped an engine in the acceptance of any release that [measured on the release](../README.md#measured-on-the-release) or the [measurements of earlier releases](measurements.md) record. Under 2.x the other ranks did not end when one did: they waited in a collective until `cluster.sh stop` ended them. After any rank stops, stop every rank, find the cause in the guard's or the watch's log, and start every rank again.
 
 The engine's heat wait holds a prompt pass between chunks while any rank's hottest zone is above 92 °C, until every rank is at or below 88 °C ([serving defaults](../README.md#serving-defaults)). A wait has no time limit; rank 0's log gives each wait's seconds in a `heat_wait_s` line.
 
