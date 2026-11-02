@@ -8,14 +8,14 @@ How the 3.x figures were taken: those of [measured on the release](../README.md#
 
 - **Hosts.** The reference hosts, MSI EdgeXpert (GB10): the pair over a direct link for TP=2, three hosts in a ring for TP=3, nothing else on their GPUs (2.x's containers stopped).
 - **GPU clock** capped at 2,200 MHz by the boot unit of the [host tools](../../host/README.md) ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)).
-- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) or of [earlier releases](measurements.md) names them, with `serve.sh`'s defaults: one stream, the windows of 245,760 tokens at TP=2 until 3.4.0 (524,288 from 3.5.0) and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. A launch with an empty `PARALLEL=`, the engine's own choice of streams, says so in its release's part.
+- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) or of [earlier releases](measurements.md) names them, with its defaults: one stream up to 3.8.x and four at TP=2 and eight at TP=3 from 3.9.0, the windows of 245,760 tokens at TP=2 until 3.4.0 (524,288 from 3.5.0, 1,048,576 from 3.9.0) and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. A launch with an empty `PARALLEL=`, the engine's own choice of streams, says so in its release's part.
 - **Cores.** Every container on the efficiency cores 0-4 and 10-14, as `create_container.sh` creates it.
 - **Watchers.** The memory guard on every host and the thermal watch on every host of the launch.
-- **Clients.** Every request from rank 0 to the engine on loopback, one at a time, temperature 0 and reasoning effort low unless a check says otherwise; the tools ran in the container from the `v3/` of a checkout under the work directory (`/work`).
+- **Clients.** Every request from rank 0 to the engine on loopback, one at a time but for [requests at once](#requests-at-once), temperature 0 and reasoning effort low unless a check says otherwise; the tools ran in the container from the `v3/` of a checkout under the work directory (`/work`).
 
 ## Cooling between long requests
 
-A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or for at most 936 s at TP=3 and 600 s at TP=2 (3.3.0's and 3.8.0's acceptances), the rule of [`host/cool-gate`](../../host/README.md#during-long-runs). The band and the 936 s were calibrated on the ring's rank 0 host during 1.x's measurements, and 2.x used them too; the TP=2 pair has no calibration of its own, so its rank 0 waited for the same band with `cool-gate`'s default cap. The other ranks' hosts were recorded and not waited for: up to 3.2.0's engine they kept two CPU threads spinning even while no request ran ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
+A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or for at most 936 s at TP=3 and 600 s at TP=2 (3.3.0's, 3.8.0's and 3.9.0's acceptances), the rule of [`host/cool-gate`](../../host/README.md#during-long-runs). The band and the 936 s were calibrated on the ring's rank 0 host during 1.x's measurements, and 2.x used them too; the TP=2 pair has no calibration of its own, so its rank 0 waited for the same band with `cool-gate`'s default cap. The other ranks' hosts were recorded and not waited for: up to 3.2.0's engine they kept two CPU threads spinning even while no request ran ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
 
 ## Decode check
 
@@ -59,6 +59,16 @@ tool-eval-bench with 1.x's invocation through the tool-argument gate ([validatio
 ## Long runs of replies
 
 Forty requests back to back with no pause, not streamed. Each is one user message: a line `nonce <a fresh UUID>`, a code block of 200 generated functions (`def helper_<i>(values, scale=<i mod 13 + 1>):` returning `[v * scale + <i> for v in values if v % <i mod 5 + 2>]`), about 6,000 tokens with the chat template, and `Review this module in detail: for each group of helpers, what it does, its bugs and how to fix them.`; up to 1,024 tokens, temperature 0, effort low, `clear_thinking`. It stands for a coding agent's turns, each reading new text and then writing, and runs after the tool-eval at each TP size.
+
+## Requests at once
+
+From 3.9.0, one launch at each TP size with the release's defaults, nothing else on the engine, in this order; the replies' rows are read for their times, and [validation](validation.md#requests-at-once) checks the replies:
+
+- **Warm turns.** A chat of about 10,000 or 40,000 tokens with a fresh nonce, sent cold, then four turns that each add about 500, 1,500 or 3,000 tokens. The figure is the mean first token of the four turns.
+- **The same prompt sent again.** A chat of 12,800, 25,600 or at TP=2 80,000 lines of `alpha beta gamma delta` with one question, about 64K, 128K and 400K tokens, sent twice. The figure is the second reply's whole time, with `cached_tokens` near the prompt's length.
+- **Decodes beside a prompt.** Three decodes of up to 1,200 tokens with drafts off, and 4 s later a cold prompt of about 32,000 tokens. The figure is the median gap between each decode's tokens while the prompt runs.
+- **A short request mid-prompt.** Four cold 32K prompts, one after another, and a short request with drafts off 6.0, 6.7, 7.4 or 8.1 s into each. The figure is the mean first token of the four.
+- **Distinct prompts at once.** Four, and at TP=3 eight, different prompts sent together, 300 tokens each. The figures are the tokens a second of all of them together and the slowest first token.
 
 ## Memory and temperature
 

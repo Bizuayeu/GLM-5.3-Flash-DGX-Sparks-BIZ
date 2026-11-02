@@ -8,14 +8,14 @@
 
 - **ホスト。** 参照機のMSI EdgeXpert（GB10）。TP=2は直結の対、TP=3はリングの3台で、GPUには他に何も載せていません（2.x系のcontainerは停止）。
 - **GPUクロック**は[ホストのツール](../../host/README.ja.md)の起動時のunitで2,200 MHzを上限にしました（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）。
-- **エンジンとimage。** 各版の[リリースでの測定値](../README.ja.md#リリースでの測定値)か[前の版](measurements.ja.md)の項が名指すimageとエンジンを、`serve.sh` の既定で：1本のstream、TP=2で3.4.0までは245,760 token（3.5.0から524,288）・TP=3で1,048,576 tokenの窓、92 °C／88 °Cの熱の待ち。空の `PARALLEL=`（エンジン自身によるstreamの選択）で走らせた起動は、その版の項にそう書いています。
+- **エンジンとimage。** 各版の[リリースでの測定値](../README.ja.md#リリースでの測定値)か[前の版](measurements.ja.md)の項が名指すimageとエンジンを、その既定で：3.8.xまでは1本のstream、3.9.0からはTP=2で4本・TP=3で8本、TP=2で3.4.0までは245,760 token（3.5.0から524,288、3.9.0から1,048,576）・TP=3で1,048,576 tokenの窓、92 °C／88 °Cの熱の待ち。空の `PARALLEL=`（エンジン自身によるstreamの選択）で走らせた起動は、その版の項にそう書いています。
 - **core。** 全containerを効率coreの0-4と10-14に。`create_container.sh` が作るとおりです。
 - **見張り。** メモリの見張りを全ホストで、熱の見張りを起動の全ホストで動かしました。
-- **クライアント。** 要求はすべてrank 0からloopbackのエンジンへ一つずつ、検査が別に言わない限りtemperature 0、推論のeffortはlowです。道具はcontainerの中で、作業directory（`/work`）の下のcheckoutの `v3/` から動かしました。
+- **クライアント。** 要求は[同時の要求](#同時の要求)を除いてすべてrank 0からloopbackのエンジンへ一つずつ、検査が別に言わない限りtemperature 0、推論のeffortはlowです。道具はcontainerの中で、作業directory（`/work`）の下のcheckoutの `v3/` から動かしました。
 
 ## 長い要求の合間の冷却
 
-各起動と測定のまとまりの前ごとに冷却gateを回しました。rank 0のホストのACPIの最も熱いzoneが55.8 °C以下になるか、上限の時間（3.3.0と3.8.0の受け入れではTP=3で936秒、TP=2で600秒）がたつまで待ちます。[`host/cool-gate`](../../host/README.ja.md#長い運転の間)の規則です。55.8 °Cと936秒は1.x系の測定のときにリングのrank 0のホストで較正し、2.x系も使った値で、TP=2の対は自分の較正を持たないので、同じ帯と `cool-gate` の既定の上限で待ちました。他のrankのホストは記録し、待ちませんでした：3.2.0までのエンジンは、要求の無い間も2本のCPUのthreadを空回りさせ続け（[効率coreにする理由](../README.ja.md#配信の既定)）、全coreではrank 1のホストは約70 °Cで待機し、2.x系が使ったどの帯よりも上でした。
+各起動と測定のまとまりの前ごとに冷却gateを回しました。rank 0のホストのACPIの最も熱いzoneが55.8 °C以下になるか、上限の時間（3.3.0・3.8.0・3.9.0の受け入れではTP=3で936秒、TP=2で600秒）がたつまで待ちます。[`host/cool-gate`](../../host/README.ja.md#長い運転の間)の規則です。55.8 °Cと936秒は1.x系の測定のときにリングのrank 0のホストで較正し、2.x系も使った値で、TP=2の対は自分の較正を持たないので、同じ帯と `cool-gate` の既定の上限で待ちました。他のrankのホストは記録し、待ちませんでした：3.2.0までのエンジンは、要求の無い間も2本のCPUのthreadを空回りさせ続け（[効率coreにする理由](../README.ja.md#配信の既定)）、全coreではrank 1のホストは約70 °Cで待機し、2.x系が使ったどの帯よりも上でした。
 
 ## decode検査
 
@@ -59,6 +59,16 @@ NLL採点セットと採点は[検証](validation.ja.md#teacher-forced-nll)の�
 ## 返答の長い連続
 
 40の要求を間を置かずに続けて、streamなしで。どれも一つのuser messageで：`nonce <新しいUUID>` の1行、生成した200の関数（`def helper_<i>(values, scale=<i mod 13 + 1>):` で `[v * scale + <i> for v in values if v % <i mod 5 + 2>]` を返す）のcode block（chat templateを含めて約6,000 token）、`Review this module in detail: for each group of helpers, what it does, its bugs and how to fix them.`。最大1,024 token、temperature 0、effort low、`clear_thinking`。coding agentのturn、つまり毎回新しい文章を読んでから書くことを表すもので、各TPでtool-evalの後に走らせます。
+
+## 同時の要求
+
+3.9.0から、各TPでリリースの既定の起動を1回、他に何も回さず、次の順で測ります。返答の行は時間だけを読み、返答そのものは[検証](validation.ja.md#同時の要求)が確かめます：
+
+- **warm turn。** 新しいnonceの約10,000か40,000 tokenのchatをcoldで送り、その後の4 turnで約500・1,500・3,000 tokenずつ足します。値は4 turnの最初のtokenの平均です。
+- **同じpromptの再送。** `alpha beta gamma delta` を12,800行・25,600行、TP=2では80,000行も並べて問いを1つ付けたchat（約64K・128K・400K token）を2回送ります。値は2回目の返答の全体の時間で、`cached_tokens` はpromptの長さの近くです。
+- **promptの横のdecode。** draftなしで最大1,200 tokenのdecodeを3本回し、その4秒後に約32,000 tokenのcoldのpromptを送ります。値は、promptが走る間の各decodeのtokenの間隔の中央値です。
+- **promptの途中の短い要求。** coldの32K tokenのpromptを順に4本送り、それぞれの6.0・6.7・7.4・8.1秒のどれかの後にdraftなしの短い要求を送ります。値は4本の最初のtokenの平均です。
+- **別々のpromptを同時に。** 違うpromptを4本、TP=3では8本も一緒に、それぞれ300 token送ります。値は全部を合わせた1秒あたりのtokenと、最も遅い最初のtokenです。
 
 ## メモリと温度
 

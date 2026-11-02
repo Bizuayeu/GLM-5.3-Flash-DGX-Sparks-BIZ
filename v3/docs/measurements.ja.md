@@ -4,6 +4,34 @@
 
 今の版より前の3.x系の各版が受け入れで測った値を、新しい順に並べます。今の版の値はREADMEの[リリースでの測定値](../README.ja.md#リリースでの測定値)にあり、次の版が出るとその版の項をここへ移します。値の取り方は[ベンチマークの方法](benchmarks.ja.md)に、起動を受け入れる基準値は[検証](validation.ja.md)にあります。
 
+## 3.8.0
+
+**3.8.0**（2026-10-26、エンジン `84e0d560`、上流1.1.5、image `glm53-tf3:3.8.0`）。エンジンはこの系列のcommitを持たない上流1.1.5そのもので、TP=3ではKV cacheがpageにあります。リリースのimageを、rankのファイルに、起動が名指す時のほかは `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました：TP=2で6回、TP=3で5回。各TPで全検査の起動、2回目の起動、`PARALLEL=` を空にした起動、BF16との比べのためにNVIDIAのNVFP4とFP4-Localで1回ずつ（[checkpoint](../README.ja.md#checkpoint)）、さらにTP=2で `PARALLEL=` を空にした245,760 tokenの窓。それらを回したどの起動も、3.3.0のXSFP4のdecode検査のhashと、`bench --kinds edit` の同じ返答を190 roundで返しました。NLLは3.3.0と同じで、199,307・499,254・1,035,295 tokenのpromptの合言葉はすべて見つかりました。止まった起動はありません。
+
+| 3.8.0 | TP=2 | TP=3 |
+|---|---|---|
+| 起動（秒）：全検査の起動 / 2回目の起動 | 376 / 323 | 316 / 270 |
+| decode検査 count / prose / code（tok/s） | 48.99 / 34.11 / 45.05 | 63.94 / 44.98 / 54.94 |
+| MTPの受理長、同じタスク | 3.276 / 1.796 / 2.971 | 3.362 / 1.947 / 2.823 |
+| `bench --kinds decode`（tok/s、中央値） | 53.89 | 65.33 |
+| `bench --kinds edit`（tok/s、中央値） | 82.60 | 105.07 |
+| 38,960 tokenのprefill（tok/s、3回の中央値） | 1,417.5 | 1,703.5 |
+| 199,307 tokenのprompt（秒） | 151.5 | 128.7 |
+| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken（秒） | 429.2 / — | 376.3 / 1,013.6 |
+| 約93,000 tokenのpromptを3秒で切った後、次の要求が答えるまで（秒）、切らないpromptの最初のtokenとの比べ | 0.32 対 68.5 | 0.94 対 57.1 |
+| teacher-forced NLL、ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
+| tool-eval-bench 2.8.0、ゲート越し / ゲートなし | 95 / 93 | 92 / 91 |
+| 化けた文字のある日本語と韓国語の答え、temperature 0 / sampled | 0 / 0 | 0 / 0 |
+| 6,000 tokenのpromptの後の最大1,024 tokenの40の返答（秒、rank 0のホストの最も熱いzone） | 1,248.8、75.9 °C | 989.8、86.0 °C |
+| 起動の中の最も熱いzone、rankごと（°C） | 87.9 / 88.9 | 92.4 / 89.9 / 87.9 |
+| 最低の `MemAvailable`、rankごと（GiB） | 11 / 12 | 21 / 23 / 28 |
+
+- **[3.6.0](#360)との差。** tokenは同じです。3.6.0に比べ、decode・編集の返答・prefillの速さはTP=2で+0.5〜+0.7%、TP=3で−0.5〜+0.9%、長いpromptの時間はTP=2で−1.2〜−0.9%、TP=3で−1.3〜+0.9%でした（1,035,295 tokenのpromptは熱の待ちを除いて984秒、3.6.0は994秒）。TP=2のrank 0のloadの行は3.6.0と同じmodelの大きさ（524,288 tokenの窓で96.97 GiB）で、5.5 GiBのprompt cacheでした。TP=3は次の項です。
+- **TP=3のKV pages。** rank 0のloadの行は、エンジン自身のsequenceとstreamに、512行のpageを2,049（12.76 GiB、1,048,576 tokenの窓で1本分）と、63.60 GiBのmodelを示します。3.6.0の76.36より12.76 GiB小さく、modelの数にエンジン自身のsequenceが入らなくなった分です。`PARALLEL=` を空にすると、エンジンは同じpageの上に8本のstreamを取り、countのhashを返しました。どの起動の後も、rank 0の `kv pool idle` の行はどれも全pageが空いていました。
+- **熱。** TP=3では1,035,295 tokenのpromptだけが熱で待ち、2秒の待ちを15回、計30秒でした（3.6.0：5回で10秒）。TP=2では待ったpromptはありません。熱の見張りの止める温度に届いたzoneはありません。
+- **tool。** このリポジトリの中継である[tool引数ゲート](../SETUP.ja.md#6-tool引数ゲート任意)越しでは、点数と、部分点や失敗のシナリオが3.6.0と同じでした。3.8.0からはエンジンが呼び方の `clear_thinking` をchat templateへ渡し（上流の `c767bd766`）、最後のuserの文より前のturnの推論を外します。ゲートなしでは、エンジンはTP=2で93、TP=3で91で、Safety Gateは合格でした。両TPで増えた失敗はTC-43の一つで、空の `query` で `web_search` を呼んだものです。ゲート越しでは、queryなしでは呼ばずに断る返答になります。
+- **XSFP4の既知の振る舞い。** [3.3.0](#330)のものと同じです：TP=3ではstop文字列の要求が上限まで走り、promptのscoreと構造化出力の検査のscoreもgrammarも無い要求は自分のhashを持ちます。
+
 ## 3.6.0
 
 **3.6.0**（2026-10-24、エンジン `21778b05`、上流1.1.3にpull request #1050、image `glm53-tf3:3.6.0`）。エンジンを上流1.1.3の上へ移し、3.x系はXSFP4だけを配信します。リリースのimageを、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました：TP=2で3回（うち1回は `PARALLEL=` を空に）、TP=3で2回、さらに各TPで1回、ゲートなしのtool-eval-benchのために（TP=3ではprefillも測り直し。最初の起動のものは、rank 2のホストでimageを書き出した時間と重なりました）。それらを回したどの起動も、3.3.0のXSFP4のdecode検査のhashと、`bench --kinds edit` の同じ返答を190 roundで返しました。NLLと199,307 tokenのpromptへの返答は3.3.0と同じで、499,254 tokenと1,035,295 tokenのpromptの合言葉はすべて見つかりました。`PARALLEL=` を空にすると、エンジンはTP=2の524,288 tokenの窓で1本のstreamを取り、countのhashを返しました。止まった起動はありません。

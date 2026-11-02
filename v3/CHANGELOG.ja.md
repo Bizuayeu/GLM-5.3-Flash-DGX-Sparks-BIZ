@@ -6,6 +6,45 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.9.0 — 2026-11-03
+
+エンジンを上流のTensorFold 1.2.1そのものの上へ移し、TP=2もTP=3と同じくモデルの上限の1,048,576 tokenの窓を開き、配信の既定をTPごとに決めます：TP=2は1人のagentの長い会話のため、TP=3は複数の人の同時利用のためです。TP=2で4本、TP=3で8本のstreamがKVのpoolを分け合い、保持するpromptはpoolのpageに残ります。文書の測定値は3.9.0の受け入れのものです。
+
+### Engine
+
+- forkのbranch `release/3.9.0` は上流v1.2.1（`1db3edbe`）そのもので、commitを足していません。上流は1.1.5の後に、この系列の#1352・#1404・#1424（1.1.9）、#1516・#1524・#1616・#1636（1.2.0）、#1823（1.2.1）を取り込みました。
+- TP=2のKV cacheがpageに移ります。上流の1.1.6からの2 rankの既定です（#1322）：全streamのcacheとエンジン自身のsequenceが一つのpoolのpageを取ります。FP8のlatent cacheはstreamごとに窓を持つので、`--kv-cache fp8` には空の `TF_GLM_KV_SHARE=` と1本のstreamが要ります（[チートシート](docs/cheatsheet.ja.md#tp2のfp8のlatent-cache)）。
+- 起動が短くなります：#1616と#1636は重みを複数のthreadで読んで詰めます（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
+### Serving defaults
+
+- TPで分かれるものは [`config/tp2.env`](config/tp2.env) と [`config/tp3.env`](config/tp3.env) が持ちます。`serve.sh` はimageの中のそのTPのファイルをrankのファイルの前に読むので、新しいimageで既定が動き、rankのファイルの行は今までどおり強く、空の値はその設定を切ります。
+- TP=2：`CONTEXT=1048576`（モデルの上限、3.8.xまでは524,288）、`PARALLEL=4`、`TF_GLM_KV_SHARE=16`、`TENSORFOLD_PREFILL_SHARE=0.7`、`TENSORFOLD_MEMORY_RESERVE_GIB=9`。
+- TP=3：`PARALLEL=8`、`TF_GLM_KV_SHARE=32`、`TENSORFOLD_PREFILL_SHARE=0.7`、`MTP_CONFIDENCE=0.5`（`--mtp-confidence`）、`TF_GLM_ROCE_MULTI=1`（wire）、`TENSORFOLD_MEMORY_RESERVE_GIB=14`。
+- 理由はREADMEの[配信の既定](README.ja.md#配信の既定)と[決定](docs/decisions.ja.md#窓とstream)にあり、`PARALLEL=1` の行はそこで閉じます。
+
+### Image and launch
+
+- imageは `serve.sh` の横に `tp2.env`、`tp3.env`、wireのkernelである `tp_mailbox.fatbin` を持ち、`/usr/share/doc/tf3/ENGINE` はそのkernelのSHA-256を名指します。
+- `TF_GLM_ROCE_MULTI` がonの間、`serve.sh` はwireに、`MASTER` からの `TF_TP_MASTER`、`TF_TP_PORT`、`TF_TP_PLAN_TIMEOUT`、`TF_TP_KERNEL_IMAGE`、`TF_TP_ROCE_FALLBACK=error` を渡すので、準備に失敗すると起動が止まります（[運用](docs/operations.ja.md)）。
+- `[serve.sh]` の行は解決した `kept`・`prefill-share`・`solo`・`mtp-confidence`・`wire`・`reserve` を出し、受け入れはそれをファイルと照らします。
+- `config/engine.lock.json` とDockerfileの `ENGINE_REF` は `release/3.9.0` の `1db3edbe`（上流1.2.1）を固定します。
+
+### Documentation
+
+- 文書の測定値は3.9.0の受け入れのものです：[検証](docs/validation.ja.md)の基準値（decode検査のhash・編集の返答・NLLは3.3.0の受け入れのまま）と、READMEのcheckpoint・配信の既定・制限・[リリースでの測定値](README.ja.md#リリースでの測定値)。3.8.0の項はそのまま[前の版の測定値](docs/measurements.ja.md#380)へ移ります。
+- [検証](docs/validation.ja.md#同時の要求)に同時の要求（上流の `bench_concurrent.py` で同じ要求の単独の返答と比べる）を、[ベンチマーク](docs/benchmarks.ja.md#同時の要求)にその行の取り方を足しました。
+- [設定](docs/configuration.ja.md)は `config/tp*.env` の設定とwireの設定を挙げ、手順書と運用は4本・8本のstreamとwireを書き、[チートシート](docs/cheatsheet.ja.md)にエンジンが要求のmodelの名をどう扱うかを足しました。
+- README・手順書・運用のコマンドは `glm53-tf3:3.9.0` をbuildして名指します。
+
+### Accepted
+
+2026-11-03に参照機で、リリースのimage（`glm53-tf3:3.9.0`）をそれ自身の `serve.sh` と `cluster.sh` で、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて起動しました：各TPの2回の起動で、XSFP4のdecode検査のhashと `bench --kinds edit` の返答は3.3.0と同じで、1回目ではNLLと199,307 tokenのpromptへの返答も3.3.0と同じで、499,254 tokenと1,035,295 tokenのpromptの3つの合言葉を全部見つけました。`PARALLEL=` を空にすると、エンジンはTP=2で8本、TP=3で8本のstreamを取り、どれもcountのhashを返しました。1本と4本、TP=3では8本も、TP=2で20本、TP=3で52本の返答が同じ要求の単独の返答と同じでした。tool-eval-bench 2.8.0は、ゲート越しでTP=2が95・TP=3が92、ゲートなしで93と91で、3.8.0と同じ点と、同じ部分点・失敗のシナリオでした。Safety Gateは合格で、`mojibake` は化けた文字を見つけませんでした。128本の文書に対するXSFP4の次tokenの数は、両TPで3.8.0とbyteまで同じでした（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
+### Not in 3.9.0
+
+上流で開いている#1423と#1580（[Next Action](README.ja.md#next-action)）、3.x系でのNVIDIAのNVFP4と公開したAXLの重み（1.x系と2.x系が配信します）、生成したtokenのlog確率（[制限](README.ja.md#制限)）。
+
 ## 3.8.1 — 2026-10-26
 
 文書だけの版です。imageのファイルは変わらず、3.8.0のままです（`glm53-tf3:3.8.0`、`sha256:1055b9feee2ef704c8dd736495bfc8d231df5a59406b17eb0655eefdd830b7a2`）。

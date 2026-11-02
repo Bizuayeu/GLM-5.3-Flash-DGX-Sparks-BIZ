@@ -4,6 +4,45 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.9.0 — 2026-11-03
+
+The engine moves onto upstream TensorFold 1.2.1 itself, TP=2 opens the model's whole 1,048,576-token window, as TP=3 does, and the serving defaults are set by TP size: TP=2 for one person's long conversation with an agent, TP=3 for several people at once. Four streams at TP=2 and eight at TP=3 share the KV pool, and kept prompts stay on the pool's pages. The documents' measured values are 3.9.0's acceptance's.
+
+### Engine
+
+- The fork's branch `release/3.9.0` is upstream v1.2.1 (`1db3edbe`) with no commit added. Since 1.1.5 upstream has taken this line's #1352, #1404 and #1424 (1.1.9), #1516, #1524, #1616 and #1636 (1.2.0) and #1823 (1.2.1).
+- TP=2's KV cache moves onto pages, upstream's default from two ranks since 1.1.6 (#1322): every stream's cache and the engine's own sequence take pages of one pool. The FP8 latent cache keeps a window per stream, so `--kv-cache fp8` now takes an empty `TF_GLM_KV_SHARE=` and one stream ([cheatsheet](docs/cheatsheet.md#the-fp8-latent-cache-at-tp2)).
+- A start is shorter: #1616 and #1636 read and pack the weights on several threads ([measured on the release](README.md#measured-on-the-release)).
+
+### Serving defaults
+
+- [`config/tp2.env`](config/tp2.env) and [`config/tp3.env`](config/tp3.env) hold what differs by TP size. `serve.sh` reads its size's file from the image before the rank file, so a new image moves the defaults, a rank file's line still wins and an empty value turns a setting off.
+- TP=2: `CONTEXT=1048576`, the model's limit (524,288 up to 3.8.x), `PARALLEL=4`, `TF_GLM_KV_SHARE=16`, `TENSORFOLD_PREFILL_SHARE=0.7` and `TENSORFOLD_MEMORY_RESERVE_GIB=9`.
+- TP=3: `PARALLEL=8`, `TF_GLM_KV_SHARE=32`, `TENSORFOLD_PREFILL_SHARE=0.7`, `MTP_CONFIDENCE=0.5` (`--mtp-confidence`), `TF_GLM_ROCE_MULTI=1` (the wire) and `TENSORFOLD_MEMORY_RESERVE_GIB=14`.
+- The reasons are the README's [serving defaults](README.md#serving-defaults) and [decisions](docs/decisions.md#window-and-streams), where `PARALLEL=1` closes.
+
+### Image and launch
+
+- The image holds `tp2.env`, `tp3.env` and the wire's kernels, `tp_mailbox.fatbin`, beside `serve.sh`, and `/usr/share/doc/tf3/ENGINE` names the kernels' SHA-256.
+- While `TF_GLM_ROCE_MULTI` is on, `serve.sh` gives the wire `TF_TP_MASTER` from `MASTER`, `TF_TP_PORT`, `TF_TP_PLAN_TIMEOUT`, `TF_TP_KERNEL_IMAGE` and `TF_TP_ROCE_FALLBACK=error`, so a setup that fails stops the start ([operations](docs/operations.md)).
+- `[serve.sh]`'s line gives the resolved `kept`, `prefill-share`, `solo`, `mtp-confidence`, `wire` and `reserve`, and the acceptance reads it against the file.
+- `config/engine.lock.json` and the Dockerfile's `ENGINE_REF` pin `release/3.9.0` at `1db3edbe`, upstream 1.2.1.
+
+### Documentation
+
+- The documents' measured values are 3.9.0's acceptance's: [validation](docs/validation.md)'s reference values, whose decode-check hashes, edit reply and NLL stay those 3.3.0's acceptance set, and the README's checkpoints, serving defaults, limits and [measured on the release](README.md#measured-on-the-release). 3.8.0's part moves word for word to [measurements of earlier releases](docs/measurements.md#380).
+- [Validation](docs/validation.md#requests-at-once) gains requests at once, upstream's `bench_concurrent.py` against the same requests alone, and [benchmarks](docs/benchmarks.md#requests-at-once) how the rows of requests at once are taken.
+- [Configuration](docs/configuration.md) lists the settings of `config/tp*.env` and the wire's, setup and operations describe the four and eight streams and the wire, and the [cheatsheet](docs/cheatsheet.md) gains what the engine does with a request's model name.
+- The commands in the README, setup and operations build and name `glm53-tf3:3.9.0`.
+
+### Accepted
+
+On the reference hosts on 2026-11-03, with the release image (`glm53-tf3:3.9.0`) started by its own `serve.sh` and `cluster.sh`, no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores: in two launches at each TP size XSFP4's decode-check hashes and `bench --kinds edit` reply were 3.3.0's, and in the first its NLL and 3.3.0's reply to the 199,307-token prompt, with all three passphrases found in the 499,254 and 1,035,295-token prompts. With `PARALLEL=` empty the engine took eight streams at TP=2 and eight at TP=3, each giving the count hash. At one stream and four, and eight at TP=3, 20 replies at TP=2 and 52 at TP=3 equalled the same request alone. tool-eval-bench 2.8.0 gave 95 at TP=2 and 92 at TP=3 through the gate and 93 and 91 without it, 3.8.0's scores with the same scenarios left partial or failed, the Safety Gate passed, and `mojibake` found no broken character. XSFP4's next-token scores over the 128 documents equalled 3.8.0's to the byte at both TP sizes ([measured on the release](README.md#measured-on-the-release)).
+
+### Not in 3.9.0
+
+#1423 and #1580, open upstream ([Next Action](README.md#next-action)); NVIDIA's NVFP4 and the published AXL weights on 3.x (1.x and 2.x serve them) and log-probabilities of generated tokens ([limits](README.md#limits)).
+
 ## 3.8.1 — 2026-10-26
 
 Documents only. No file of the image changes; it stays 3.8.0's (`glm53-tf3:3.8.0`, `sha256:1055b9feee2ef704c8dd736495bfc8d231df5a59406b17eb0655eefdd830b7a2`).

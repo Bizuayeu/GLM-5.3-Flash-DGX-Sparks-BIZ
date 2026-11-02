@@ -21,9 +21,9 @@ cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKO
 v3/scripts/cluster.sh state/cluster.env start ring
 ```
 
-## TP=2で1M tokenの窓（FP8のlatent cache）
+## TP=2のFP8のlatent cache
 
-エンジンの選べるFP8のlatent cacheは、GiBあたり約2倍の窓を持ちます。TP=2でXSFP4とvision towerで一度試しました：1本のstreamが1,048,576 tokenの窓に収まり、prefillは約5%長く、decode検査のtokenはBF16のものと違いました。受け入れの外で、上流はその確かめを保留としています（[制限](../README.ja.md#制限)）。両方のrankのファイルに `CONTEXT=1048576` を書き、次のとおり：
+エンジンの選べるFP8のlatent cacheは、GiBあたり約2倍の窓を持ちます。TP=2でXSFP4とvision towerで一度試しました：1本のstreamが1,048,576 tokenの窓に収まり、prefillは約5%長く、decode検査のtokenはBF16のものと違いました。受け入れの外で、上流はその確かめを保留としています（[制限](../README.ja.md#制限)）。streamごとに窓を持つので、1本のstreamでshareなしにします。両方のrankのファイルに `PARALLEL=1` と空の `TF_GLM_KV_SHARE=` を書き、次のとおり：
 
 ```sh
 v3/scripts/cluster.sh state/cluster.env start fp8 --kv-cache fp8

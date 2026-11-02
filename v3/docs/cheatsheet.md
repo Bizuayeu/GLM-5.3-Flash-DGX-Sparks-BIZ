@@ -21,9 +21,9 @@ cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKO
 v3/scripts/cluster.sh state/cluster.env start ring
 ```
 
-## A 1M-token window at TP=2 (FP8 latent cache)
+## The FP8 latent cache at TP=2
 
-The engine's opt-in FP8 latent cache holds about twice the window per GiB. Tried once at TP=2 with XSFP4 and the vision tower: one stream fit the 1,048,576-token window, the prefill took about 5% longer, and the decode check's tokens differ from BF16's. Outside the acceptance; upstream calls its qualification pending ([limits](../README.md#limits)). `CONTEXT=1048576` in both rank files, then:
+The engine's opt-in FP8 latent cache holds about twice the window per GiB. Tried once at TP=2 with XSFP4 and the vision tower: one stream fit the 1,048,576-token window, the prefill took about 5% longer, and the decode check's tokens differ from BF16's. Outside the acceptance; upstream calls its qualification pending ([limits](../README.md#limits)). It keeps a window per stream, so it takes one stream and no share: in both rank files `PARALLEL=1` and an empty `TF_GLM_KV_SHARE=`, then:
 
 ```sh
 v3/scripts/cluster.sh state/cluster.env start fp8 --kv-cache fp8

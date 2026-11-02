@@ -184,5 +184,43 @@ class ServeTests(unittest.TestCase):
             self.assertIn(shown, start)
 
 
+class ReadmeDefaultsTests(unittest.TestCase):
+    """The READMEs' serving defaults say what tp2.env and tp3.env set."""
+
+    def table(self, name):
+        text = (LINE / name).read_text(encoding="utf-8")
+        start = text.index("| TP=2", text.index("/tp2.env)"))
+        return text[start : text.index("\n\n", start)]
+
+    def test_both_tables_give_each_tp_sizes_values(self):
+        two, three = defaults(2), defaults(3)
+        for name in ("README.md", "README.ja.md"):
+            table = self.table(name)
+            for tp in (two, three):
+                self.assertIn(f"{int(tp['CONTEXT']):,}", table, name)
+                self.assertIn(f"TF_GLM_KV_SHARE={tp['TF_GLM_KV_SHARE']}", table, name)
+                self.assertIn(
+                    f"TENSORFOLD_PREFILL_SHARE={tp['TENSORFOLD_PREFILL_SHARE']}",
+                    table,
+                    name,
+                )
+            self.assertIn(
+                f"TF_GLM_ROCE_MULTI={three['TF_GLM_ROCE_MULTI']}", table, name
+            )
+            self.assertIn(
+                f"| {two['TENSORFOLD_MEMORY_RESERVE_GIB']} GiB | {three['TENSORFOLD_MEMORY_RESERVE_GIB']} GiB |",
+                table,
+                name,
+            )
+            self.assertIn(
+                three["MTP_CONFIDENCE"],
+                table.split("MTP_CONFIDENCE")[0].rsplit("|", 1)[1],
+                name,
+            )
+            row = next(x for x in table.splitlines() if "`--parallel`" in x).split("|")
+            self.assertRegex(row[2], rf"^ {two['PARALLEL']}\b", name)
+            self.assertRegex(row[3], rf"^ {three['PARALLEL']}\b", name)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -9,7 +9,7 @@
 | 決定 | 日付 | 測った効き目 | 見直すとき |
 |---|---|---|---|
 | TensorFoldのネイティブエンジン（ZigとCUDA、kernelはbinaryの中）で配信し、Pythonのエンジンの2.x系と並べる | 2026-10-18（3.0.0） | 上流はPythonのエンジンを凍結し（issue #286）、GLMをネイティブの方で配信します。tokenはネイティブエンジン自身のもの（別のkernel、BF16のKV）なので、二つの系列はNLLで比べます：3.0.0のNLLは、2.x系の基準値と領域ごとに0.021以内でした（[2.x系との違い](../README.ja.md#2x系との違い)） | — |
-| 上流のリリースに付いていく。他の利用者にも役立つものは上流へpull requestで出し、残りをrelease branchが持つ | 3.0.0〜3.8.0 | 上流1.0.12（3.0.0）、1.1.1（3.1.0）、1.1.2（3.3.0）、1.1.3（3.6.0）、1.1.5（3.8.0）。この系列の#1016・#1017・#1018は1.1.1で上流自身のものになり、#1179のpatchは3.3.0〜3.5.xが持って1.1.3から上流自身のものです。#1050（FP4-Localの読み込み）は3.6.0のrelease branchが持ち、#1163・#1211・#1178と共に1.1.5から上流自身のものなので、3.8.0のrelease branchはtagそのものです | — |
+| 上流のリリースに付いていく。他の利用者にも役立つものは上流へpull requestで出し、残りをrelease branchが持つ | 3.0.0〜3.9.0 | 上流1.0.12（3.0.0）、1.1.1（3.1.0）、1.1.2（3.3.0）、1.1.3（3.6.0）、1.1.5（3.8.0）、1.2.1（3.9.0）。この系列の#1016・#1017・#1018は1.1.1で上流自身のものになり、#1179のpatchは3.3.0〜3.5.xが持って1.1.3から上流自身のものです。#1050（FP4-Localの読み込み）は3.6.0のrelease branchが持ち、#1163・#1211・#1178と共に1.1.5から上流自身のものなので、3.8.0のrelease branchはtagそのもので、3.9.0も同じです | — |
 | TP=3をswitchの無いリングで、bootstrapは管理用のWi-Fiに載せずに：rank 0のNCCLのidをrankどうしの生存の線で。この系列の#1178からの上流のもの | 2026-10-18（3.0.0）。上流のbootstrapは3.8.0から | `NCCL_COMM_ID` があると、NCCLのbootstrapはrank 0のsubnetに入るinterfaceを探し、リングの点と点の `/32` のアドレスではそれを持つのがrank 0のホストだけです。bootstrapは管理用のWi-Fiに載せません（`/32` を置く前は、Wi-Fiがそれを運んで不安定でした：[3台をリングにつなぐ](../../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。3.0.0〜3.7.0はidをファイルで渡し（`TF_GLM_NCCL_ID_FILE`、この系列のcommit）、線がつながると各rankが `NCCL_COMM_ID` をNCCLの環境から外しました。上流が2026-10-25に#1178を取り込んだので、他のrankはidを線で受け取り、`NCCL_SOCKET_IFNAME` を名指すとNCCLの最初の呼び出しの前に `NCCL_COMM_ID` を外します | — |
 
 ## checkpoint
@@ -21,18 +21,28 @@
 
 ## 窓とstream
 
+3.9.0の行は、既定を選んだ腕の比べを示します。GLMのファイルが1.2.1と同じ上流のmain `9e8c368b0` の上で、腕を1つ前に積み上げて各2回起動し、TP=3はリングで、TP=2はその2台で測りました。リリース自身の値は受け入れのものです。
+
 | 決定 | 日付 | 測った効き目 | 見直すとき |
 |---|---|---|---|
-| TP=2の窓は3.4.0まで245,760 token、3.5.0から524,288 | 2026-10-18（3.0.0）、2026-10-23（3.5.0） | [TP=2を524,288にする理由](../README.ja.md#配信の既定)：245,760はBF16のKVでNVIDIAのNVFP4の隣に1本のstreamが収まるほぼ最大でした。XSFP4では524,288が1本のstreamとprompt cacheを収め、499,254 tokenのpromptが入ります。3.5.0のimageでのA/Bは、どちらの窓でもeditの速さが同じでした（[3.5.0の測定値](measurements.ja.md#350)） | エンジンが、Pythonのエンジンのfamilyのように、起動時の空きメモリからGLMの窓を決める → それに任せる |
+| TP=2の窓は3.4.0まで245,760 token、3.5.0から524,288、3.9.0から1,048,576 | 2026-10-18（3.0.0）、2026-10-23（3.5.0）、2026-11-02（3.9.0） | [TP=2を1,048,576にする理由](../README.ja.md#配信の既定)：245,760はBF16のKVでNVIDIAのNVFP4の隣に1本のstreamが収まるほぼ最大でした。XSFP4では524,288が1本のstreamとprompt cacheを収め、499,254 tokenのpromptが入りました。3.9.0から窓はKVのpoolのpageで、systemに9 GiBを残すとモデルの上限の1,048,576 token全部が入ります。エンジン自身の12.2 GiBでは余地が12.0 GiBで、そのpageの12.77 GiBに足りません。3.5.0のimageでのA/Bは、どちらの窓でもeditの速さが同じでした（[3.5.0の測定値](measurements.ja.md#350)） | エンジンが、Pythonのエンジンのfamilyのように、起動時の空きメモリからGLMの窓を決める → それに任せる |
 | TP=3の窓は1,048,576 token | 2026-10-18（3.0.0） | 2.x系と同じく、モデルの上限 | — |
-| エンジン自身の選択ではなく、一度に一要求（`PARALLEL=1`） | 2026-10-18（3.0.0） | [一度に一要求にする理由](../README.ja.md#配信の既定)：`--parallel` を設定しないと、streamとprompt cacheは起動ごとに変わります。TP=3では、ある起動が2本のstreamと0.1 GiBのprompt cacheを取り、1本なら16 GiBを保ちます。1本と複数本の処理量や待ち時間の比べは記録がありません | — |
+| エンジン自身の選択ではなく、一度に一要求（`PARALLEL=1`） | 2026-10-18（3.0.0）、3.8.xまで | `--parallel` を設定しないと、streamとprompt cacheは起動ごとに変わりました。TP=3では、ある起動が2本のstreamと0.1 GiBのprompt cacheを取り、1本なら16 GiBを保ちました | 3.9.0の既定（下）で閉じた |
+| 配信の既定をTPごとに、`serve.sh` がrankのファイルの前に読むTPごとのファイルに置く：TP=2は1人のagentの長い会話、TP=3は複数の人の同時利用。rankのファイルは運用者が写すので、新しいimageで既定が動くようにそこには書かない | 2026-11-02（3.9.0） | 二つのTPは4つの設定で分かれます（[配信の既定](../README.ja.md#配信の既定)）。`serve.sh` は解決した値を出し、受け入れはその行をファイルと照らします | — |
+| TP=2で4本、TP=3で8本のstream（`PARALLEL`） | 2026-11-02（3.9.0） | [TP=2で4本、TP=3で8本にする理由](../README.ja.md#配信の既定)。TP=2の1本から4本：32K tokenのpromptに6〜8秒で来た短い要求 16.05 → 1.31秒、別々の4つのpromptの同時 36.86 → 54.36 tok/s、decode −0.4%。TP=3の4本から8本：別々の8つのprompt 79.59 → 93.25 tok/s、その最初のtokenの最悪 17.24 → 1.77秒、rank 0の起動後の空き 9.31 → 7.98 GiB。3.9.0のimageで、32K tokenのpromptに6〜8秒で来た短い要求の最初のtokenはTP=2で1.20秒、TP=3で1.38秒でした | 長い会話が同時に並び、この大きさが残すより多くのpoolを求める → その負荷を測る |
+| prompt cacheをKVのpoolのpageに：`TF_GLM_KV_SHARE` をTP=2で16、TP=3で32 | 2026-11-02（3.9.0） | [prompt cacheをpoolのpageに置く理由](../README.ja.md#配信の既定)。TP=2で400K tokenのpromptの再送 310.41 → 2.22秒、rank 0の起動後の空き 11.81 → 13.73 GiB。TP=3で64K tokenのprompt 36.52 → 1.75秒、128K tokenのprompt 72.4 → 2.08秒、起動後の空き 11.53 → 10.08 GiB。stream 1本に4状態はエンジン自身の線で、その下では動いているstreamが互いの状態を追い出すと警告します | — |
+| streamがdecodeしている間のpromptの取り分を0.7に（`TENSORFOLD_PREFILL_SHARE`） | 2026-11-02（3.9.0） | [promptの取り分を0.7にする理由](../README.ja.md#配信の既定)。32K tokenのpromptの横のdecodeのtokenの間隔の中央値はTP=2で1,484 → 46 ms、TP=3で1,221 → 37 ms。そのpromptは23.9 → 32.8秒、19.8 → 27.3秒で、払うのは何かが横でdecodeしている間だけです | — |
+| 広いpromptのpass（`TF_GLM_CHUNK_SOLO`）をどちらのTPでも使わない | 2026-11-02（3.9.0） | [TP=2を1,048,576にする理由](../README.ja.md#配信の既定)。TP=2の524,288 tokenで、8Kから128K tokenのcoldのpromptが6.1〜7.5%早く、32K tokenのpromptの途中の短い要求 1.31 → 2.45秒、rank 0の起動後の空き 13.46 → 11.87 GiBで、窓全体に要る余地を取ります。TP=3では他のstreamがdecodeしている時間が長く、coldのpromptの得はwireの上で3.2〜3.4%、wireなしで7.3〜8.4%です | 短い窓なら余地ができる → 全rankのファイルに `TF_GLM_CHUNK_SOLO=4096`、その時に測る。上流が#1423を取り込む。その組はこれと1つのserverに同居しない → 測って選ぶ |
+| TP=3で `--mtp-confidence 0.5`、TP=2ではしない | 2026-11-02（3.9.0） | [TP=3でwireとdraftの確率を使う理由](../README.ja.md#配信の既定)。TP=3でdecode 51.13 → 53.65 tok/s、別々の4つのprompt 70.39 → 74.77 tok/s、sampledの1本は変わらず、悪くなった行はありません。TP=2では、その使い方であるsampledの1本は同じdraftを取り、4本のgreedyのcodeは遅くなりました | — |
+| TP=3でwire（`TF_GLM_ROCE_MULTI=1`）。上流の既定はoff | 2026-11-02（3.9.0） | [TP=3でwireとdraftの確率を使う理由](../README.ja.md#配信の既定)。decode 53.65 → 55.11 tok/s、sampledの1本は2.1〜2.3%速く、別々の4つのprompt +1.3%、coldのpromptは1.8〜2.0%遅くなります。wireなしの広いpassとの比べでは、decode 55.31対53.89 tok/s、coldの128K tokenのprompt 81.61対73.66秒で、maintainerはdecodeを選びました。準備に失敗すると起動が止まるので、起動が気づかれずに戻ることはありません | — |
+| systemにTP=2で9 GiB、TP=3で14 GiBを残す（`TENSORFOLD_MEMORY_RESERVE_GIB`） | 2026-11-02（3.9.0） | 9 GiBは[TP=2を1,048,576にする理由](../README.ja.md#配信の既定)で、rank 0の起動後の空きは8.03 GiBです。 [TP=3で14 GiBにする理由](../README.ja.md#配信の既定)。エンジンの12.2に対して13 GiBの腕：pool 6,017 → 4,098 page、rank 0の起動後の空き 7.98 → 20.07 GiB、速さは同じか最大1.0%上。3本目の窓に要る余地に対して13 GiBは0.15 GiB下、14 GiBは1.25 GiB下で、起動ごとの揺れより離れます | 長い会話が同時に並び、3本目の窓のpageを使う → その負荷を測る |
 | 要求が指定しないときの応答の上限32,768 tokenとeffort `high` | 2026-10-18（3.0.0） | 2.x系から引き継ぎ（[2.x系の決定](../../v2/docs/decisions.ja.md#窓上限範囲)）、3.x系では測り直していません。XSFP4のchat templateが、NVIDIAのもののように名前の無いeffortを `max` にするかは記録がありません | — |
 
 ## KV cache
 
 | 決定 | 日付 | 測った効き目 | 見直すとき |
 |---|---|---|---|
-| latentとindexのkeyをBF16、エンジンの既定で、基準として | 2026-10-18（3.0.0） | 上流はネイティブエンジンの劣化するcacheを断りました（issue #309と#401、2026-10-06：bf16のcacheとfp32の和）。BF16なら上流のkernelとそのtokenを保ちます。tokenあたり2.x系のFP8のcacheの約2倍を取るので、TP=2の窓はXSFP4まで2.x系より短いものでした（[TP=2を524,288にする理由](../README.ja.md#配信の既定)） | — |
+| latentとindexのkeyをBF16、エンジンの既定で、基準として | 2026-10-18（3.0.0） | 上流はネイティブエンジンの劣化するcacheを断りました（issue #309と#401、2026-10-06：bf16のcacheとfp32の和）。BF16なら上流のkernelとそのtokenを保ちます。tokenあたり2.x系のFP8のcacheの約2倍を取るので、TP=2の窓はXSFP4まで2.x系より短いものでした（[TP=2を1,048,576にする理由](../README.ja.md#配信の既定)） | — |
 | エンジンの選べるFP8のlatent cache（`--kv-cache fp8`）をTP=2の1M tokenの窓で一度試し、既定にはしない | 2026-10-23 | 1本のstreamがprompt cacheとともに1,048,576 tokenの窓に収まり、1,035,295 tokenのpromptは合言葉を見つけました。prefillは約5%長く、NLLはtextごとの区間の中で動き、decode検査のtokenはBF16のものと違います（[制限](../README.ja.md#制限)）。TP=3では試していません | 上流が、保留としているこのcacheの質とデバイスの確かめを終える |
 
 ## 熱
@@ -70,9 +80,9 @@
 
 開いた項目：3.x系では、どちらの結果もありません。
 
-- **要求と入力。** 一度に複数の要求、画像と動画のURL（`--vision-urls`）、`/v1/responses` と `/v1/messages`、harnessとの統合（[制限](../README.ja.md#制限)）。
+- **要求と入力。** 長い会話が同時に何本も並ぶ負荷、画像と動画のURL（`--vision-urls`）、`/v1/responses` と `/v1/messages`、harnessとの統合（[制限](../README.ja.md#制限)）。
 - **エンジンの設定。** [設定](configuration.ja.md)が回したと名指すもの以外の全てのエンジンの設定：`TF_ROCE*`・`TF_GLM_PREFILL_REDUCE` などは既定のまま回り、`TF_GLM_PROMPT_K=shape` もDFlash2のdrafterも試していません。
-- **TP=3のFP8のlatent cache**、TP=2でも一度の試しの先。
+- **TP=3のFP8のlatent cache**、TP=2でも一度の試しの先。これはstreamごとに窓を持つので、3.9.0のKVのpageとは組めません。
 - **#1053の後の全core**。上流1.1.2が入れたもの（[Next Action](../README.ja.md#next-action)）。
 - **他のworldの大きさとhardware**：TP=4と他のGPUは回していません。
 - **2.x系の開いた項目**、MTUとLPA（[2.x系の決定](../../v2/docs/decisions.ja.md#1x系の施策で2x系では未評価のもの)）、そしてloop guard。ネイティブエンジンでは `--loop-guard` として持ちます。
