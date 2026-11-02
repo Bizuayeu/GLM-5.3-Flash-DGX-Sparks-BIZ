@@ -3,7 +3,7 @@
 # The 3.x serving defaults: the MTP head's drafts (the engine's default), replies of up to 32,768 tokens when a request
 # names no limit, high reasoning effort, and what differs by TP from the release's tp2.env and tp3.env, which sit
 # beside this script: the window, the streams, the kept prompts, a prompt's share beside a decode, the solo passes, the
-# drafts' confidence and the wire. The rank file follows them, so its value wins, every rank the same, and an empty
+# drafts' confidence, the wire and the memory reserve. The rank file follows them, so its value wins, every rank the same, and an empty
 # value turns a setting off. An empty PARALLEL leaves the streams to the engine, which sizes them and the prompt cache
 # from the memory free at start, so they can differ between starts; an empty CONTEXT keeps the release's window.
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
@@ -39,7 +39,8 @@ export TF_GLM_RANK=$rank TF_GLM_WORLD=$tp
 export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"
 context=${CONTEXT:-$release_context}
 TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}
-for v in TF_HEAT_HIGH TF_HEAT_LOW TF_GLM_KV_SHARE TENSORFOLD_PREFILL_SHARE TF_GLM_CHUNK_SOLO TF_GLM_ROCE_MULTI; do
+for v in TF_HEAT_HIGH TF_HEAT_LOW TF_GLM_KV_SHARE TENSORFOLD_PREFILL_SHARE TF_GLM_CHUNK_SOLO TF_GLM_ROCE_MULTI \
+  TENSORFOLD_MEMORY_RESERVE_GIB; do
   if [ -n "${!v-}" ]; then export "$v"; else unset "$v"; fi
 done
 # The wire takes the main stream's small all-gathers to the engine's multirank RoCE, beside NCCL. It needs rank 0's
@@ -70,7 +71,8 @@ vision=${VISION-1}
 [ -n "$vision" ] && args+=(--vision)
 echo "[serve.sh] $(date -Is) TP=$tp rank $rank master $MASTER context $context parallel ${parallel:-auto}" \
   "kept ${TF_GLM_KV_SHARE:-unset} prefill-share ${TENSORFOLD_PREFILL_SHARE:-unset} solo ${TF_GLM_CHUNK_SOLO:-unset}" \
-  "mtp-confidence ${MTP_CONFIDENCE:-unset} wire ${TF_GLM_ROCE_MULTI:-unset} vision ${vision:-off}" \
+  "mtp-confidence ${MTP_CONFIDENCE:-unset} wire ${TF_GLM_ROCE_MULTI:-unset}" \
+  "reserve ${TENSORFOLD_MEMORY_RESERVE_GIB:-unset} vision ${vision:-off}" \
   "heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}" \
   "engine $(sed -n 's/^ref //p' /usr/share/doc/tf3/ENGINE 2>/dev/null || echo '?')" "TF_GLM_MM ${TF_GLM_MM-unset}"
 exec tensorfold-native serve "$CHECKPOINT" "${args[@]}" "$@"

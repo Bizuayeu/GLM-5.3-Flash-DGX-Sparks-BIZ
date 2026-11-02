@@ -85,6 +85,7 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(env["TF_GLM_CHUNK_SOLO"], "4096")
         self.assertNotIn("TF_GLM_ROCE_MULTI", env)
         self.assertNotIn("TF_TP_MASTER", env)
+        self.assertNotIn("TENSORFOLD_MEMORY_RESERVE_GIB", env)
 
     def test_tp3_serves_several_people_on_the_wire(self):
         args, env, _ = self.serve(3)
@@ -96,6 +97,7 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(env["TF_TP_MASTER"], "10.0.0.1")
         self.assertEqual(env["TF_TP_KERNEL_IMAGE"], "ROOT/tp_mailbox.fatbin")
         self.assertEqual(env["TF_TP_ROCE_FALLBACK"], "error")
+        self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "14")
 
     def test_the_rank_file_wins(self):
         args, env, _ = self.serve(2, "PARALLEL=2\nTF_GLM_KV_SHARE=8\nCONTEXT=262144\nMTP_CONFIDENCE=0.6\n")
@@ -106,11 +108,14 @@ class ServeTests(unittest.TestCase):
 
     def test_an_empty_value_turns_a_setting_off(self):
         args, env, _ = self.serve(
-            3, "PARALLEL=\nTF_GLM_KV_SHARE=\nTENSORFOLD_PREFILL_SHARE=\nMTP_CONFIDENCE=\nTF_GLM_ROCE_MULTI=\n"
+            3,
+            "PARALLEL=\nTF_GLM_KV_SHARE=\nTENSORFOLD_PREFILL_SHARE=\nMTP_CONFIDENCE=\nTF_GLM_ROCE_MULTI=\n"
+            "TENSORFOLD_MEMORY_RESERVE_GIB=\n",
         )
         self.assertNotIn("--parallel", args)
         self.assertNotIn("--mtp-confidence", args)
-        for key in ("TF_GLM_KV_SHARE", "TENSORFOLD_PREFILL_SHARE", "TF_GLM_ROCE_MULTI", "TF_GLM_CHUNK_SOLO") + WIRE:
+        off = ("TF_GLM_KV_SHARE", "TENSORFOLD_PREFILL_SHARE", "TF_GLM_ROCE_MULTI", "TF_GLM_CHUNK_SOLO")
+        for key in off + ("TENSORFOLD_MEMORY_RESERVE_GIB",) + WIRE:
             self.assertNotIn(key, env)
 
     def test_an_empty_context_keeps_the_releases_window(self):
@@ -138,10 +143,11 @@ class ServeTests(unittest.TestCase):
             "solo 4096",
             "mtp-confidence unset",
             "wire unset",
+            "reserve unset",
         ):
             self.assertIn(shown, start)
         _, _, start = self.serve(3, "PARALLEL=\n")
-        for shown in ("parallel auto", "mtp-confidence 0.5", "wire 1", "solo unset"):
+        for shown in ("parallel auto", "mtp-confidence 0.5", "wire 1", "solo unset", "reserve 14"):
             self.assertIn(shown, start)
 
 
