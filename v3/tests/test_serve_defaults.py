@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from glm53_tf import config
+
 LINE = Path(__file__).resolve().parents[1]
 SETTING = re.compile(r"^(\w+)=(\S*)", re.MULTILINE)
 WIRE = (
@@ -127,6 +129,17 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(self.flag(args, "--context"), "262144")
         self.assertEqual(self.flag(args, "--mtp-confidence"), "0.6")
         self.assertEqual(env["TF_GLM_KV_SHARE"], "8")
+
+    def test_one_rank_file_line_serves_jammed_and_changes_nothing_else(self):
+        # 3.10.0: XSFP4 stays the default; Jammed XSFP4 is its lock's folder in CHECKPOINT.
+        model, revision, _ = config.checkpoint("jammed", Path("state"))
+        folder = f"/hub/models--{model.replace('/', '--')}/snapshots/{revision}"
+        for tp in (2, 3):
+            with self.subTest(tp=tp):
+                base = self.serve(tp)[0]
+                args = self.serve(tp, f"CHECKPOINT={folder}\n")[0]
+                self.assertEqual(args[:2], ["serve", folder])
+                self.assertEqual(args[2:], base[2:])
 
     def test_an_empty_value_turns_a_setting_off(self):
         args, env, _ = self.serve(

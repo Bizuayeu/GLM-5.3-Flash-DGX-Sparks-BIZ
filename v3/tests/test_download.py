@@ -43,7 +43,7 @@ class BackgroundTests(unittest.TestCase):
         self.assertEqual(popen.call_args.kwargs["cwd"], LINE)
 
     def test_nvidias_nvfp4_and_the_axl_weights_are_no_longer_a_choice(self):
-        # 3.6.0: 3.x serves XSFP4 alone; 1.x and 2.x keep both.
+        # 3.6.0 took both off 3.x; 1.x and 2.x keep them.
         for name in ("pinned", "axl"):
             with self.subTest(checkpoint=name), redirect_stderr(io.StringIO()):
                 with self.assertRaises(SystemExit) as raised:
@@ -54,6 +54,11 @@ class BackgroundTests(unittest.TestCase):
         popen, logs = self.background("--checkpoint", "xsfp4")
         self.assertEqual(logs, ["xsfp4/download.log"])
         self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "xsfp4"])
+
+    def test_a_jammed_job_passes_its_checkpoint_on_and_logs_in_its_folder(self):
+        popen, logs = self.background("--checkpoint", "jammed")
+        self.assertEqual(logs, ["jammed/download.log"])
+        self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "jammed"])
 
 
 def fake_hub(snapshot, sha, sizes):
@@ -111,6 +116,15 @@ class DownloadTests(unittest.TestCase):
     def test_xsfp4_records_its_own_model_and_revision_in_its_own_folder(self):
         code, status = self.run_download(which="xsfp4")
         model, revision, _ = config.checkpoint("xsfp4", Path("state"))
+        self.assertIsNone(code)
+        self.assertEqual(
+            (status["model"], status["revision"], status["status"]),
+            (model, revision, "complete"),
+        )
+
+    def test_jammed_records_its_own_model_and_revision_in_its_own_folder(self):
+        code, status = self.run_download(which="jammed")
+        model, revision, _ = config.checkpoint("jammed", Path("state"))
         self.assertIsNone(code)
         self.assertEqual(
             (status["model"], status["revision"], status["status"]),

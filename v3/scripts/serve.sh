@@ -51,7 +51,8 @@ if [ "${TF_GLM_ROCE_MULTI:-0}" != 0 ]; then
   export TF_TP_ROCE_FALLBACK=${TF_TP_ROCE_FALLBACK:-error}
 fi
 # XSFP4 at its lock's revision (config/xsfp4.lock.json) as the Hugging Face cache holds it, mounted read-only at /hub
-# (create_container.sh); CHECKPOINT in the rank files names another folder (3.x's acceptance covers XSFP4 alone)
+# (create_container.sh). CHECKPOINT in the rank files names another folder: Jammed XSFP4's at its lock's revision
+# (config/jammed.lock.json), the one other checkpoint 3.x's acceptance covers
 CHECKPOINT=${CHECKPOINT:-/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/88736f916f8939607fde8a4b881dcae749f7551d}
 # Every rank takes the same arguments (the ranks compare their settings at start); only rank 0 serves HTTP.
 # REASONING_EFFORT: what a request that names none gets (default high; empty: the chat template's own).

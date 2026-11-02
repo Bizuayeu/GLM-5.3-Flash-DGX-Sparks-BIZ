@@ -1,5 +1,4 @@
-"""Wait for the existing downloader, then verify the locked checkpoint's HF cache checksums
-(XSFP4)."""
+"""Wait for the existing downloader, then verify the locked checkpoint's HF cache checksums."""
 
 import argparse
 import json

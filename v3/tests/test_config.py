@@ -42,12 +42,14 @@ class CheckoutLayoutTests(unittest.TestCase):
     def test_the_line_keeps_no_lock_of_the_checkpoints_it_no_longer_serves(self):
         # 3.6.0 took NVIDIA's NVFP4 (model.lock.json) and the AXL weights off 3.x.
         locks = sorted(p.name for p in (LINE / "config").glob("*.lock.json"))
-        self.assertEqual(locks, ["engine.lock.json", "xsfp4.lock.json"])
+        self.assertEqual(
+            locks, ["engine.lock.json", "jammed.lock.json", "xsfp4.lock.json"]
+        )
 
 
 class CheckpointTests(unittest.TestCase):
-    def test_xsfp4_is_the_only_choice(self):
-        self.assertEqual(config.CHECKPOINTS, ("xsfp4",))
+    def test_xsfp4_is_the_default_and_jammed_the_other_choice(self):
+        self.assertEqual(config.CHECKPOINTS, ("xsfp4", "jammed"))
         self.assertEqual(config.DEFAULT_CHECKPOINT, "xsfp4")
         for name in ("pinned", "axl"):
             with (
@@ -61,6 +63,12 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(model, "Bizuayeu/GLM-5.3-Flash-XSFP4")
         self.assertRegex(revision, r"^[0-9a-f]{40}$")
         self.assertEqual(state, Path("state/xsfp4"))
+
+    def test_jammed_is_its_own_full_revision_in_its_own_state_folder(self):
+        model, revision, state = config.checkpoint("jammed", Path("state"))
+        self.assertEqual(model, "Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4")
+        self.assertRegex(revision, r"^[0-9a-f]{40}$")
+        self.assertEqual(state, Path("state/jammed"))
 
     def test_both_tools_explain_the_checkpoint_choice(self):
         import contextlib

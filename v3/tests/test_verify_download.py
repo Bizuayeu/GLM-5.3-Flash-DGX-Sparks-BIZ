@@ -118,8 +118,18 @@ class VerifyDownloadTests(unittest.TestCase):
                 self.assertIn("--fail-on-missing-files", command)
                 self.assertIn("--fail-on-extra-files", command)
 
+    def test_jammed_verifies_its_own_model_and_revision(self):
+        model, revision, folder = config.checkpoint("jammed", self.state)
+        folder.mkdir()
+        record = {"model": model, "revision": revision, "status": "complete"}
+        (folder / STATUS_FILE).write_text(json.dumps(record))
+        code, saved, run, _ = self.run_main("--checkpoint", "jammed")
+        self.assertEqual(code, 0)
+        self.assertEqual(saved["model"], model)
+        self.assertEqual(run.call_args.args[0][3:6], [model, "--revision", revision])
+
     def test_nvidias_nvfp4_and_the_axl_weights_are_no_longer_a_choice(self):
-        # 3.6.0: 3.x serves XSFP4 alone; 1.x and 2.x keep both.
+        # 3.6.0 took both off 3.x; 1.x and 2.x keep them.
         for name in ("pinned", "axl"):
             with (
                 self.subTest(checkpoint=name),

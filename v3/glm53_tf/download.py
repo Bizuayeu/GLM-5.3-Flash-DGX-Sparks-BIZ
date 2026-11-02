@@ -1,5 +1,5 @@
-"""Download the locked GLM checkpoint, XSFP4 (config/xsfp4.lock.json), into the shared
-Hugging Face cache."""
+"""Download a locked GLM checkpoint (config/xsfp4.lock.json, config/jammed.lock.json) into
+the shared Hugging Face cache."""
 
 import argparse
 import json
