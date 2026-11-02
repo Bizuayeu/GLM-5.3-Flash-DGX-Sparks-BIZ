@@ -2,7 +2,7 @@
 
 [日本語](operations.ja.md) · [3.x overview](../README.md) · [Setup runbook](../SETUP.md) · [Validation](validation.md)
 
-What to do when a 3.x launch goes wrong, and the routine changes around it: a new container, a new image, a host that powered off, handing the hosts to 2.x or 1.x. Each section says what the scripts do and which cases the reference hosts met; a case they did not meet is marked as such. Commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized.
+What to do when a 3.x launch goes wrong, and the routine changes around it: a new container, a new image, a host that powered off, a host that was moved, handing the hosts to 2.x or 1.x. Each section says what the scripts do and which cases the reference hosts met; a case they did not meet is marked as such. Commands run from the checkout root with the cluster file at `state/cluster.env` ([setup §5](../SETUP.md#5-start)), and like every command that changes a host, inside a window the operator has authorized.
 
 ## Start outcomes
 
@@ -77,6 +77,21 @@ GB10 hosts can power off under sustained load ([GPU clock cap](../../docs/hosts.
 - `create_container.sh` sets no restart policy, so after the host boots its container is not running: `docker start glm53-tf3`, or recreate it.
 - Before starting, check the host as [host preparation](../../docs/hosts.md) says after an unclean restart, and its GID index.
 - Start every rank together and run the decode check before routine use.
+
+## A host that was moved
+
+One reference host came back from a move on 2026-11-02 with its QSFP cable leaving and returning seconds after boot, and its NIC then sent at an eighth of the speed: 13 Gb/s where the same NIC gives 106. TP=2's prompts ran about a quarter slower and every hash stayed the same. Link speed, FEC, GID, PCIe width, retransmissions and the settings in sysfs read as on a healthy host, so comparing them finds nothing. This is one case, and its mechanism is not known.
+
+- Plug the QSFP cables in before power-on. A reboot with the cable in brought that host back to 106 Gb/s.
+- After moving a host or reseating a cable, and before measuring, have each active RDMA device write to itself. The traffic does not leave the NIC, so the number is this host's alone; a healthy NIC gives about 106 Gb/s:
+
+  ```sh
+  ib_write_bw -d DEVICE -x GID_INDEX -F --report_gbits -D 3 -s 1048576 &
+  sleep 2; ib_write_bw -d DEVICE -x GID_INDEX -F --report_gbits -D 3 -s 1048576 127.0.0.1
+  ```
+
+  `ib_write_bw` is in Ubuntu's `perftest` package; `DEVICE` and `GID_INDEX` are the rank file's `NCCL_IB_HCA` and `NCCL_IB_GID_INDEX`, one device at a time.
+- The kernel log of that boot showed the cable leave and return (`journalctl -k -b | grep cx7-pcie-hotplug`) and `mlx5_core` probe the NIC twice, where a healthy boot probes it once.
 
 ## Hand the hosts to 2.x
 
