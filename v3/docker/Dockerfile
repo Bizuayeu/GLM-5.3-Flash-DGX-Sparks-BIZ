@@ -9,7 +9,7 @@ ARG BUILD_IMAGE=nvidia/cuda:13.3.1-devel-ubuntu24.04@sha256:4ff859525f99de5782aa
 ARG RUNTIME_IMAGE=nvidia/cuda:13.3.1-runtime-ubuntu24.04@sha256:63da350831208559df18c7b8f3e0d5d1c984eaa815cdde690aacd6606cd0cb11
 # The engine and its compiler as v3/config/engine.lock.json pins them (v3/tests/test_engine_lock.py keeps them equal).
 ARG ENGINE_REPO=https://github.com/Bizuayeu/TensorFold.git
-ARG ENGINE_REF=84e0d560303d85c50becb730720c04a56e38abe5
+ARG ENGINE_REF=1db3edbe7e692e83c7f5056754dc4e69e79a6c22
 ARG ZIG_URL=https://ziglang.org/download/0.17.0/zig-aarch64-linux-0.17.0.tar.xz
 ARG ZIG_SHA256=9e8d11661d4ae3bd57702a3832781e23ad151dde5798e16a5ccd503f65234ff8
 ARG BUILD_FLAGS="-Dnvcc=/usr/local/cuda/bin/nvcc -Dsm=121"
@@ -117,6 +117,11 @@ RUN /opt/zig/zig build video -Dffmpeg=/opt/ffmpeg \
  && cp zig-out/native/lib/libtfvideo.so /out/media/ \
  && cd /out && printf "media %s\nmedia %s\nmedia %s\n" "$JPEG_TURBO_URL" "$WEBP_URL" "$FFMPEG_URL" >> ENGINE \
  && cd /out/media && sha256sum libtfvideo.so libturbojpeg.so.0.* libwebpdecoder.so.3.* >> /out/ENGINE
+# The mailbox kernels of the wire at TP=3 (TF_GLM_ROCE_MULTI), which serve.sh names in TF_TP_KERNEL_IMAGE
+RUN /usr/local/cuda/bin/nvcc -fatbin -O3 -std=c++17 -gencode=arch=compute_120,code=sm_120 \
+      -gencode=arch=compute_121,code=sm_121 -gencode=arch=compute_90,code=compute_90 \
+      -o /out/tp_mailbox.fatbin zig/src/fabric/tp/mailbox.cu \
+ && cd /out && sha256sum tp_mailbox.fatbin >> ENGINE
 # The engine's own notices, which its binaries carry (a step of its own, after the builds)
 RUN mkdir /out/engine \
  && cp -r /src/LICENSE /src/NOTICE /src/THIRD_PARTY_NOTICES.md /src/LICENSES /out/engine/
@@ -148,6 +153,9 @@ COPY --from=media /out/LICENSES/ /usr/share/doc/tf3/LICENSES/
 COPY --from=build /out/engine/ /usr/share/doc/tf3/engine/
 COPY LICENSE NOTICE THIRD_PARTY_NOTICES.md /usr/share/doc/tf3/
 COPY LICENSES/ /usr/share/doc/tf3/LICENSES/
-# The rank's start (cluster.sh runs it in the container on every host)
+# The rank's start (cluster.sh runs it in the container on every host), this release's defaults by TP beside it, and
+# the wire's kernels
 COPY v3/scripts/serve.sh /opt/glm53-tf3/serve.sh
+COPY v3/config/tp2.env v3/config/tp3.env /opt/glm53-tf3/
+COPY --from=build /out/tp_mailbox.fatbin /opt/glm53-tf3/
 WORKDIR /work

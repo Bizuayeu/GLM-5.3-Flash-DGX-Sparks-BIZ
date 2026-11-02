@@ -1,10 +1,11 @@
 #!/bin/bash
 # Inside the container, on every rank: serve.sh TP RANK RANK_ENV [more `tensorfold-native serve` arguments]
 # The 3.x serving defaults: the MTP head's drafts (the engine's default), replies of up to 32,768 tokens when a request
-# names no limit, high reasoning effort, and the window by TP: 524,288 tokens at TP=2, one stream and a prompt cache
-# beside XSFP4, and 1,048,576 at TP=3, the model's limit; one stream (PARALLEL=1). An empty PARALLEL leaves it to the
-# engine, which sizes the streams and the prompt cache from the memory free at start, so they can differ between
-# starts. CONTEXT in the rank file sets another window, every rank the same.
+# names no limit, high reasoning effort, and what differs by TP from the release's tp2.env and tp3.env, which sit
+# beside this script: the window, the streams, the kept prompts, a prompt's share beside a decode, the solo passes, the
+# drafts' confidence and the wire. The rank file follows them, so its value wins, every rank the same, and an empty
+# value turns a setting off. An empty PARALLEL leaves the streams to the engine, which sizes them and the prompt cache
+# from the memory free at start, so they can differ between starts; an empty CONTEXT keeps the release's window.
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
 # between the hosts (at TP=3, whose hosts are linked point to point, a /32 address the ring's routes reach). Rank 0
 # makes its NCCL id at NCCL_COMM_ID (MASTER:NCCL_PORT), and the ranks' liveness lines meet it at the next port; the
@@ -29,40 +30,47 @@ case $rank in
   *) echo "rank is 0, 1 or 2, not '$rank'" >&2; exit 2 ;;
 esac
 set -a
+. "$(dirname "$0")/tp$tp.env"
+release_context=$CONTEXT
 . "$rank_env"
 set +a
 : "${MASTER:?$rank_env must set MASTER, rank 0 address on the link between the hosts}"
 export TF_GLM_RANK=$rank TF_GLM_WORLD=$tp
 export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"
-if [ "$tp" = 2 ]; then
-  context=${CONTEXT:-524288}
-else
-  context=${CONTEXT:-1048576}
-fi
+context=${CONTEXT:-$release_context}
 TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}
-for v in TF_HEAT_HIGH TF_HEAT_LOW; do
-  if [ -n "${!v}" ]; then export "$v"; else unset "$v"; fi
+for v in TF_HEAT_HIGH TF_HEAT_LOW TF_GLM_KV_SHARE TENSORFOLD_PREFILL_SHARE TF_GLM_CHUNK_SOLO TF_GLM_ROCE_MULTI; do
+  if [ -n "${!v-}" ]; then export "$v"; else unset "$v"; fi
 done
+# The wire takes the main stream's small all-gathers to the engine's multirank RoCE, beside NCCL. It needs rank 0's
+# address and the mailbox kernels, and a failed setup or probe stops the start rather than falling back to NCCL unseen.
+if [ "${TF_GLM_ROCE_MULTI:-0}" != 0 ]; then
+  export TF_TP_MASTER=${TF_TP_MASTER:-$MASTER} TF_TP_PORT=${TF_TP_PORT:-29640} TF_TP_PLAN_TIMEOUT=${TF_TP_PLAN_TIMEOUT:-900}
+  export TF_TP_KERNEL_IMAGE=${TF_TP_KERNEL_IMAGE:-$(dirname "$0")/tp_mailbox.fatbin}
+  export TF_TP_ROCE_FALLBACK=${TF_TP_ROCE_FALLBACK:-error}
+fi
 # XSFP4 at its lock's revision (config/xsfp4.lock.json) as the Hugging Face cache holds it, mounted read-only at /hub
 # (create_container.sh); CHECKPOINT in the rank files names another folder (3.x's acceptance covers XSFP4 alone)
 CHECKPOINT=${CHECKPOINT:-/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/88736f916f8939607fde8a4b881dcae749f7551d}
 # Every rank takes the same arguments (the ranks compare their settings at start); only rank 0 serves HTTP.
 # REASONING_EFFORT: what a request that names none gets (default high; empty: the chat template's own).
-# PARALLEL: how many requests share the rounds (default 1; empty: the engine's auto). API_KEY_FILE: serving beyond
-# loopback, requests without the key are refused.
+# PARALLEL: how many requests share the rounds (empty: the engine's auto). MTP_CONFIDENCE: the drafts' confidence
+# (empty: none). API_KEY_FILE: serving beyond loopback, requests without the key are refused.
 args=(--name "${MODEL_NAME:-glm-tf}" --host "${HOST:-127.0.0.1}" --port "${PORT:-8095}")
 args+=(--context "$context" --max-tokens 32768 --no-update-check)
 effort=${REASONING_EFFORT-high}
 [ -n "$effort" ] && args+=(--reasoning-effort "$effort")
-parallel=${PARALLEL-1}
+parallel=${PARALLEL-}
 [ -n "$parallel" ] && args+=(--parallel "$parallel")
+[ -n "${MTP_CONFIDENCE:-}" ] && args+=(--mtp-confidence "$MTP_CONFIDENCE")
 [ -n "${API_KEY_FILE:-}" ] && args+=(--api-key-file "$API_KEY_FILE")
 # VISION: image and video parts (default 1: the checkpoint's tower on rank 0, PNG, JPEG and WebP data URLs, videos;
 # empty: text alone), every rank the same
 vision=${VISION-1}
 [ -n "$vision" ] && args+=(--vision)
 echo "[serve.sh] $(date -Is) TP=$tp rank $rank master $MASTER context $context parallel ${parallel:-auto}" \
-  "vision ${vision:-off}" \
+  "kept ${TF_GLM_KV_SHARE:-unset} prefill-share ${TENSORFOLD_PREFILL_SHARE:-unset} solo ${TF_GLM_CHUNK_SOLO:-unset}" \
+  "mtp-confidence ${MTP_CONFIDENCE:-unset} wire ${TF_GLM_ROCE_MULTI:-unset} vision ${vision:-off}" \
   "heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}" \
   "engine $(sed -n 's/^ref //p' /usr/share/doc/tf3/ENGINE 2>/dev/null || echo '?')" "TF_GLM_MM ${TF_GLM_MM-unset}"
 exec tensorfold-native serve "$CHECKPOINT" "${args[@]}" "$@"

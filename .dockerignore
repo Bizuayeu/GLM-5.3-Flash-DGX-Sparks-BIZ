@@ -8,6 +8,8 @@
 !v2/scripts/
 !v3/docker/
 !v3/scripts/
+!v3/config/tp2.env
+!v3/config/tp3.env
 !LICENSE
 !NOTICE
 !THIRD_PARTY_NOTICES.md

@@ -10,14 +10,15 @@
 
 | 場所 | 読むもの | 効くとき |
 |---|---|---|
-| rankのファイル、各ホストの `/work/rank.env`（[例](../examples/)） | `serve.sh`。全変数をexportしながら読むので、そこに書いた変数はどれもエンジンに届く | そのrankの次の起動 |
+| [`config/tp2.env`・`config/tp3.env`](../config/) | `serve.sh`。rankのファイルより先に、全変数をexportしながら読む | 新しいimageで |
+| rankのファイル、各ホストの `/work/rank.env`（[例](../examples/)） | `serve.sh`。全変数をexportしながら読むので、そこに書いた変数はどれもエンジンに届き、リリースのファイルの値に勝つ | そのrankの次の起動 |
 | `serve.sh` の `TP RANK RANK_ENV` の後の引数。`cluster.sh` からはlabelの後の引数 | `tensorfold-native serve`。`serve.sh` 自身の引数の後ろに付く | 次の起動、全rankで |
 | clusterのファイル、制御機の `state/cluster.env` | `cluster.sh` | 次のコマンド |
 | `create_container.sh` の環境 | `create_container.sh` と `cpuset.sh` | containerを作るとき（coreは後から `docker update` で変えられる） |
 | 道具のoptionと環境 | `v3/` から実行する `python -m glm53_tf <command>` | 実行のとき |
 | [`config/`](../config/) | imageのbuildと道具 | 次のbuildか実行 |
 
-`cluster.sh` はcheckoutのではなくimageの `serve.sh`（`/opt/glm53-tf3/serve.sh`）を走らせます：[`scripts/serve.sh`](../scripts/serve.sh) の変更は、新しいimageでだけrankに届きます。
+`cluster.sh` はcheckoutのではなくimageの `serve.sh`（`/opt/glm53-tf3/serve.sh`）を走らせます：[`scripts/serve.sh`](../scripts/serve.sh) と、imageがその隣に持つ `config/tp2.env`・`config/tp3.env` の変更は、新しいimageでだけrankに届きます。
 
 ## rankのファイル
 
@@ -26,7 +27,13 @@
 | `MASTER` | なし（必須） | ホストの間のリンク上のrank 0のアドレス。`serve.sh` がエンジンに `NCCL_COMM_ID=MASTER:NCCL_PORT` を渡す | 全rankで同じ |
 | `NCCL_PORT` | `29583` | `NCCL_COMM_ID` のrank 0のport。rank 0のNCCLのbootstrapがここで待ち受ける。rankどうしの生存の線はその次のportを使う | 同じ |
 | `CONTEXT` | TP=2で `524288`、TP=3で `1048576`。空の値は既定になる | 窓（`--context`） | 同じ。起動時に比べる |
-| `PARALLEL` | `1` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（両TPで受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
+| `PARALLEL` | TP=2で `4`、TP=3で `8` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（両TPで受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
+| `TF_GLM_KV_SHARE` | TP=2で `16`、TP=3で `32` | KVのpoolのpageの上のprompt cache：保持するpromptをpageのまま持ち、その先のstateをこの数まで持つ。1 streamあたり4 stateを下回ると、動いているstreamどうしが追い出し合うとエンジンが警告する。空の値か `0` はコピーのprompt cache（`--prompt-cache-gib`）に戻す | 同じ |
+| `TENSORFOLD_PREFILL_SHARE` | `0.7` | 他のstreamがdecodeしている間の、長いpromptの時間の取り分（[rank 0のserver](#rank-0のserver)）。空の値はエンジンの `1` のまま | rank 0 |
+| `TF_GLM_CHUNK_SOLO` | TP=2で `4096`、TP=3で空 | `4096` は、他のstreamがdecodeしていない間、promptのpassを4,096行にする。そのpassの途中で来た要求はpassの終わりを待ち、全rankが広いprompt bufferを持つ。空の値か `2048` は2,048行のpassのまま。`--drafter` とは組めない | 同じ。起動時に比べる |
+| `MTP_CONFIDENCE` | TP=2で空、TP=3で `0.5` | MTPのdraftの列を止める所（`--mtp-confidence`、0から1）：draftの確率がこの値を下回ると列が終わる。空の値は何も渡さない | 同じ |
+| `TF_GLM_ROCE_MULTI` | TP=2で空、TP=3で `1` | wire：3 rankで、主streamの小さいall-gatherをNCCLの横でエンジンのmultirank RoCEに通す。`serve.sh` が次の行を渡す。空の値か `0` はNCCLのまま | 同じ。起動時に比べる |
+| `TF_TP_MASTER`・`TF_TP_PORT`・`TF_TP_PLAN_TIMEOUT`・`TF_TP_KERNEL_IMAGE`・`TF_TP_ROCE_FALLBACK` | `MASTER`、`29640`（と7つ上の `29647`）、`900`（秒）、imageの `/opt/glm53-tf3/tp_mailbox.fatbin`、`error` | `TF_GLM_ROCE_MULTI` がonの間に `serve.sh` がwireに渡す値：rank 0のアドレス、rankが落ち合うport、互いを待つ時間、mailboxのkernel、準備か確認に失敗した時の動き。`error` は起動を止め、`nccl` はwireなしで起動する | 同じ |
 | `VISION` | `1` | 画像と動画の入力（`--vision`）。rank 0でcheckpointのvision towerが読む。空でない値は `0` も含めてどれもこれを渡すので、textだけにするのは `VISION=` だけ | 同じ。起動時に比べる |
 | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け（`--name`・`--host`・`--port`） | rank 0 |
 | `REASONING_EFFORT` | `high` | effortを指定しない要求のeffort（`--reasoning-effort`）：`low`・`medium`・`high`・`xhigh`。他の値は `max` も含めて起動時に全rankを止める。空の値は何も渡さず、chat templateに任せる。要求そのものは `none`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max` を指定できる | rank 0 |
@@ -42,7 +49,7 @@
 - `--max-tokens 32768`：`max_tokens` を指定しない要求の応答の上限、推論を含む（エンジン自身の既定は4,096）。
 - `--no-update-check`：このエンジンはflagを受け取り、何もしません。
 - `NCCL_COMM_ID`・`TF_GLM_RANK`・`TF_GLM_WORLD` を、引数とrankのファイルから。
-- 窓・effort・stream・vision tower・checkpointを、上のとおりrankのファイルから。2か3以外のTP、その外のrankは、エンジンが起動する前に `serve.sh` を止めます。
+- 窓・effort・stream・vision tower・checkpoint・wireの設定を、上のとおりリリースのファイルとrankのファイルから。2か3以外のTP、その外のrankは、エンジンが起動する前に `serve.sh` を止めます。
 
 `TP RANK RANK_ENV` の後の引数（`cluster.sh` からはlabelの後）はこれらの後ろに付くので、もう一度与えた値のflagは後の値になり（`CONTEXT` より `--context 131072`）、`--api-key` と `--alias` は一覧に加わります。`cluster.sh` はそれらをSSHと `bash -c` にquoteせずに渡します：空白やquoteを含む引数は、そのままでは届きません。
 
@@ -98,7 +105,7 @@ labelの後に付けられるflagと、エンジンの既定です。「比べ�
 | `TF_GLM_PROMPT_K` | `one` | `shape`：promptに固定のKのslice、試しのもの。`TF_GLM_MM=1` が要る |
 | `TF_GLM_DENSE_BITS`・`TF_GLM_HEAD_BITS` | `16` | `4`・`6`・`8`：denseのlinear、またはheadを、読み込み時にそのbit数へ詰める |
 | `TF_GLM_LAYERS` | 全ての層 | 最初のN層だけ。GPU 1台で確かめるための細いモデル |
-| `TF_KV_PAGES` | unset：`auto` と同じ | streamのKV cacheの置き場：`auto` は3 rankでは全streamのcacheとエンジン自身のsequenceを1つのpoolのpageに置き、2 rankではstreamごとの窓のまま。`off` か `0` はどのTPでも窓。`on`・`all`・他の値（空も含む）はどのTPでもpage。`--kv-cache fp8` では `auto` と `off` は窓のままで、`on` か `all` は起動を止める |
+| `TF_KV_PAGES` | unset：`auto` と同じ | streamのKV cacheの置き場：`auto` は2 rank以上で全streamのcacheとエンジン自身のsequenceを1つのpoolのpageに置く。`off` か `0` はどのTPでも窓。`on`・`all`・他の値（空も含む）はどのTPでもpage。`--kv-cache fp8` では `auto` と `off` は窓のままで、`on` か `all` は起動を止める |
 
 rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vision` とその4つの上限、窓、checkpointの `config.json`、エンジンのbinary、checkpointのdigestも比べます。digestはmetadataと全shardのbyteのもので、containerの中のcacheに残るので、新しいcontainerの最初の起動はcheckpointを全部読みます。
 
@@ -137,7 +144,7 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 | `TENSORFOLD_API_KEY` | なし | commaで区切ったAPIのkey（[APIのkey](#apiのkey)） |
 | `TF_DRAIN_S` | `20` | 止まるserverが流し切る秒数：新しい要求は `Retry-After` 付きの503を受け、`/health` は `draining` を返す |
 | `TF_SSE_KEEPALIVE_S` | `15` | streamのkeepaliveの間隔（秒） |
-| `TENSORFOLD_PREFILL_SHARE` | `1` | 他のstreamがdecodeしている間の、長いpromptのstepの時間の取り分。`0.01` から `1`（他の値は既定）：tかかったstepは、decodeするstreamがt ×（1 − 取り分）/ 取り分のroundを回すまで次を待つ。残りが512行以下のpromptは待たず、変わるのは丸ごとのstepの順だけ。`1` はstepとroundを1つずつ交互に |
+| `TENSORFOLD_PREFILL_SHARE` | `1`（`serve.sh` は `0.7` を渡す） | 他のstreamがdecodeしている間の、長いpromptのstepの時間の取り分。`0.01` から `1`（他の値は既定）：tかかったstepは、decodeするstreamがt ×（1 − 取り分）/ 取り分のroundを回すまで次を待つ。残りが512行以下のpromptは待たず、変わるのは丸ごとのstepの順だけ。`1` はstepとroundを1つずつ交互に |
 | `TF_GLM_CLEAR_THINKING` | `0` | `1` でGLM-5.3のchat templateに `clear_thinking` をtrueで渡し、最新のuser messageより前のturnの推論を落とす。`0`・空・未設定はfalseで、それを残す。他の値は読み込みを断る。要求の `chat_template_kwargs.clear_thinking` が、その要求ではこれに優先する（3.8.0のエンジン、上流1.1.5から） |
 | `TENSORFOLD_REQUEST_LOG` | なし | 全てのchatとcompletionの要求の本文を、1行のJSONとして受けるファイル。画像のURLは伏せ、textは残る |
 | `TENSORFOLD_SEED_SALT` | `0` | `--prompt-seed` がpromptから作るseedに混ぜる整数 |

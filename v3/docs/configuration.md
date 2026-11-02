@@ -10,14 +10,15 @@ Every setting a 3.x deployment reads: where it is set, its default, what it does
 
 | Where | Read by | Takes effect |
 |---|---|---|
-| Rank file, `/work/rank.env` on each host ([examples](../examples/)) | `serve.sh`, which sources it with every variable exported, so any variable in it reaches the engine | at the rank's next start |
+| [`config/tp2.env`, `config/tp3.env`](../config/) | `serve.sh`, before the rank file, every variable exported | with a new image |
+| Rank file, `/work/rank.env` on each host ([examples](../examples/)) | `serve.sh`, which sources it with every variable exported, so any variable in it reaches the engine and its value wins over the release's file | at the rank's next start |
 | `serve.sh` arguments after `TP RANK RANK_ENV`; through `cluster.sh`, the arguments after the label | `tensorfold-native serve`, after `serve.sh`'s own | at the next start, on every rank |
 | Cluster file, `state/cluster.env` on the control machine | `cluster.sh` | at its next command |
 | `create_container.sh`'s environment | `create_container.sh` and `cpuset.sh` | when the container is created (`docker update` changes its cores later) |
 | The tools' options and environment | `python -m glm53_tf <command>`, from `v3/` | at the run |
 | [`config/`](../config/) | the image build and the tools | at the next build or run |
 
-`cluster.sh` runs the image's `serve.sh` (`/opt/glm53-tf3/serve.sh`), not the checkout's: a change to [`scripts/serve.sh`](../scripts/serve.sh) reaches the ranks with a new image only.
+`cluster.sh` runs the image's `serve.sh` (`/opt/glm53-tf3/serve.sh`), not the checkout's: a change to [`scripts/serve.sh`](../scripts/serve.sh) or to `config/tp2.env` and `config/tp3.env`, which the image holds beside it, reaches the ranks with a new image only.
 
 ## Rank file
 
@@ -26,7 +27,13 @@ Every setting a 3.x deployment reads: where it is set, its default, what it does
 | `MASTER` | none, required | rank 0's address on the link between the hosts; `serve.sh` gives the engine `NCCL_COMM_ID=MASTER:NCCL_PORT` | the same on every rank |
 | `NCCL_PORT` | `29583` | rank 0's port in `NCCL_COMM_ID`, where rank 0's NCCL bootstrap listens; the ranks' liveness lines take the port after it | the same |
 | `CONTEXT` | `524288` at TP=2, `1048576` at TP=3; an empty value takes the default | the window (`--context`) | the same; compared at start |
-| `PARALLEL` | `1` | requests decoded at once (`--parallel`); an empty value passes none, and the engine takes up to 8 streams as the memory free at start allows (accepted at both TP sizes); a number that does not fit is refused at start | rank 0, which sizes every rank's streams by the smallest room among them |
+| `PARALLEL` | `4` at TP=2, `8` at TP=3 | requests decoded at once (`--parallel`); an empty value passes none, and the engine takes up to 8 streams as the memory free at start allows (accepted at both TP sizes); a number that does not fit is refused at start | rank 0, which sizes every rank's streams by the smallest room among them |
+| `TF_GLM_KV_SHARE` | `16` at TP=2, `32` at TP=3 | the prompt cache over the KV pool's pages: kept prompts stay as pages, with at most this many states past them. Below four states a stream the engine warns that live streams evict each other's. An empty value or `0` goes back to the prompt cache in copies (`--prompt-cache-gib`) | the same |
+| `TENSORFOLD_PREFILL_SHARE` | `0.7` | a long prompt's share of the time while other streams decode ([rank 0's server](#rank-0s-server)); an empty value leaves the engine's `1` | rank 0 |
+| `TF_GLM_CHUNK_SOLO` | `4096` at TP=2, empty at TP=3 | `4096` lets a prompt pass take 4,096 rows while no other stream decodes, so a request that arrives in such a pass waits for its end, and every rank holds wider prompt buffers. An empty value or `2048` keeps passes of 2,048 rows. Not beside `--drafter` | the same; compared at start |
+| `MTP_CONFIDENCE` | empty at TP=2, `0.5` at TP=3 | where a chain of MTP drafts stops (`--mtp-confidence`, from 0 to 1): a draft's chance under this ends the chain. An empty value passes none | the same |
+| `TF_GLM_ROCE_MULTI` | empty at TP=2, `1` at TP=3 | the wire: at three ranks the main stream's small all-gathers go over the engine's multirank RoCE, beside NCCL, and `serve.sh` gives it the next row. An empty value or `0` keeps them on NCCL | the same; compared at start |
+| `TF_TP_MASTER`, `TF_TP_PORT`, `TF_TP_PLAN_TIMEOUT`, `TF_TP_KERNEL_IMAGE`, `TF_TP_ROCE_FALLBACK` | `MASTER`, `29640` (and `29647`, seven above), `900` (seconds), the image's `/opt/glm53-tf3/tp_mailbox.fatbin`, `error` | what `serve.sh` gives the wire while `TF_GLM_ROCE_MULTI` is on: rank 0's address, the port the ranks meet at, how long they wait for each other, the mailbox kernels, and what a failed setup or probe does: `error` stops the start, and `nccl` starts without the wire | the same |
 | `VISION` | `1` | image and video input (`--vision`), read by the checkpoint's vision tower on rank 0; any value but an empty one passes it, `0` included, so only `VISION=` serves text alone | the same; compared at start |
 | `MODEL_NAME`, `HOST`, `PORT` | `glm-tf`, `127.0.0.1`, `8095` | rank 0's model id and listener (`--name`, `--host`, `--port`) | rank 0 |
 | `REASONING_EFFORT` | `high` | the effort for a request that names none (`--reasoning-effort`): `low`, `medium`, `high` or `xhigh`, and another value, `max` among them, stops every rank at start; an empty value passes none and leaves it to the chat template. A request itself may name `none`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max` | rank 0 |
@@ -42,7 +49,7 @@ The example files hold the reference hosts' values, with the lines that change a
 - `--max-tokens 32768`: the reply limit, reasoning included, for a request that names no `max_tokens` (the engine's own default is 4,096).
 - `--no-update-check`: this engine takes the flag and does nothing with it.
 - `NCCL_COMM_ID`, `TF_GLM_RANK` and `TF_GLM_WORLD`, from its arguments and the rank file.
-- The window, the effort, the streams, the vision tower and the checkpoint from the rank file, as above. A TP other than 2 or 3, or a rank outside it, stops `serve.sh` before the engine starts.
+- The window, the effort, the streams, the vision tower, the checkpoint and the wire's settings from the release's file and the rank file, as above. A TP other than 2 or 3, or a rank outside it, stops `serve.sh` before the engine starts.
 
 Arguments after `TP RANK RANK_ENV` (after the label, through `cluster.sh`) follow these, so a value flag given again takes the later value (`--context 131072` over `CONTEXT`), and `--api-key` and `--alias` add to their lists. `cluster.sh` passes them through SSH and `bash -c` unquoted: an argument with a space or a quote does not arrive whole.
 
@@ -98,7 +105,7 @@ The engine compares these at start, before the weights load, and every rank stop
 | `TF_GLM_PROMPT_K` | `one` | `shape`: fixed K slices for prompts, an experiment; needs `TF_GLM_MM=1` |
 | `TF_GLM_DENSE_BITS`, `TF_GLM_HEAD_BITS` | `16` | `4`, `6` or `8`: the dense linears, or the head, packed at load to that many bits |
 | `TF_GLM_LAYERS` | every layer | the first N layers only, a thin model for one-GPU checks |
-| `TF_KV_PAGES` | unset: as `auto` | where the streams' KV cache lives: `auto` puts every stream's cache and the engine's own sequence on pages of one pool at three ranks and keeps a window per stream at two; `off` or `0` keeps the windows at any TP; `on`, `all` or another value, an empty one included, pages at any TP. With `--kv-cache fp8`, `auto` and `off` keep the windows and `on` or `all` stops the start |
+| `TF_KV_PAGES` | unset: as `auto` | where the streams' KV cache lives: `auto` puts every stream's cache and the engine's own sequence on pages of one pool at two ranks or more; `off` or `0` keeps the windows at any TP; `on`, `all` or another value, an empty one included, pages at any TP. With `--kv-cache fp8`, `auto` and `off` keep the windows and `on` or `all` stops the start |
 
 The ranks also compare the world and their ranks, `--kv-cache`, the drafts and `--drafter`, `--vision` and its four limits, the window, the checkpoint's `config.json`, the engine binary and the checkpoint's digest: its metadata and every shard byte, kept in a cache in the container, so the first start in a new container reads the whole checkpoint.
 
@@ -137,7 +144,7 @@ The engine sets `NCCL_RUNTIME_CONNECT=0`, `NCCL_CUMEM_HOST_ENABLE=0` and `NCCL_C
 | `TENSORFOLD_API_KEY` | none | API keys, separated by commas ([API keys](#api-keys)) |
 | `TF_DRAIN_S` | `20` | the seconds a stopping server drains: new requests get 503 with `Retry-After`, and `/health` says `draining` |
 | `TF_SSE_KEEPALIVE_S` | `15` | the seconds between a stream's keepalives |
-| `TENSORFOLD_PREFILL_SHARE` | `1` | a long prompt's steps' share of the time while other streams decode, from `0.01` to `1` (another value takes the default): a step that took t waits until the decoding streams have had t × (1 − share) / share of rounds; a prompt with at most 512 rows left never waits, and only the order of whole steps changes. `1` alternates one step with one round |
+| `TENSORFOLD_PREFILL_SHARE` | `1` (`serve.sh` gives `0.7`) | a long prompt's steps' share of the time while other streams decode, from `0.01` to `1` (another value takes the default): a step that took t waits until the decoding streams have had t × (1 − share) / share of rounds; a prompt with at most 512 rows left never waits, and only the order of whole steps changes. `1` alternates one step with one round |
 | `TF_GLM_CLEAR_THINKING` | `0` | `1` gives GLM-5.3's chat template `clear_thinking` true, which drops the reasoning of the turns before the latest user message; `0`, empty or unset gives false, which keeps it; another value refuses to load. A request's `chat_template_kwargs.clear_thinking` overrides it for that request (from 3.8.0's engine, upstream 1.1.5) |
 | `TENSORFOLD_REQUEST_LOG` | none | a file that receives every chat and completion request's body as a JSON line, image URLs redacted and the text kept |
 | `TENSORFOLD_SEED_SALT` | `0` | an integer mixed into the seed `--prompt-seed` takes from a prompt |
