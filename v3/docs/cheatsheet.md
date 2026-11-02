@@ -29,13 +29,13 @@ The engine's opt-in FP8 latent cache holds about twice the window per GiB. Tried
 v3/scripts/cluster.sh state/cluster.env start fp8 --kv-cache fp8
 ```
 
-## More than one request at once
+## Fewer or more requests at once
 
-At TP=2 the default window holds one stream; a smaller window holds more, and an empty `PARALLEL=` lets the engine take what fits ([limits](../README.md#limits)). More than one request at a time is outside the acceptance:
+The release serves four requests at once at TP=2 and eight at TP=3. An empty `PARALLEL=` lets the engine take what fits, which the acceptance ran; another number is outside it, and `TF_GLM_KV_SHARE` should stay at four states a stream or more ([configuration](configuration.md#rank-file)):
 
 ```sh
 PARALLEL=2
-CONTEXT=245760
+TF_GLM_KV_SHARE=8
 ```
 
 ## Text alone
@@ -106,10 +106,11 @@ docker image inspect --format '{{.Id}}' glm53-tf3:<new>   # equal on every host
 
 ## Clients and harnesses
 
-Two things a harness client meets that a single request does not:
+Three things a harness client meets that a single request does not:
 
 - **Images count across the history.** A request may hold 4 images, counting every image of the messages it sends, so a client that resends earlier turns with their images is refused with 400 once the history holds a fifth. `--vision-max-images` after the label raises it, up to 64 and the same on every rank; the images still share 4,096 image tokens unless `--vision-image-tokens` raises those too, which takes them from the window ([engine flags](configuration.md#engine-flags)). Outside the acceptance.
 - **A long prompt's first token is slow.** A 1,035,295-token prompt gave its first token after about 1,000 s at TP=3 ([measured on the release](../README.md#measured-on-the-release)). A client whose stream timeout counts until the first event gives up first: 1.x's harness notes set ZCode's to 700 s, which such a prompt passes ([model limits](../../v1/docs/harnesses.md#zcode-permission-modes-model-limits-and-the-existing-file-guard)). Set it above the longest prefill served; whether this engine's stream keepalives reach the client before the first token was not checked.
+- **The model name is only a label.** The engine does not refuse a request for its `model`: another name gets the served name's answer, so a client keeps working with an old model id. `MODEL_NAME` changes only the name in replies and in `/v1/models`.
 
 ```sh
 v3/scripts/cluster.sh state/cluster.env start harness --vision-max-images 16

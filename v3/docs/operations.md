@@ -16,6 +16,8 @@ Each rank logs to `<WORK>/logs/serve-r<RANK>-<LABEL>.log`, which a start with th
 
 The engine sizes its streams at start from the free memory and refuses a size that does not fit, naming the smallest room among the ranks, for example `--parallel 2 needs 4.55 GiB for its streams at a 245760-token window, and the CUDA memory budget leaves 4.41 GiB on rank 1, the smallest room of the ranks: serve --parallel 1, or lower --context` (TP=2, met on the reference pair with 3.0.0's engine). On GB10's unified memory the engine takes the free memory from `MemAvailable` in `/proc/meminfo`, which counts the page cache as free, so files cached by an earlier load do not take from that room: with 28 GiB of another checkpoint's files held in the page cache, a TP=2 start of 3.0.0 left 5.2 GiB, against 4.4 GiB with the cache dropped. The acceptance windows still dropped the Hugging Face cache's files from the page cache before each start (`os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)` on each file), a step kept from 2.x that the engine does not need.
 
+At TP=3 the wire is set up and checked against NCCL at load, one gather byte for byte, and with `serve.sh`'s `TF_TP_ROCE_FALLBACK=error` a failure stops the start on every rank, its reason in the log. `TF_GLM_ROCE_MULTI=` in every rank file serves without the wire; `TF_TP_ROCE_FALLBACK=nccl` starts without it and logs a warning on rank 0 ([configuration](configuration.md#rank-file)).
+
 ## A rank stops and the others wait
 
 Two watchers stop one host's engine, each on its own host only:
