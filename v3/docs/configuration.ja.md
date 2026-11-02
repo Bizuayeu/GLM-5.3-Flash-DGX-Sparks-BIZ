@@ -26,14 +26,14 @@
 |---|---|---|---|
 | `MASTER` | なし（必須） | ホストの間のリンク上のrank 0のアドレス。`serve.sh` がエンジンに `NCCL_COMM_ID=MASTER:NCCL_PORT` を渡す | 全rankで同じ |
 | `NCCL_PORT` | `29583` | `NCCL_COMM_ID` のrank 0のport。rank 0のNCCLのbootstrapがここで待ち受ける。rankどうしの生存の線はその次のportを使う | 同じ |
-| `CONTEXT` | TP=2で `524288`、TP=3で `1048576`。空の値は既定になる | 窓（`--context`） | 同じ。起動時に比べる |
+| `CONTEXT` | `1048576`。空の値は既定になる | 窓（`--context`） | 同じ。起動時に比べる |
 | `PARALLEL` | TP=2で `4`、TP=3で `8` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（両TPで受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
 | `TF_GLM_KV_SHARE` | TP=2で `16`、TP=3で `32` | KVのpoolのpageの上のprompt cache：保持するpromptをpageのまま持ち、その先のstateをこの数まで持つ。1 streamあたり4 stateを下回ると、動いているstreamどうしが追い出し合うとエンジンが警告する。空の値か `0` はコピーのprompt cache（`--prompt-cache-gib`）に戻す | 同じ |
 | `TENSORFOLD_PREFILL_SHARE` | `0.7` | 他のstreamがdecodeしている間の、長いpromptの時間の取り分（[rank 0のserver](#rank-0のserver)）。空の値はエンジンの `1` のまま | rank 0 |
-| `TF_GLM_CHUNK_SOLO` | TP=2で `4096`、TP=3で空 | `4096` は、他のstreamがdecodeしていない間、promptのpassを4,096行にする。そのpassの途中で来た要求はpassの終わりを待ち、全rankが広いprompt bufferを持つ。空の値か `2048` は2,048行のpassのまま。`--drafter` とは組めない | 同じ。起動時に比べる |
+| `TF_GLM_CHUNK_SOLO` | 空 | `4096` は、他のstreamがdecodeしていない間、promptのpassを4,096行にする。そのpassの途中で来た要求はpassの終わりを待ち、全rankが広いprompt bufferを持つ。空の値か `2048` は2,048行のpassのまま。`--drafter` とは組めない | 同じ。起動時に比べる |
 | `MTP_CONFIDENCE` | TP=2で空、TP=3で `0.5` | MTPのdraftの列を止める所（`--mtp-confidence`、0から1）：draftの確率がこの値を下回ると列が終わる。空の値は何も渡さない | 同じ |
 | `TF_GLM_ROCE_MULTI` | TP=2で空、TP=3で `1` | wire：3 rankで、主streamの小さいall-gatherをNCCLの横でエンジンのmultirank RoCEに通す。`serve.sh` が次の行を渡す。空の値か `0` はNCCLのまま | 同じ。起動時に比べる |
-| `TENSORFOLD_MEMORY_RESERVE_GIB` | TP=2で空（エンジン自身の値、[下](#各rankが読み比べないもの)）、TP=3で `14` | エンジンがシステムに残すメモリ。TP=3ではKVのpoolを窓2本のpageに保つ：余裕は3本目が取る大きさに近く、3本目が入るとrank 0の空きが約12 GiB減る。空の値はエンジン自身の値 | 同じ |
+| `TENSORFOLD_MEMORY_RESERVE_GIB` | TP=2で `9`、TP=3で `14` | エンジンがシステムに残すメモリ。TP=2では1,048,576 tokenの窓のKVのpageの余地を作る。エンジン自身のreserve（[下](#各rankが読み比べないもの)）ではその余地が残らない。TP=3ではKVのpoolを窓2本のpageに保つ：余裕は3本目が取る大きさに近く、3本目が入るとrank 0の空きが約12 GiB減る。空の値はエンジン自身の値 | 同じ |
 | `TF_TP_MASTER`・`TF_TP_PORT`・`TF_TP_PLAN_TIMEOUT`・`TF_TP_KERNEL_IMAGE`・`TF_TP_ROCE_FALLBACK` | `MASTER`、`29640`（と7つ上の `29647`）、`900`（秒）、imageの `/opt/glm53-tf3/tp_mailbox.fatbin`、`error` | `TF_GLM_ROCE_MULTI` がonの間に `serve.sh` がwireに渡す値：rank 0のアドレス、rankが落ち合うport、互いを待つ時間、mailboxのkernel、準備か確認に失敗した時の動き。`error` は起動を止め、`nccl` はwireなしで起動する | 同じ |
 | `VISION` | `1` | 画像と動画の入力（`--vision`）。rank 0でcheckpointのvision towerが読む。空でない値は `0` も含めてどれもこれを渡すので、textだけにするのは `VISION=` だけ | 同じ。起動時に比べる |
 | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け（`--name`・`--host`・`--port`） | rank 0 |

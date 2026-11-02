@@ -95,17 +95,17 @@ class ServeTests(unittest.TestCase):
     def flag(self, args, name):
         return args[args.index(name) + 1] if name in args else None
 
-    def test_tp2_serves_one_person_on_the_share_with_solo_passes(self):
+    def test_tp2_serves_one_person_on_the_share_at_the_whole_window(self):
         args, env, _ = self.serve(2)
-        self.assertEqual(self.flag(args, "--context"), "524288")
+        self.assertEqual(self.flag(args, "--context"), "1048576")
         self.assertEqual(self.flag(args, "--parallel"), "4")
         self.assertNotIn("--mtp-confidence", args)
         self.assertEqual(env["TF_GLM_KV_SHARE"], "16")
         self.assertEqual(env["TENSORFOLD_PREFILL_SHARE"], "0.7")
-        self.assertEqual(env["TF_GLM_CHUNK_SOLO"], "4096")
+        self.assertNotIn("TF_GLM_CHUNK_SOLO", env)
         self.assertNotIn("TF_GLM_ROCE_MULTI", env)
         self.assertNotIn("TF_TP_MASTER", env)
-        self.assertNotIn("TENSORFOLD_MEMORY_RESERVE_GIB", env)
+        self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "9")
 
     def test_tp3_serves_several_people_on_the_wire(self):
         args, env, _ = self.serve(3)
@@ -147,7 +147,7 @@ class ServeTests(unittest.TestCase):
 
     def test_an_empty_context_keeps_the_releases_window(self):
         args, _, _ = self.serve(2, "CONTEXT=\n")
-        self.assertEqual(self.flag(args, "--context"), "524288")
+        self.assertEqual(self.flag(args, "--context"), "1048576")
 
     def test_the_wire_can_be_turned_off_with_a_zero(self):
         _, env, _ = self.serve(3, "TF_GLM_ROCE_MULTI=0\n")
@@ -163,14 +163,14 @@ class ServeTests(unittest.TestCase):
     def test_the_start_line_shows_what_was_resolved(self):
         _, _, start = self.serve(2)
         for shown in (
-            "context 524288",
+            "context 1048576",
             "parallel 4",
             "kept 16",
             "prefill-share 0.7",
-            "solo 4096",
+            "solo unset",
             "mtp-confidence unset",
             "wire unset",
-            "reserve unset",
+            "reserve 9",
         ):
             self.assertIn(shown, start)
         _, _, start = self.serve(3, "PARALLEL=\n")

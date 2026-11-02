@@ -109,14 +109,14 @@ class ServeScriptTests(unittest.TestCase):
         self.assertEqual(serve.count("--parallel"), 1)
 
     def test_serve_sh_sets_the_window_by_tp_unless_the_rank_file_says_otherwise(self):
-        # tp*.env: TP=2 524,288, TP=3 1,048,576 (the model's limit). An empty CONTEXT keeps the file's.
+        # tp*.env: 1,048,576, the model's limit, at both TP sizes. An empty CONTEXT keeps the file's.
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
         self.assertIn("release_context=$CONTEXT\n", serve)
         self.assertIn("context=${CONTEXT:-$release_context}\n", serve)
         self.assertEqual(serve.count("${CONTEXT:-"), 1)
-        for tp, window in ((2, 524288), (3, 1048576)):
+        for tp in (2, 3):
             text = (LINE / f"config/tp{tp}.env").read_text(encoding="utf-8")
-            self.assertIn(f"CONTEXT={window} ", text)
+            self.assertIn("CONTEXT=1048576 ", text)
 
     def test_the_examples_name_no_other_checkpoint(self):
         # 3.6.0: serve.sh's default, XSFP4, is the checkpoint 3.x serves.
