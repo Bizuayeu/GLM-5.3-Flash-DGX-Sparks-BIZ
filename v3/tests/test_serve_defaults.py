@@ -8,12 +8,20 @@ from pathlib import Path
 
 LINE = Path(__file__).resolve().parents[1]
 SETTING = re.compile(r"^(\w+)=(\S*)", re.MULTILINE)
-WIRE = ("TF_TP_MASTER", "TF_TP_PORT", "TF_TP_PLAN_TIMEOUT", "TF_TP_KERNEL_IMAGE", "TF_TP_ROCE_FALLBACK")
+WIRE = (
+    "TF_TP_MASTER",
+    "TF_TP_PORT",
+    "TF_TP_PLAN_TIMEOUT",
+    "TF_TP_KERNEL_IMAGE",
+    "TF_TP_ROCE_FALLBACK",
+)
 
 
 def defaults(tp):
     """A TP's defaults as tp2.env and tp3.env write them."""
-    return dict(SETTING.findall((LINE / f"config/tp{tp}.env").read_text(encoding="utf-8")))
+    return dict(
+        SETTING.findall((LINE / f"config/tp{tp}.env").read_text(encoding="utf-8"))
+    )
 
 
 class ReleaseDefaultsTests(unittest.TestCase):
@@ -30,7 +38,9 @@ class ReleaseDefaultsTests(unittest.TestCase):
         # The engine warns below four kept states a stream (fewStates).
         for tp in (2, 3):
             values = defaults(tp)
-            self.assertGreaterEqual(int(values["TF_GLM_KV_SHARE"]), 4 * int(values["PARALLEL"]))
+            self.assertGreaterEqual(
+                int(values["TF_GLM_KV_SHARE"]), 4 * int(values["PARALLEL"])
+            )
 
     def test_the_files_are_lf_for_bash(self):
         for tp in (2, 3):
@@ -38,8 +48,12 @@ class ReleaseDefaultsTests(unittest.TestCase):
 
     def test_the_image_puts_the_defaults_and_the_kernels_beside_serve_sh(self):
         image = (LINE / "docker/Dockerfile").read_text(encoding="utf-8")
-        self.assertIn("COPY v3/config/tp2.env v3/config/tp3.env /opt/glm53-tf3/\n", image)
-        self.assertIn("COPY --from=build /out/tp_mailbox.fatbin /opt/glm53-tf3/\n", image)
+        self.assertIn(
+            "COPY v3/config/tp2.env v3/config/tp3.env /opt/glm53-tf3/\n", image
+        )
+        self.assertIn(
+            "COPY --from=build /out/tp_mailbox.fatbin /opt/glm53-tf3/\n", image
+        )
         context = (LINE.parent / ".dockerignore").read_text(encoding="utf-8")
         for tp in (2, 3):
             self.assertIn(f"!v3/config/tp{tp}.env\n", context)
@@ -57,7 +71,9 @@ class ServeTests(unittest.TestCase):
             rank = root / "rank.env"
             rank.write_text("MASTER=10.0.0.1\n" + rank_file, encoding="utf-8")
             engine = root / "tensorfold-native"
-            engine.write_text('#!/bin/bash\nprintf "arg %s\\n" "$@"\nprintenv\n', encoding="utf-8")
+            engine.write_text(
+                '#!/bin/bash\nprintf "arg %s\\n" "$@"\nprintenv\n', encoding="utf-8"
+            )
             engine.chmod(0o755)
             run = subprocess.run(
                 ["bash", str(root / "serve.sh"), str(tp), "0", str(rank)],
@@ -68,7 +84,11 @@ class ServeTests(unittest.TestCase):
             )
             lines = run.stdout.replace(str(root), "ROOT").splitlines()
         args = [x[4:] for x in lines if x.startswith("arg ")]
-        env = dict(x.split("=", 1) for x in lines if "=" in x and not x.startswith(("arg ", "[serve.sh]")))
+        env = dict(
+            x.split("=", 1)
+            for x in lines
+            if "=" in x and not x.startswith(("arg ", "[serve.sh]"))
+        )
         start = next(x for x in lines if x.startswith("[serve.sh]"))
         return args, env, start
 
@@ -100,7 +120,9 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "14")
 
     def test_the_rank_file_wins(self):
-        args, env, _ = self.serve(2, "PARALLEL=2\nTF_GLM_KV_SHARE=8\nCONTEXT=262144\nMTP_CONFIDENCE=0.6\n")
+        args, env, _ = self.serve(
+            2, "PARALLEL=2\nTF_GLM_KV_SHARE=8\nCONTEXT=262144\nMTP_CONFIDENCE=0.6\n"
+        )
         self.assertEqual(self.flag(args, "--parallel"), "2")
         self.assertEqual(self.flag(args, "--context"), "262144")
         self.assertEqual(self.flag(args, "--mtp-confidence"), "0.6")
@@ -114,7 +136,12 @@ class ServeTests(unittest.TestCase):
         )
         self.assertNotIn("--parallel", args)
         self.assertNotIn("--mtp-confidence", args)
-        off = ("TF_GLM_KV_SHARE", "TENSORFOLD_PREFILL_SHARE", "TF_GLM_ROCE_MULTI", "TF_GLM_CHUNK_SOLO")
+        off = (
+            "TF_GLM_KV_SHARE",
+            "TENSORFOLD_PREFILL_SHARE",
+            "TF_GLM_ROCE_MULTI",
+            "TF_GLM_CHUNK_SOLO",
+        )
         for key in off + ("TENSORFOLD_MEMORY_RESERVE_GIB",) + WIRE:
             self.assertNotIn(key, env)
 
@@ -147,7 +174,13 @@ class ServeTests(unittest.TestCase):
         ):
             self.assertIn(shown, start)
         _, _, start = self.serve(3, "PARALLEL=\n")
-        for shown in ("parallel auto", "mtp-confidence 0.5", "wire 1", "solo unset", "reserve 14"):
+        for shown in (
+            "parallel auto",
+            "mtp-confidence 0.5",
+            "wire 1",
+            "solo unset",
+            "reserve 14",
+        ):
             self.assertIn(shown, start)
 
 

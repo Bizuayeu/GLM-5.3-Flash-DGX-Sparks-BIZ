@@ -101,19 +101,22 @@ class ServeScriptTests(unittest.TestCase):
         self.assertEqual(serve.count("--vision"), 1)
         self.assertIn("vision ${vision:-off}", serve)
 
-    def test_serve_sh_serves_one_stream_unless_the_rank_file_says_otherwise(self):
-        # Unset: 1. Empty: no --parallel, the engine's auto (from the memory free at start).
+    def test_serve_sh_leaves_the_streams_to_the_engine_when_they_are_empty(self):
+        # tp*.env names them and the rank file may. Empty: no --parallel, the engine's auto (from the memory free at start).
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
-        self.assertIn("parallel=${PARALLEL-1}\n", serve)
+        self.assertIn("parallel=${PARALLEL-}\n", serve)
         self.assertIn('[ -n "$parallel" ] && args+=(--parallel "$parallel")', serve)
         self.assertEqual(serve.count("--parallel"), 1)
 
     def test_serve_sh_sets_the_window_by_tp_unless_the_rank_file_says_otherwise(self):
-        # TP=2 524,288 (3.5.0: one stream and a prompt cache beside XSFP4), TP=3 1,048,576 (the model's limit).
+        # tp*.env: TP=2 524,288, TP=3 1,048,576 (the model's limit). An empty CONTEXT keeps the file's.
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
-        self.assertIn('if [ "$tp" = 2 ]; then\n  context=${CONTEXT:-524288}\n', serve)
-        self.assertIn("else\n  context=${CONTEXT:-1048576}\n", serve)
-        self.assertEqual(serve.count("${CONTEXT:-"), 2)
+        self.assertIn("release_context=$CONTEXT\n", serve)
+        self.assertIn("context=${CONTEXT:-$release_context}\n", serve)
+        self.assertEqual(serve.count("${CONTEXT:-"), 1)
+        for tp, window in ((2, 524288), (3, 1048576)):
+            text = (LINE / f"config/tp{tp}.env").read_text(encoding="utf-8")
+            self.assertIn(f"CONTEXT={window} ", text)
 
     def test_the_examples_name_no_other_checkpoint(self):
         # 3.6.0: serve.sh's default, XSFP4, is the checkpoint 3.x serves.
@@ -127,8 +130,8 @@ class ServeScriptTests(unittest.TestCase):
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
         self.assertEqual(serve.count("export NCCL_COMM_ID="), 1)
         self.assertLess(
+            serve.index('. "$rank_env"'),
             serve.index('export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"'),
-            serve.index('if [ "$tp" = 2 ]; then'),
         )
 
     def test_serve_sh_reads_the_reasoning_effort_once(self):
