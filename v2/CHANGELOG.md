@@ -4,6 +4,14 @@
 
 The 2.x line, served by TensorFold. A `v2.*` tag publishes its section from this file. The 1.x line's history is in [v1/CHANGELOG.md](../v1/CHANGELOG.md).
 
+## 2.9.5 — 2026-11-04
+
+### Fixed
+
+- `download --background` writes the job's status before it returns, so the `verify-download --wait` that the [setup](SETUP.md#2-checkout-and-checkpoint) runs right after it follows this job. Before, it could find no status yet and exit 1 ("run download first"), or find the last job's status and end on it. A start while another download owns the checkpoint's folder is refused, as a foreground run is, instead of starting a job that fails into `download.log`, and a job that cannot be started leaves a failed status. 3.x has the same fix from 3.11.1.
+
+No file of the image changes; it stays 2.9.2's (linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`).
+
 ## 2.9.4 — 2026-10-24
 
 ### Documentation

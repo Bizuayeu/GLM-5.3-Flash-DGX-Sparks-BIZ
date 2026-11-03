@@ -6,6 +6,14 @@
 
 TensorFoldで配信する2.x系です。`v2.*` のタグはこのファイルの節を公開します。1.x系の履歴は[v1/CHANGELOG.ja.md](../v1/CHANGELOG.ja.md)にあります。
 
+## 2.9.5 — 2026-11-04
+
+### Fixed
+
+- `download --background` は戻る前にjobの状態を書くので、[手順書](SETUP.ja.md#2-checkoutとcheckpoint)がすぐ後に走らせる `verify-download --wait` はこのjobを追います。前は、まだ状態が無くて1で終わる（「run download first」）か、前のjobの状態を見てそこで終わることがありました。別のdownloadがcheckpointのフォルダを持つ間の開始は、前景の実行と同じく断り、`download.log` の中で落ちるjobを起こしません。起こせなかったjobは失敗の状態を残します。3.x系は3.11.1から同じ直しを持ちます。
+
+imageのファイルは変わらず、2.9.2のままです（linux/arm64 `sha256:cb25e8db168fc18928d37c923a7e3da5e15b75d576c9cb318d429db15f21dc74`）。
+
 ## 2.9.4 — 2026-10-24
 
 ### Documentation
