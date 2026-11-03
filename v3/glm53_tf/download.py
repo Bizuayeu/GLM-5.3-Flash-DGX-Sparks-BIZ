@@ -24,6 +24,16 @@ from .io import write_json
 STATUS_FILE = "download-status.json"
 
 
+def started(model, revision):
+    """The status a job starts from; the background start writes it before it returns."""
+    return {
+        "model": model,
+        "revision": revision,
+        "status": "downloading",
+        "started_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def download(name=DEFAULT_CHECKPOINT):
     os.environ.setdefault("HF_XET_NUM_CONCURRENT_RANGE_GETS", "4")
     os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "120")
@@ -31,12 +41,7 @@ def download(name=DEFAULT_CHECKPOINT):
 
     model, revision, state = checkpoint(name, STATE)
     state.mkdir(parents=True, exist_ok=True)
-    status = {
-        "model": model,
-        "revision": revision,
-        "status": "downloading",
-        "started_at": datetime.now(timezone.utc).isoformat(),
-    }
+    status = started(model, revision)
 
     def save():
         write_json(state / STATUS_FILE, status)
@@ -97,29 +102,46 @@ def main(argv=None):
         help=CHECKPOINT_HELP,
     )
     args = parser.parse_args(argv)
-    state = checkpoint(args.checkpoint, STATE)[2]
+    model, revision, state = checkpoint(args.checkpoint, STATE)
+    busy = "A download already owns this workspace; inspect its state"
     if args.background:
         if os.name != "posix":
             parser.error("Background jobs require Linux; use foreground mode here")
+        from filelock import FileLock, Timeout
+
         state.mkdir(parents=True, exist_ok=True)
+        # Written before this returns, so a verify-download started right after finds this
+        # job's status rather than none or the last job's. The job takes the lock itself.
+        try:
+            with FileLock(state / "download.lock", timeout=0):
+                status = started(model, revision)
+                write_json(state / STATUS_FILE, status)
+        except Timeout:
+            raise SystemExit(busy) from None
         env = os.environ.copy()
         with (state / "download.log").open("a", encoding="utf-8") as log:
-            process = subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "glm53_tf",
-                    "download",
-                    "--checkpoint",
-                    args.checkpoint,
-                ],
-                cwd=LINE,
-                env=env,
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                start_new_session=True,
-            )
+            try:
+                process = subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-m",
+                        "glm53_tf",
+                        "download",
+                        "--checkpoint",
+                        args.checkpoint,
+                    ],
+                    cwd=LINE,
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    start_new_session=True,
+                )
+            except OSError as error:
+                status.update(status="failed", error_type=type(error).__name__)
+                write_json(state / STATUS_FILE, status)
+                print("DOWNLOAD FAILED:", type(error).__name__, flush=True)
+                raise SystemExit(1) from None
         print("Download PID:", process.pid)
     else:
         from filelock import FileLock, Timeout
@@ -130,9 +152,7 @@ def main(argv=None):
                 (state / "download.pid").write_text(str(os.getpid()) + "\n")
                 download(args.checkpoint)
         except Timeout:
-            raise SystemExit(
-                "A download already owns this workspace; inspect its state"
-            ) from None
+            raise SystemExit(busy) from None
 
 
 if __name__ == "__main__":
