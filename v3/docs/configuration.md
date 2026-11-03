@@ -33,7 +33,7 @@ Every setting a 3.x deployment reads: where it is set, its default, what it does
 | `TF_GLM_CHUNK_SOLO` | empty | `4096` lets a prompt pass take 4,096 rows while no other stream decodes, so a request that arrives in such a pass waits for its end, and every rank holds wider prompt buffers. An empty value or `2048` keeps passes of 2,048 rows. Not beside `--drafter` | the same; compared at start |
 | `MTP_CONFIDENCE` | empty at TP=2, `0.5` at TP=3 | where a chain of MTP drafts stops (`--mtp-confidence`, from 0 to 1): a draft's chance under this ends the chain. An empty value passes none | the same |
 | `TF_GLM_ROCE_MULTI` | empty at TP=2, `1` at TP=3 | the wire: at three ranks the main stream's small all-gathers go over the engine's multirank RoCE, beside NCCL, and `serve.sh` gives it the next row. An empty value or `0` keeps them on NCCL | the same; compared at start |
-| `TENSORFOLD_MEMORY_RESERVE_GIB` | `9` at TP=2, `14` at TP=3 | the memory the engine leaves to the system. At TP=2 it makes room for the KV pages of the 1,048,576-token window, which the engine's own reserve ([below](#read-on-each-rank-not-compared)) does not leave. At TP=3 it holds the KV pool at two windows of pages: the room is close to what a third takes, and a third leaves rank 0 about 12 GiB less free. An empty value takes the engine's own | the same |
+| `TENSORFOLD_MEMORY_RESERVE_GIB` | `9` at TP=2, `14` at TP=3 | the memory the engine leaves to the system. At TP=2 it makes room for the KV pages of the 1,048,576-token window, which the engine's own reserve ([below](#read-on-each-rank-not-compared)) does not leave. At TP=3 it holds XSFP4's KV pool at two windows of pages: the room is close to what a third takes, and a third leaves rank 0 about 12 GiB less free. Jammed XSFP4's smaller model leaves room for a third at the same reserve ([checkpoints](../README.md#checkpoints)). An empty value takes the engine's own | the same |
 | `TF_TP_MASTER`, `TF_TP_PORT`, `TF_TP_PLAN_TIMEOUT`, `TF_TP_KERNEL_IMAGE`, `TF_TP_ROCE_FALLBACK` | `MASTER`, `29640` (and `29647`, seven above), `900` (seconds), the image's `/opt/glm53-tf3/tp_mailbox.fatbin`, `error` | what `serve.sh` gives the wire while `TF_GLM_ROCE_MULTI` is on: rank 0's address, the port the ranks meet at, how long they wait for each other, the mailbox kernels, and what a failed setup or probe does: `error` stops the start, and `nccl` starts without the wire | the same |
 | `VISION` | `1` | image and video input (`--vision`), read by the checkpoint's vision tower on rank 0; any value but an empty one passes it, `0` included, so only `VISION=` serves text alone | the same; compared at start |
 | `MODEL_NAME`, `HOST`, `PORT` | `glm-tf`, `127.0.0.1`, `8095` | rank 0's model id and listener (`--name`, `--host`, `--port`) | rank 0 |
@@ -61,7 +61,7 @@ Flags that can follow the label, with the engine's defaults. The ranks compare t
 | Flag | Default | Meaning |
 |---|---|---|
 | `--kv-cache fp8` | `bf16` | the FP8 latent cache, about twice the window per GiB; compared; tried once at TP=2 ([limits](../README.md#limits)) |
-| `--prompt-cache-gib N` | unset: 16 GiB, at most what the streams leave | the kept prompt states' budget; `0` keeps none. The reference ring's TP=3 cache is this cap |
+| `--prompt-cache-gib N` | unset: 16 GiB, at most what the streams leave | the kept prompt states' budget; `0` keeps none. The release's `TF_GLM_KV_SHARE` keeps the prompts on the KV pool's pages instead ([rank file](#rank-file)) |
 | `--vision-max-images N` | `4` (1 to 64) | the images a request may hold, counting every image of the messages it sends; compared |
 | `--vision-image-tokens N` | `4096` (16 to 262144) | the tokens a request's images share; compared |
 | `--vision-max-videos N` | `2` (1 to 16) | the videos a request may hold; compared |
@@ -80,7 +80,7 @@ Flags that can follow the label, with the engine's defaults. The ranks compare t
 
 The engine's other flags (`--record`, `--compact-*`, `--recall*`, `--cortheon`, `--dashboard` and the rest of `--help`) were not run on 3.x.
 
-The parser stops every rank at start on a flag this build does not serve: `--tp`, `--rank`, `--master` and `--master-port` (the ranks come from `TF_GLM_RANK` and `TF_GLM_WORLD`), `--speed-up`, `--checkpoint-slots`, `--kv-dtype`, `--prefill-fp8`, `--spill-gib`, `--lane-kernels`, `--vision-offload` and the Python engine's other flags. GLM on CUDA refuses at start `--mtp-drafts` and `--mtp-confidence` (its drafts are not tunable), `--policy`, `--precision`, `--prompt-cache-over-cap`, `--slide`, `--learn` and `--learn-conversations`, `--segments` above 1, and a `--context` past the model's window (`0` asks for the model's own). `--snapshot-dir` and `--max-snapshots` take only `none` and `0`.
+The parser stops every rank at start on a flag this build does not serve: `--tp`, `--rank`, `--master` and `--master-port` (the ranks come from `TF_GLM_RANK` and `TF_GLM_WORLD`), `--speed-up`, `--checkpoint-slots`, `--kv-dtype`, `--prefill-fp8`, `--spill-gib`, `--lane-kernels`, `--vision-offload` and the Python engine's other flags. GLM on CUDA refuses at start `--mtp-drafts` (its MTP head drafts at the lanes' depth, and `--mtp-confidence` stops its chains), `--mtp-confidence` together with `--drafter`, `--policy`, `--precision`, `--prompt-cache-over-cap`, `--slide`, `--learn` and `--learn-conversations`, `--segments` above 1, and a `--context` past the model's window (`0` asks for the model's own). `--snapshot-dir` and `--max-snapshots` take only `none` and `0`.
 
 ## API keys
 
@@ -106,7 +106,7 @@ The engine compares these at start, before the weights load, and every rank stop
 | `TF_GLM_PROMPT_K` | `one` | `shape`: fixed K slices for prompts, an experiment; needs `TF_GLM_MM=1` |
 | `TF_GLM_DENSE_BITS`, `TF_GLM_HEAD_BITS` | `16` | `4`, `6` or `8`: the dense linears, or the head, packed at load to that many bits |
 | `TF_GLM_LAYERS` | every layer | the first N layers only, a thin model for one-GPU checks |
-| `TF_KV_PAGES` | unset: as `auto` | where the streams' KV cache lives: `auto` puts every stream's cache and the engine's own sequence on pages of one pool at two ranks or more; `off` or `0` keeps the windows at any TP; `on`, `all` or another value, an empty one included, pages at any TP. With `--kv-cache fp8`, `auto` and `off` keep the windows and `on` or `all` stops the start |
+| `TF_KV_PAGES` | unset: as `auto` | where the streams' KV cache lives: `auto` puts every stream's cache and the engine's own sequence on pages of one pool at two ranks or more; `off` or `0` keeps the windows at any TP, with an empty `TF_GLM_KV_SHARE=` beside it, since the engine refuses kept prompts on pages without the pages; `on`, `all` or another value, an empty one included, pages at any TP. With `--kv-cache fp8`, `auto` and `off` keep the windows and `on` or `all` stops the start |
 
 The ranks also compare the world and their ranks, `--kv-cache`, the drafts and `--drafter`, `--vision` and its four limits, the window, the checkpoint's `config.json`, the engine binary and the checkpoint's digest: its metadata and every shard byte, kept in a cache in the container, so the first start in a new container reads the whole checkpoint.
 
@@ -234,6 +234,7 @@ The commands of `python -m glm53_tf`, run from `v3/`; what each check does is in
 | File | Pins | Read by |
 |---|---|---|
 | [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4's repository and revision | `download` and `verify-download`; `serve.sh`'s default folder names the same revision, and a test keeps them equal |
+| [`config/jammed.lock.json`](../config/jammed.lock.json) | Jammed XSFP4's repository and revision | `download --checkpoint jammed` and `verify-download --checkpoint jammed`; the rank files' `CHECKPOINT` line names the same revision ([checkpoints](../README.md#checkpoints)) |
 | [`config/engine.lock.json`](../config/engine.lock.json) | the engine's fork, release branch and commit, the upstream release under it, the Zig compiler (its URL and SHA-256), xgrammar, the media libraries' releases (SHA-256) and the build flags | the image build: [`docker/Dockerfile`](../docker/Dockerfile)'s arguments, which a test keeps equal to the lock |
 | [`config/nll_set.json`](../config/nll_set.json) | the NLL set's texts and the tokenizer they were cut with, by its SHA-256 | `score-nll` |
 | [`requirements/huggingface.lock.txt`](../requirements/huggingface.lock.txt) | the Hugging Face client | the tools' virtual environment ([setup §2](../SETUP.md#2-checkout-and-checkpoint)) |
