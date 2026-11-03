@@ -4,6 +4,19 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.10.2 — 2026-11-03
+
+Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
+
+### Documentation
+
+- The README's [measured on the release](README.md#measured-on-the-release) says what the table's TP=3 start of Jammed XSFP4 is: the acceptance script stopped its first try after the load, at a free-memory line set for XSFP4's two windows of pages, so the 46 s is a second load of the same weights, not a first one like XSFP4's 93 s. No watcher stopped a launch.
+- Jammed XSFP4's slower `count` names what it was compared with, 3.10.0's XSFP4 launches on the same image, not the table's XSFP4 columns, which are 3.9.0's acceptance.
+
+### Not in 3.10.2
+
+The six commits upstream and a Jammed XSFP4 made from the BF16 weights with nothing borrowed from XSFP4 ([Next Action](README.md#next-action)).
+
 ## 3.10.1 — 2026-11-03
 
 Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
