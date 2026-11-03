@@ -4,6 +4,20 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.11.2 — 2026-11-04
+
+Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
+
+### Documentation
+
+- [Decisions](docs/decisions.md#window-and-streams)' row on wider prompt passes gives a later upstream run at TP=3's defaults on the wire ([TensorFold #1994](https://github.com/ashhart/TensorFold/issues/1994)): `TF_GLM_OVERLAP_PIECES=8` on every rank took solo from 1.7 to 3.6% sooner at the default 3 pieces to 6.1 to 7.8% sooner, with the same tokens, and 8 pieces without solo stayed within 1% of 3. TP=3 keeps no solo, since other streams decode most of the time there; the row names what reopens it, solo beside eight pieces measured under the load of several people.
+- [Benchmark method](docs/benchmarks.md#decode-check) says how the README's other two counts in Jammed XSFP4's known behaviours were taken: copies of the decode check with `ignore_eos` false, and with the numbers from 1 to 100 asked for with thinking off.
+- The Japanese [decisions](docs/decisions.ja.md) and 3.9.0's section of the Japanese changelog give TP=2's use as the README has since 3.10.1, one person's long conversation with an agent.
+
+### Not in 3.11.2
+
+The six commits upstream and a Jammed XSFP4 made from the BF16 weights with nothing borrowed from XSFP4 ([Next Action](README.md#next-action)).
+
 ## 3.11.1 — 2026-11-04
 
 Two fixes, to `download --background` and to the publication audit. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).

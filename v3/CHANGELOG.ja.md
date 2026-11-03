@@ -6,6 +6,20 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.11.2 — 2026-11-04
+
+文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
+
+### Documentation
+
+- [判断](docs/decisions.ja.md#窓とstream)の広いpromptのpassの行に、後の上流の測り（TP=3の既定、wireの上、[TensorFold #1994](https://github.com/ashhart/TensorFold/issues/1994)）を足します：全rankの `TF_GLM_OVERLAP_PIECES=8` で、soloの得が既定の3 pieceの1.7〜3.6%から6.1〜7.8%になり、返るtokenは同じでした。soloなしの8 pieceは3 pieceから1%以内でした。TP=3では他のstreamがほとんどの時間decodeしているのでsoloは使わないままで、行には開き直す条件として、8 pieceと一緒のsoloを複数の人の負荷のもとで測ることを書きます。
+- [ベンチマークの方法](docs/benchmarks.ja.md#decode検査)に、READMEのJammed XSFP4の既知の振る舞いにある残り2つのcountの取り方を書きます：`ignore_eos` をfalseにしたdecode検査の写しと、思考なしで1から100の数を求めた写しです。
+- 日本語の[判断](docs/decisions.ja.md)と、日本語の変更履歴の3.9.0の節は、TP=2の用途を3.10.1からのREADMEと同じく「1人がagentと続ける長い会話」と書きます。
+
+### Not in 3.11.2
+
+6つのcommitの上流への取り込みと、XSFP4から何も借りずBF16の重みから作ったJammed XSFP4（[Next Action](README.ja.md#next-action)）。
+
 ## 3.11.1 — 2026-11-04
 
 `download --background` と公開監査の直し2つです。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
