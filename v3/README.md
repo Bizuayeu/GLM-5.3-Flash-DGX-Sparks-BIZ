@@ -10,7 +10,7 @@
 
 ## Summary
 
-- **Status.** 3.10.0 adds [Jammed XSFP4](#checkpoints), a second checkpoint served by one `CHECKPOINT` line in the rank files at XSFP4's speed. Its model takes 6.58 GiB less on each host at TP=2, which stays free, and 4.50 GiB less on rank 0 at TP=3, where the KV pool takes a third window of pages. Every check of the acceptance ran on it at both TP sizes ([its reference values](docs/validation.md#jammed-xsfp4)). XSFP4 stays the default: in a launch at each TP size the release image gave 3.9.0's decode-check hashes and edit reply. 3.9.0 moved the engine onto upstream 1.2.1, opened the model's whole 1,048,576-token window at TP=2 as at TP=3, and set the serving defaults by TP size: four streams at TP=2 for one person's long conversation with an agent, eight at TP=3 for several people at once ([serving defaults](#serving-defaults)). Its release image, started by its own `serve.sh` and `cluster.sh` with no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores, gave 3.3.0's XSFP4 decode-check hashes and edit reply at TP=2 and TP=3 in two launches at each size, and its NLL; replies at once equalled the same requests alone, and every passphrase of the long inputs was found, the 1,035,295-token prompt's included ([measured on the release](#measured-on-the-release)); `mojibake` found no broken character in Japanese and Korean answers at either size, at temperature 0 or sampled ([multibyte output](docs/validation.md#multibyte-output)). At TP=3 the stop string's request runs to its limit and a short greedy reply has its own hash, known behaviours set down there. The reference values of [validation](docs/validation.md) are 3.9.0's acceptance's on the reference hosts on 2026-11-03, with the vision tower loaded, the decode-check hashes, edit reply and NLL among them 3.3.0's; [Jammed XSFP4's](docs/validation.md#jammed-xsfp4) are 3.10.0's. That is the scope of the claim; other hosts are qualified by running the same checks.
+- **Status.** 3.10.0 adds [Jammed XSFP4](#checkpoints), a second checkpoint served by one `CHECKPOINT` line in the rank files at XSFP4's speed. Its model takes 6.58 GiB less on each host at TP=2, which stays free, and 4.50 GiB less on rank 0 at TP=3, where the KV pool takes a third window of pages. Every check of the acceptance ran on it at both TP sizes ([its reference values](docs/validation.md#jammed-xsfp4)). XSFP4 stays the default: in a launch at each TP size the release image gave 3.9.0's decode-check hashes and edit reply. 3.9.0 moved the engine onto upstream 1.2.1, opened the model's whole 1,048,576-token window at TP=2 as at TP=3, and set the serving defaults by TP size: four streams at TP=2 for one person's long conversation with an agent, eight at TP=3 for several people at once ([serving defaults](#serving-defaults)). Its release image, started by its own `serve.sh` and `cluster.sh` with no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores, gave 3.3.0's XSFP4 decode-check hashes and edit reply at TP=2 and TP=3 in two launches at each size, and its NLL; replies at once equalled the same requests alone, and every passphrase of the long inputs was found, the 1,035,295-token prompt's included ([3.9.0's measurements](docs/measurements.md#390)); `mojibake` found no broken character in Japanese and Korean answers at either size, at temperature 0 or sampled ([multibyte output](docs/validation.md#multibyte-output)). At TP=3 the stop string's request runs to its limit and a short greedy reply has its own hash, known behaviours set down in [validation](docs/validation.md#xsfp4). The reference values of [validation](docs/validation.md) are 3.9.0's acceptance's on the reference hosts on 2026-11-03, with the vision tower loaded, the decode-check hashes, edit reply and NLL among them 3.3.0's; [Jammed XSFP4's](docs/validation.md#jammed-xsfp4) are 3.10.0's. That is the scope of the claim; other hosts are qualified by running the same checks.
 - **What it is.** Build steps, launch scripts and acceptance checks that serve XSFP4 or Jammed XSFP4 through a pinned commit of TensorFold's native engine as one OpenAI-compatible endpoint: two hosts at TP=2 over a direct ConnectX-7 link, or three at TP=3 in a switchless ring. The published measurements come from MSI EdgeXpert (MS-C931) systems. On a Mac, TensorFold serves GLM-5.3-Flash from MLX weights of its own ([on a Mac](../README.md#on-a-mac)).
 - **Repeatable.** Drafted replies equal serial ones, and a launch gives the token ids of the launch before it at the same TP size. The native engine's tokens are its own, not 2.x's: its kernels and its BF16 KV cache round differently, so the two lines compare by teacher-forced NLL, not token by token ([differences from 2.x](#differences-from-2x)).
 - **Structured output and prompt scores.** `response_format` with a JSON schema, `tool_choice` `required` or a named function (written in GLM's own tool markup) and `prompt_logprobs` on `/v1/completions` are upstream TensorFold's own on GLM's CUDA engine since 1.1.1, written after this line's pull requests #1016, #1017 and #1018 ([API](#api)).
@@ -181,32 +181,36 @@ The two lines' containers both claim every GPU: run one line's engine at a time 
 
 ## Measured on the Release
 
-**3.10.0** (2026-11-03, engine `a9642aef`, upstream 1.2.1 with six commits of this line's, image `glm53-tf3:3.10.0`). The engine gains the six commits that read Jammed XSFP4's `csf0_v1` form; the serving defaults are 3.9.0's. Launches of the release image started by its own `serve.sh` and `cluster.sh`, every container on the efficiency cores. One at each TP size on XSFP4, with no `CHECKPOINT` or `CONTEXT` in the rank files, gave 3.9.0's decode-check hashes and `bench --kinds edit` reply (decode 54.08 tok/s and prefill 1,415.1 at TP=2, 68.72 and 1,675.3 at TP=3, against 3.9.0's 53.78 and 1,422.2, and 68.52 and 1,673.8). Four at each TP size on Jammed XSFP4, with its `CHECKPOINT` line and nothing else in the rank files: the launch of every check, a second launch that gave its hashes and reply again, one with `PARALLEL=` empty and one of requests at once. Every passphrase of the 199,307, 499,254 and 1,035,295-token prompts was found. Nothing stopped them. The table is Jammed XSFP4's; XSFP4's figures are 3.9.0's, below.
+**3.10.0** (2026-11-03, engine `a9642aef`, upstream 1.2.1 with six commits of this line's, image `glm53-tf3:3.10.0`). The engine gains the six commits that read Jammed XSFP4's `csf0_v1` form; the serving defaults are 3.9.0's. Launches of the release image started by its own `serve.sh` and `cluster.sh`, every container on the efficiency cores. One at each TP size on XSFP4, with no `CHECKPOINT` or `CONTEXT` in the rank files, gave 3.9.0's decode-check hashes and `bench --kinds edit` reply (decode 54.08 tok/s and prefill 1,415.1 at TP=2, 68.72 and 1,675.3 at TP=3, against 3.9.0's 53.78 and 1,422.2, and 68.52 and 1,673.8). Four at each TP size on Jammed XSFP4, with its `CHECKPOINT` line and nothing else in the rank files: the launch of every check, a second launch that gave its hashes and reply again, one with `PARALLEL=` empty and one of requests at once. Every passphrase of the 199,307, 499,254 and 1,035,295-token prompts was found. Nothing stopped them. The table gives both checkpoints: Jammed XSFP4's columns are these launches', and XSFP4's are 3.9.0's acceptance, four launches at each TP size on 3.9.0's image (engine `1db3edbe`, upstream 1.2.1 itself), whose decode-check hashes and edit reply this image gave again. Drafted decode speeds come from each checkpoint's own replies and do not compare between them ([checkpoints](#checkpoints)).
 
-| 3.10.0, Jammed XSFP4 | TP=2 | TP=3 |
-|---|---|---|
-| Start (s): the launch of every check / a second launch | 96 / 53 | 46 / 46 |
-| Decode check count / prose / code (tok/s) | 44.48 / 35.12 / 44.72 | 55.89 / 44.74 / 58.72 |
-| MTP acceptance length, same tasks | 2.808 / 1.889 / 2.937 | 2.792 / 2.020 / 3.042 |
-| `bench --kinds decode` (tok/s, median) | 53.31 | 68.55 |
-| `bench --kinds edit` (tok/s, median) | 83.31 | 108.30 |
-| Prefill of 38,960 tokens (tok/s, median of three) | 1,437.8 | 1,682.5 |
-| 199,307-token prompt (s) | 144.5 | 122.3 |
-| 499,254 and 1,035,295-token prompts, first token (s) | 389.0 / 911.0 | 327.1 / 758.1 |
-| A prompt of about 93,000 tokens cut 3 s in: the next request answered after (s), against the uncut prompt's first token | 0.29 against 66.8 | 0.99 against 56.4 |
-| A turn adding 500 / 3,000 tokens to a conversation of about 40,000, first token (s) | 1.21 / 2.97 | 1.00 / 2.55 |
-| The same prompt of about 64K / 128K tokens sent again, whole reply (s) | 1.97 / 2.40 | 1.78 / 2.03 |
-| The same prompt of about 400K tokens sent again, whole reply (s) | 2.22 | — |
-| A short request 6 to 8 s into a 32K prompt, first token (s) | 1.48 | 0.95 |
-| Three decodes beside a 32K prompt, gap between tokens, median (ms) | 46 | 36 |
-| Four distinct prompts at once: tok/s together, worst first token (s) | 55.16, 1.00 | 78.43, 0.77 |
-| Eight distinct prompts at once: tok/s together, worst first token (s) | — | 96.75, 1.70 |
-| Teacher-forced NLL, ja / en / code / math | 2.5349 / 2.9247 / 1.3125 / 0.6235 | 2.5320 / 2.9090 / 1.3107 / 0.6249 |
-| tool-eval-bench 2.8.0 through the gate / without it | 93 / 92 | 92 / 91 |
-| Japanese and Korean answers with a broken character, temperature 0 / sampled | 0 / 0 | 0 / 0 |
-| Forty replies of up to 1,024 tokens after 6,000-token prompts (s, hottest zone of rank 0's host) | 1,269.3, 75.6 °C | 951.7, 82.9 °C |
-| Hottest zone of a launch, by rank (°C) | 87.6 / 88.8 | 90.5 / 88.8 / 88.9 |
-| Lowest `MemAvailable`, by rank (GiB) | 13 / 14 | 11 / 12 / 16 |
+| 3.10.0 | TP=2, XSFP4 (3.9.0's acceptance) | TP=2, Jammed XSFP4 | TP=3, XSFP4 (3.9.0's acceptance) | TP=3, Jammed XSFP4 |
+|---|---|---|---|---|
+| Start (s): the launch of every check / a second launch | 107 / 53 | 96 / 53 | 93 / 46 | 46 / 46 |
+| Decode check count / prose / code (tok/s) | 49.50 / 34.34 / 45.50 | 44.48 / 35.12 / 44.72 | 65.67 / 44.69 / 58.20 | 55.89 / 44.74 / 58.72 |
+| MTP acceptance length, same tasks | 3.276 / 1.796 / 2.971 | 2.808 / 1.889 / 2.937 | 3.413 / 2.024 / 3.078 | 2.792 / 2.020 / 3.042 |
+| `bench --kinds decode` (tok/s, median) | 53.78 | 53.31 | 68.52 | 68.55 |
+| `bench --kinds edit` (tok/s, median) | 83.28 | 83.31 | 107.57 | 108.30 |
+| Prefill of 38,960 tokens (tok/s, median of three) | 1,422.2 | 1,437.8 | 1,673.8 | 1,682.5 |
+| 199,307-token prompt (s) | 145.7 | 144.5 | 122.5 | 122.3 |
+| 499,254 and 1,035,295-token prompts, first token (s) | 392.8 / 917.4 | 389.0 / 911.0 | 327.6 / 758.4 | 327.1 / 758.1 |
+| A prompt of about 93,000 tokens cut 3 s in: the next request answered after (s), against the uncut prompt's first token | 0.31 against 67.5 | 0.29 against 66.8 | 1.01 against 56.8 | 0.99 against 56.4 |
+| A turn adding 500 / 3,000 tokens to a conversation of about 40,000, first token (s) | 1.22 / 3.00 | 1.21 / 2.97 | 1.01 / 2.50 | 1.00 / 2.55 |
+| The same prompt of about 64K / 128K tokens sent again, whole reply (s) | 2.06 / 2.34 | 1.97 / 2.40 | 1.54 / 2.11 | 1.78 / 2.03 |
+| The same prompt of about 400K tokens sent again, whole reply (s) | 2.17 | 2.22 | — | — |
+| A short request 6 to 8 s into a 32K prompt, first token (s) | 1.20 | 1.48 | 1.38 | 0.95 |
+| Three decodes beside a 32K prompt, gap between tokens, median (ms) | 45 | 46 | 37 | 36 |
+| Four distinct prompts at once: tok/s together, worst first token (s) | 55.63, 1.00 | 55.16, 1.00 | 75.00, 0.79 | 78.43, 0.77 |
+| Eight distinct prompts at once: tok/s together, worst first token (s) | — | — | 94.23, 1.65 | 96.75, 1.70 |
+| Teacher-forced NLL, ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5349 / 2.9247 / 1.3125 / 0.6235 | 2.5369 / 2.9244 / 1.3098 / 0.6224 | 2.5320 / 2.9090 / 1.3107 / 0.6249 |
+| tool-eval-bench 2.8.0 through the gate / without it | 95 / 93 | 93 / 92 | 92 / 91 | 92 / 91 |
+| Japanese and Korean answers with a broken character, temperature 0 / sampled | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 |
+| Forty replies of up to 1,024 tokens after 6,000-token prompts (s, hottest zone of rank 0's host) | 1,240.8, 75.6 °C | 1,269.3, 75.6 °C | 958.0, 83.6 °C | 951.7, 82.9 °C |
+| Hottest zone of a launch, by rank (°C) | 89.2 / 88.9 | 87.6 / 88.8 | 90.0 / 88.9 / 88.5 | 90.5 / 88.8 / 88.9 |
+| Lowest `MemAvailable`, by rank (GiB) | 6 / 8 | 13 / 14 | 19 / 21 / 25 | 11 / 12 / 16 |
+
+**XSFP4.** The launches, load lines, requests at once, heat, tools and known behaviours behind its columns are in [3.9.0's measurements](docs/measurements.md#390), and its reference values in [validation](docs/validation.md#xsfp4).
+
+**Jammed XSFP4**, in 3.10.0's launches:
 
 - **The load lines.** Rank 0's load lines read a model of 84.28 GiB and 2,052 pages of 512 rows (12.77 GiB) at TP=2, and 59.10 GiB and 6,147 pages (38.27 GiB) at TP=3, against XSFP4's 90.86 GiB and 2,052 pages and 63.60 GiB and 4,098 pages on this image, every stream on those pages and the prompt cache over them. Rank 0 kept 14.16 GiB free after load at TP=2, against XSFP4's 8.33, and 12.15 at TP=3, where the pool takes a third window, against 20.69. With `PARALLEL=` empty the engine took 8 streams at TP=2 and 8 at TP=3 and gave the count hash. Every `kv pool idle` line of rank 0 balanced: nothing promised, and the free pages and the prompt cache's together made the pool.
 - **Requests at once.** At one stream and four, and eight at TP=3, 20 replies at TP=2 and 52 at TP=3 equalled the same request alone ([requests at once](docs/validation.md#requests-at-once)).
@@ -215,40 +219,6 @@ The two lines' containers both claim every GPU: run one line's engine at a time 
 - **Tools.** Through the [tool-argument gate](SETUP.md#6-tool-argument-gate-optional) TP=2 left TC-11, TC-14, TC-39, TC-52 and TC-60 partial and failed TC-62 and TC-68, and TP=3 left TC-14, TC-39, TC-52, TC-57 and TC-63 partial and failed TC-51, TC-62 and TC-68. The Safety Gate passed at TP=2 through it and without it, and failed at TP=3 on TC-51 both ways, a known behaviour below.
 - **Stopping a reply.** The stop string's request ended at 299 with `finish_reason` `stop` at both TP sizes.
 - **Known behaviours of Jammed XSFP4.** At TP=3 tool-eval-bench's Safety Gate fails on TC-51 (Goal-Level Planning) through the gate and without it: Jammed XSFP4 calls `send_email` in the same turn as `create_calendar_event` instead of waiting for its result. The run is at temperature 0 with seed 42. It passes at TP=2, and XSFP4 passed at TP=3 in 3.9.0. The decode check's `count` is slower than XSFP4's: 44.48 tok/s against 49.18 at TP=2 and 55.89 against 65.67 at TP=3, with an acceptance length of 2.81 against 3.28 and 2.79 against 3.41. `prose` and `code` stay within 3.1%. The check asks for 512 tokens with `ignore_eos`, so a reply runs past its end of turn, and there the two checkpoints write different things: of the 512, about 422 at TP=2 and 400 at TP=3 are number lines on XSFP4, and 296 and 200 on Jammed XSFP4, which goes on reasoning. Number lines accept more drafts a round than reasoning. Without `ignore_eos` the replies end at their end of turn, as a client's do: at TP=2 Jammed XSFP4 counted to 100 in 249 tokens at 46.05 tok/s with an acceptance length of 2.95, and XSFP4 to 204 in 452 at 49.52 and 3.32; at TP=3 both counted to 100, Jammed XSFP4 in 241 tokens at 63.87 tok/s with an acceptance length of 3.30 and XSFP4 in 228 at 68.62 and 3.62. Asked for the numbers from 1 to 100 with thinking off, at TP=2 Jammed XSFP4 wrote them as asked at 51.67 tok/s with an acceptance length of 3.70, and XSFP4 wrote 37 twice, at 40.53 and 2.86; at TP=3 Jammed XSFP4 wrote them as asked at 65.90 tok/s with an acceptance length of 3.57, and XSFP4 wrote 37 twice, at 59.75 and 3.24. In the check and without `ignore_eos` a larger share of Jammed XSFP4's reply is reasoning, which takes fewer drafts a round than number lines.
-
-**3.9.0** (2026-11-03, engine `1db3edbe`, upstream 1.2.1, image `glm53-tf3:3.9.0`). The engine is upstream 1.2.1 itself, with no commit of this line's, and the serving defaults are set by TP size ([serving defaults](#serving-defaults)). Launches of the release image started by its own `serve.sh` and `cluster.sh`, with no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores: four at each TP size, the launch of every check, a second launch, one with `PARALLEL=` empty and one of requests at once. Every launch that ran them gave 3.3.0's XSFP4 decode-check hashes and `bench --kinds edit` reply; the NLL was 3.3.0's, and every passphrase of the 199,307, 499,254 and 1,035,295-token prompts was found. Nothing stopped them.
-
-| 3.9.0 | TP=2 | TP=3 |
-|---|---|---|
-| Start (s): the launch of every check / a second launch | 107 / 53 | 93 / 46 |
-| Decode check count / prose / code (tok/s) | 49.50 / 34.34 / 45.50 | 65.67 / 44.69 / 58.20 |
-| MTP acceptance length, same tasks | 3.276 / 1.796 / 2.971 | 3.413 / 2.024 / 3.078 |
-| `bench --kinds decode` (tok/s, median) | 53.78 | 68.52 |
-| `bench --kinds edit` (tok/s, median) | 83.28 | 107.57 |
-| Prefill of 38,960 tokens (tok/s, median of three) | 1,422.2 | 1,673.8 |
-| 199,307-token prompt (s) | 145.7 | 122.5 |
-| 499,254 and 1,035,295-token prompts, first token (s) | 392.8 / 917.4 | 327.6 / 758.4 |
-| A prompt of about 93,000 tokens cut 3 s in: the next request answered after (s), against the uncut prompt's first token | 0.31 against 67.5 | 1.01 against 56.8 |
-| A turn adding 500 / 3,000 tokens to a conversation of about 40,000, first token (s) | 1.22 / 3.00 | 1.01 / 2.50 |
-| The same prompt of about 64K / 128K tokens sent again, whole reply (s) | 2.06 / 2.34 | 1.54 / 2.11 |
-| The same prompt of about 400K tokens sent again, whole reply (s) | 2.17 | — |
-| A short request 6 to 8 s into a 32K prompt, first token (s) | 1.20 | 1.38 |
-| Three decodes beside a 32K prompt, gap between tokens, median (ms) | 45 | 37 |
-| Four distinct prompts at once: tok/s together, worst first token (s) | 55.63, 1.00 | 75.00, 0.79 |
-| Eight distinct prompts at once: tok/s together, worst first token (s) | — | 94.23, 1.65 |
-| Teacher-forced NLL, ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
-| tool-eval-bench 2.8.0 through the gate / without it | 95 / 93 | 92 / 91 |
-| Japanese and Korean answers with a broken character, temperature 0 / sampled | 0 / 0 | 0 / 0 |
-| Forty replies of up to 1,024 tokens after 6,000-token prompts (s, hottest zone of rank 0's host) | 1,240.8, 75.6 °C | 958.0, 83.6 °C |
-| Hottest zone of a launch, by rank (°C) | 89.2 / 88.9 | 90.0 / 88.9 / 88.5 |
-| Lowest `MemAvailable`, by rank (GiB) | 6 / 8 | 19 / 21 / 25 |
-
-- **Against [3.8.0](docs/measurements.md#380).** The same tokens. The speeds of decode, the edit reply and the prefill moved −0.2 to +0.8% at TP=2 and −1.7 to +4.9% at TP=3, and the long prompts took 3.8 to 8.5% less time at TP=2 and 4.8 to 22.9% less time at TP=3, the waits for heat left out. In the arms behind the defaults TP=3's decode gained from the draft confidence and the wire ([decisions](docs/decisions.md#window-and-streams)). They did not measure prompts this long, so the fall at TP=3, larger the longer the prompt, is not put down to any one change. A start took 107 / 53 s at TP=2 and 93 / 46 s at TP=3 against 3.8.0's 376 / 323 and 316 / 270, on upstream's faster load.
-- **The load lines.** Rank 0's load lines read a 90.86 GiB model and 2,052 pages of 512 rows (12.77 GiB) at TP=2, and 63.60 GiB and 4,098 pages (25.51 GiB) at TP=3, the engine's own sequence and every stream on those pages and the prompt cache over them. `[serve.sh]`'s line gave the settings of `config/tp*.env` in every launch. With `PARALLEL=` empty the engine took eight streams at TP=2 and eight at TP=3 and gave the count hash. Every `kv pool idle` line of rank 0 balanced: nothing promised, and the free pages and the prompt cache's together made the pool.
-- **Requests at once.** At one stream and four, and eight at TP=3, 20 replies at TP=2 and 52 at TP=3 equalled the same request alone ([requests at once](docs/validation.md#requests-at-once)). The rows from the warm turn to the eight prompts come from the launch of requests at once ([method](docs/benchmarks.md#requests-at-once)) and have no earlier release's to compare with.
-- **Heat.** No prompt waited for heat at TP=3 (3.8.0: the 1,035,295-token prompt, 30 s in 15 pauses); at TP=2 no prompt waited. No zone reached the thermal watch's stop.
-- **Tools.** Through the [tool-argument gate](SETUP.md#6-tool-argument-gate-optional), this repository's relay, the scenarios left partial or failed are 3.8.0's. Without it the engine scored 93 at TP=2 and 91 at TP=3 with the Safety Gate passed; the one more scenario failed at both sizes is TC-43, a `web_search` call with an empty `query`, which through the gate becomes a refusal to call it without one.
-- **Known behaviours of XSFP4.** They are [3.3.0's](docs/measurements.md#330): at TP=3 the stop string's request runs to its limit, and the plain request of the prompt-score and structured-output checks has its own hash.
 
 Earlier releases' figures are in [measurements of earlier releases](docs/measurements.md).
 

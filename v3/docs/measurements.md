@@ -4,6 +4,42 @@
 
 What each 3.x release before the current one measured at its acceptance, newest first. The current release's figures are the README's [measured on the release](../README.md#measured-on-the-release), and a release's part moves here when the next one replaces it. [Benchmark method](benchmarks.md) says how they were taken, and [validation](validation.md) holds the reference values a launch is accepted against.
 
+## 3.9.0
+
+**3.9.0** (2026-11-03, engine `1db3edbe`, upstream 1.2.1, image `glm53-tf3:3.9.0`). The engine is upstream 1.2.1 itself, with no commit of this line's, and the serving defaults are set by TP size ([serving defaults](../README.md#serving-defaults)). Launches of the release image started by its own `serve.sh` and `cluster.sh`, with no `CHECKPOINT` or `CONTEXT` in the rank files and every container on the efficiency cores: four at each TP size, the launch of every check, a second launch, one with `PARALLEL=` empty and one of requests at once. Every launch that ran them gave 3.3.0's XSFP4 decode-check hashes and `bench --kinds edit` reply; the NLL was 3.3.0's, and every passphrase of the 199,307, 499,254 and 1,035,295-token prompts was found. Nothing stopped them.
+
+| 3.9.0 | TP=2 | TP=3 |
+|---|---|---|
+| Start (s): the launch of every check / a second launch | 107 / 53 | 93 / 46 |
+| Decode check count / prose / code (tok/s) | 49.50 / 34.34 / 45.50 | 65.67 / 44.69 / 58.20 |
+| MTP acceptance length, same tasks | 3.276 / 1.796 / 2.971 | 3.413 / 2.024 / 3.078 |
+| `bench --kinds decode` (tok/s, median) | 53.78 | 68.52 |
+| `bench --kinds edit` (tok/s, median) | 83.28 | 107.57 |
+| Prefill of 38,960 tokens (tok/s, median of three) | 1,422.2 | 1,673.8 |
+| 199,307-token prompt (s) | 145.7 | 122.5 |
+| 499,254 and 1,035,295-token prompts, first token (s) | 392.8 / 917.4 | 327.6 / 758.4 |
+| A prompt of about 93,000 tokens cut 3 s in: the next request answered after (s), against the uncut prompt's first token | 0.31 against 67.5 | 1.01 against 56.8 |
+| A turn adding 500 / 3,000 tokens to a conversation of about 40,000, first token (s) | 1.22 / 3.00 | 1.01 / 2.50 |
+| The same prompt of about 64K / 128K tokens sent again, whole reply (s) | 2.06 / 2.34 | 1.54 / 2.11 |
+| The same prompt of about 400K tokens sent again, whole reply (s) | 2.17 | — |
+| A short request 6 to 8 s into a 32K prompt, first token (s) | 1.20 | 1.38 |
+| Three decodes beside a 32K prompt, gap between tokens, median (ms) | 45 | 37 |
+| Four distinct prompts at once: tok/s together, worst first token (s) | 55.63, 1.00 | 75.00, 0.79 |
+| Eight distinct prompts at once: tok/s together, worst first token (s) | — | 94.23, 1.65 |
+| Teacher-forced NLL, ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
+| tool-eval-bench 2.8.0 through the gate / without it | 95 / 93 | 92 / 91 |
+| Japanese and Korean answers with a broken character, temperature 0 / sampled | 0 / 0 | 0 / 0 |
+| Forty replies of up to 1,024 tokens after 6,000-token prompts (s, hottest zone of rank 0's host) | 1,240.8, 75.6 °C | 958.0, 83.6 °C |
+| Hottest zone of a launch, by rank (°C) | 89.2 / 88.9 | 90.0 / 88.9 / 88.5 |
+| Lowest `MemAvailable`, by rank (GiB) | 6 / 8 | 19 / 21 / 25 |
+
+- **Against [3.8.0](measurements.md#380).** The same tokens. The speeds of decode, the edit reply and the prefill moved −0.2 to +0.8% at TP=2 and −1.7 to +4.9% at TP=3, and the long prompts took 3.8 to 8.5% less time at TP=2 and 4.8 to 22.9% less time at TP=3, the waits for heat left out. In the arms behind the defaults TP=3's decode gained from the draft confidence and the wire ([decisions](decisions.md#window-and-streams)). They did not measure prompts this long, so the fall at TP=3, larger the longer the prompt, is not put down to any one change. A start took 107 / 53 s at TP=2 and 93 / 46 s at TP=3 against 3.8.0's 376 / 323 and 316 / 270, on upstream's faster load.
+- **The load lines.** Rank 0's load lines read a 90.86 GiB model and 2,052 pages of 512 rows (12.77 GiB) at TP=2, and 63.60 GiB and 4,098 pages (25.51 GiB) at TP=3, the engine's own sequence and every stream on those pages and the prompt cache over them. `[serve.sh]`'s line gave the settings of `config/tp*.env` in every launch. With `PARALLEL=` empty the engine took eight streams at TP=2 and eight at TP=3 and gave the count hash. Every `kv pool idle` line of rank 0 balanced: nothing promised, and the free pages and the prompt cache's together made the pool.
+- **Requests at once.** At one stream and four, and eight at TP=3, 20 replies at TP=2 and 52 at TP=3 equalled the same request alone ([requests at once](validation.md#requests-at-once)). The rows from the warm turn to the eight prompts come from the launch of requests at once ([method](benchmarks.md#requests-at-once)) and have no earlier release's to compare with.
+- **Heat.** No prompt waited for heat at TP=3 (3.8.0: the 1,035,295-token prompt, 30 s in 15 pauses); at TP=2 no prompt waited. No zone reached the thermal watch's stop.
+- **Tools.** Through the [tool-argument gate](../SETUP.md#6-tool-argument-gate-optional), this repository's relay, the scenarios left partial or failed are 3.8.0's. Without it the engine scored 93 at TP=2 and 91 at TP=3 with the Safety Gate passed; the one more scenario failed at both sizes is TC-43, a `web_search` call with an empty `query`, which through the gate becomes a refusal to call it without one.
+- **Known behaviours of XSFP4.** They are [3.3.0's](measurements.md#330): at TP=3 the stop string's request runs to its limit, and the plain request of the prompt-score and structured-output checks has its own hash.
+
 ## 3.8.0
 
 **3.8.0** (2026-10-26, engine `84e0d560`, upstream 1.1.5, image `glm53-tf3:3.8.0`). The engine is upstream 1.1.5 itself, with no commit of this line's, and at TP=3 the KV cache is on pages. Launches of the release image started by its own `serve.sh` and `cluster.sh`, with no `CHECKPOINT` or `CONTEXT` in the rank files but where a launch names one, and every container on the efficiency cores: six at TP=2 and five at TP=3, each size's launch of every check, a second launch, one with `PARALLEL=` empty and one each on NVIDIA's NVFP4 and FP4-Local for the comparison with BF16 ([checkpoints](../README.md#checkpoints)), and at TP=2 the 245,760-token window with `PARALLEL=` empty. Every launch that ran them gave 3.3.0's XSFP4 decode-check hashes and `bench --kinds edit` reply in 190 rounds; the NLL was 3.3.0's, and every passphrase of the 199,307, 499,254 and 1,035,295-token prompts was found. Nothing stopped them.

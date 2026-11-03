@@ -4,6 +4,42 @@
 
 今の版より前の3.x系の各版が受け入れで測った値を、新しい順に並べます。今の版の値はREADMEの[リリースでの測定値](../README.ja.md#リリースでの測定値)にあり、次の版が出るとその版の項をここへ移します。値の取り方は[ベンチマークの方法](benchmarks.ja.md)に、起動を受け入れる基準値は[検証](validation.ja.md)にあります。
 
+## 3.9.0
+
+**3.9.0**（2026-11-03、エンジン `1db3edbe`、上流1.2.1、image `glm53-tf3:3.9.0`）。エンジンはこの系列のcommitを持たない上流1.2.1そのもので、配信の既定はTPごとに決めています（[配信の既定](../README.ja.md#配信の既定)）。リリースのimageを、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました：各TPで4回、全検査の起動、2回目の起動、`PARALLEL=` を空にした起動、同時の要求の起動です。それらを回したどの起動も、3.3.0のXSFP4のdecode検査のhashと `bench --kinds edit` の同じ返答を返しました。NLLは3.3.0と同じで、199,307・499,254・1,035,295 tokenのpromptの合言葉はすべて見つかりました。止まった起動はありません。
+
+| 3.9.0 | TP=2 | TP=3 |
+|---|---|---|
+| 起動（秒）：全検査の起動 / 2回目の起動 | 107 / 53 | 93 / 46 |
+| decode検査 count / prose / code（tok/s） | 49.50 / 34.34 / 45.50 | 65.67 / 44.69 / 58.20 |
+| MTPの受理長、同じタスク | 3.276 / 1.796 / 2.971 | 3.413 / 2.024 / 3.078 |
+| `bench --kinds decode`（tok/s、中央値） | 53.78 | 68.52 |
+| `bench --kinds edit`（tok/s、中央値） | 83.28 | 107.57 |
+| 38,960 tokenのprefill（tok/s、3回の中央値） | 1,422.2 | 1,673.8 |
+| 199,307 tokenのprompt（秒） | 145.7 | 122.5 |
+| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken（秒） | 392.8 / 917.4 | 327.6 / 758.4 |
+| 約93,000 tokenのpromptを3秒で切った後、次の要求が答えるまで（秒）、切らないpromptの最初のtokenとの比べ | 0.31 対 67.5 | 1.01 対 56.8 |
+| 約40,000 tokenの会話に500 / 3,000 tokenを足すturn、最初のtoken（秒） | 1.22 / 3.00 | 1.01 / 2.50 |
+| 約64K / 128K tokenの同じpromptの再送、返答の全体（秒） | 2.06 / 2.34 | 1.54 / 2.11 |
+| 約400K tokenの同じpromptの再送、返答の全体（秒） | 2.17 | — |
+| 32K tokenのpromptに6〜8秒で来た短い要求、最初のtoken（秒） | 1.20 | 1.38 |
+| 32K tokenのpromptの横の3本のdecode、tokenの間隔の中央値（ms） | 45 | 37 |
+| 別々の4つのpromptを同時に：合計のtok/s、最初のtokenの最悪（秒） | 55.63、1.00 | 75.00、0.79 |
+| 別々の8つのpromptを同時に：合計のtok/s、最初のtokenの最悪（秒） | — | 94.23、1.65 |
+| teacher-forced NLL、ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
+| tool-eval-bench 2.8.0、ゲート越し / ゲートなし | 95 / 93 | 92 / 91 |
+| 化けた文字のある日本語と韓国語の答え、temperature 0 / sampled | 0 / 0 | 0 / 0 |
+| 6,000 tokenのpromptの後の最大1,024 tokenの40の返答（秒、rank 0のホストの最も熱いzone） | 1,240.8、75.6 °C | 958.0、83.6 °C |
+| 起動の中の最も熱いzone、rankごと（°C） | 89.2 / 88.9 | 90.0 / 88.9 / 88.5 |
+| 最低の `MemAvailable`、rankごと（GiB） | 6 / 8 | 19 / 21 / 25 |
+
+- **[3.8.0](measurements.ja.md#380)との差。** tokenは同じです。3.8.0に比べ、decode・編集の返答・prefillの速さはTP=2で−0.2〜+0.8%、TP=3で−1.7〜+4.9%、長いpromptの時間はTP=2で−8.5〜−3.8%、TP=3で−22.9〜−4.8%でした（熱の待ちを除く）。既定を決めた腕の比べでは、TP=3のdecodeはdraftの確率とwireの分だけ得をしました（[決定](decisions.ja.md#窓とstream)）。腕はこの長さのpromptを測っていないので、TP=3で長いpromptほど大きい短縮を一つの変更のせいとは書きません。起動はTP=2で107 / 53秒、TP=3で93 / 46秒で、3.8.0の376 / 323秒と316 / 270秒より上流の速い読み込みの分だけ短くなりました。
+- **loadの行。** rank 0のloadの行は、TP=2で90.86 GiBのmodelと512行のpageを2,052（12.77 GiB）、TP=3で63.60 GiBと4,098（25.51 GiB）を示し、エンジン自身のsequenceと全streamがそのpageの上に、prompt cacheがpageの上にあります。`[serve.sh]` の行はどの起動でも `config/tp*.env` の設定を出しました。`PARALLEL=` を空にすると、エンジンはTP=2で8本、TP=3で8本のstreamを取り、countのhashを返しました。rank 0の `kv pool idle` の行はどれも合っていました：約束されたpageは0で、空きのpageとprompt cacheのpageでpoolの全部です。
+- **同時の要求。** 1本と4本、TP=3では8本も、TP=2で20本、TP=3で52本の返答が同じ要求の単独の返答と同じでした（[同時の要求](validation.ja.md#同時の要求)）。表のwarm turnから8つのpromptまでの行は同時の要求の起動のもので（[方法](benchmarks.ja.md#同時の要求)）、比べる前の版の値はありません。
+- **熱。** TP=3でも熱で待ったpromptはありません（3.8.0：1,035,295 tokenのpromptが15回で30秒）。TP=2では待ったpromptはありません。熱の見張りの止める温度に届いたzoneはありません。
+- **tool。** このリポジトリの中継である[tool引数ゲート](../SETUP.ja.md#6-tool引数ゲート任意)越しでは、部分点や失敗のシナリオが3.8.0と同じでした。ゲートなしでは、エンジンはTP=2で93、TP=3で91で、Safety Gateは合格でした。両TPで増えた失敗はTC-43の一つで、空の `query` で `web_search` を呼んだものです。ゲート越しでは、queryなしでは呼ばずに断る返答になります。
+- **XSFP4の既知の振る舞い。** [3.3.0](measurements.ja.md#330)のものと同じです：TP=3ではstop文字列の要求が上限まで走り、promptのscoreと構造化出力の検査のscoreもgrammarも無い要求は自分のhashを持ちます。
+
 ## 3.8.0
 
 **3.8.0**（2026-10-26、エンジン `84e0d560`、上流1.1.5、image `glm53-tf3:3.8.0`）。エンジンはこの系列のcommitを持たない上流1.1.5そのもので、TP=3ではKV cacheがpageにあります。リリースのimageを、rankのファイルに、起動が名指す時のほかは `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました：TP=2で6回、TP=3で5回。各TPで全検査の起動、2回目の起動、`PARALLEL=` を空にした起動、BF16との比べのためにNVIDIAのNVFP4とFP4-Localで1回ずつ（[checkpoint](../README.ja.md#checkpoint)）、さらにTP=2で `PARALLEL=` を空にした245,760 tokenの窓。それらを回したどの起動も、3.3.0のXSFP4のdecode検査のhashと、`bench --kinds edit` の同じ返答を190 roundで返しました。NLLは3.3.0と同じで、199,307・499,254・1,035,295 tokenのpromptの合言葉はすべて見つかりました。止まった起動はありません。
