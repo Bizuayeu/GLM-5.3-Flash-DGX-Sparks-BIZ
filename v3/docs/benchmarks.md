@@ -21,6 +21,8 @@ A cooling gate ran before each start and each group of measurements. It waits un
 
 As [validation](validation.md#decode-check) describes: three samples of each task (count, prose, code), greedy 512 tokens after the fixed prompt of about 2,048 tokens. The tool reports the speed, the MTP acceptance length (1 + accepted / rounds, from each reply's `speculative` block), the hash of each completion's text and the engine's `token_sha256`; a sample after the first may resume the prompt from the prompt cache (`cached`), which gives the same tokens. Two launches at each TP size, each compared with the first; in 3.10.0 XSFP4 had one at each, compared with 3.9.0's.
 
+The README's [known behaviours of Jammed XSFP4](../README.md#measured-on-the-release) give two more counts, taken in launches of 3.10.0's image at both TP sizes on both checkpoints with copies of the check, which has no switch for either: one with `ignore_eos` false, so a reply ends at its end of turn as a client's does, and one that also asks "Write the numbers from 1 to 100, one per line, and nothing else." with thinking off (`chat_template_kwargs` `{"enable_thinking": false}` in place of the check's). Each ran with `PROMPT_KIND=count`, three samples, at the check's prompt, 512 tokens at most and temperature 0, on rank 0's loopback; the speed and the acceptance length are the check's own.
+
 ## Prefill and decode speed
 
 Before anything was timed, a prefill of about 3,000 tokens (`bench --kinds prefill --runs 1 --lines 250`).
