@@ -4,6 +4,22 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.11.1 — 2026-11-04
+
+Two fixes, to `download --background` and to the publication audit. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
+
+### Tools
+
+- `download --background` writes the job's status before it returns, so the `verify-download --wait` that the [setup](SETUP.md#2-checkout-and-checkpoint) runs right after it follows this job. Before, it could find no status yet and exit 1 ("run download first"), or find the last job's status and end on it. A start while another download owns the checkpoint's folder is refused, as a foreground run is, instead of starting a job that fails into `download.log`, and a job that cannot be started leaves a failed status ([tools](docs/configuration.md#tools)).
+
+### Repository
+
+- The publication audit (`tools/check_publication.py`) requires Jammed XSFP4's lock beside XSFP4's and checks that it pins a model and a full revision; its message names the lock that does not.
+
+### Not in 3.11.1
+
+The six commits upstream and a Jammed XSFP4 made from the BF16 weights with nothing borrowed from XSFP4 ([Next Action](README.md#next-action)).
+
 ## 3.11.0 — 2026-11-04
 
 The tool-argument gate and documents. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).

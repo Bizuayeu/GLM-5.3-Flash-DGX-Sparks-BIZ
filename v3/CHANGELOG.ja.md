@@ -6,6 +6,22 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.11.1 — 2026-11-04
+
+`download --background` と公開監査の直し2つです。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
+
+### Tools
+
+- `download --background` は戻る前にjobの状態を書くので、[手順書](SETUP.ja.md#2-checkoutとcheckpoint)がすぐ後に走らせる `verify-download --wait` はこのjobを追います。前は、まだ状態が無くて1で終わる（「run download first」）か、前のjobの状態を見てそこで終わることがありました。別のdownloadがcheckpointのフォルダを持つ間の開始は、前景の実行と同じく断り、`download.log` の中で落ちるjobを起こしません。起こせなかったjobは失敗の状態を残します（[道具](docs/configuration.ja.md#道具)）。
+
+### Repository
+
+- 公開監査（`tools/check_publication.py`）は、XSFP4のlockの横にJammed XSFP4のlockも求め、modelと完全なrevisionを固定しているかを確かめます。固定していないlockは名前で挙げます。
+
+### Not in 3.11.1
+
+6つのcommitの上流への取り込みと、XSFP4から何も借りずBF16の重みから作ったJammed XSFP4（[Next Action](README.ja.md#next-action)）。
+
 ## 3.11.0 — 2026-11-04
 
 tool引数ゲートと文書の版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
