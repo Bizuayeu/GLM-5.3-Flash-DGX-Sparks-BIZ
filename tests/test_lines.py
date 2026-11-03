@@ -40,8 +40,9 @@ class LineTests(unittest.TestCase):
 
 
 class SharedCheckpointTests(unittest.TestCase):
-    """1.x and 2.x serve one pinned checkpoint (3.x serves XSFP4, from its own lock, from
-    3.6.0); each line keeps its own copy of what it reads."""
+    """1.x and 2.x serve one pinned checkpoint (3.x serves XSFP4 from 3.6.0 and
+    Jammed XSFP4 from 3.10.0, from locks of its own); each line keeps its own copy of
+    what it reads."""
 
     def test_1x_and_2x_pin_the_same_model_and_revision(self):
         v1 = json.loads((REPO / "v1/config/runtime.lock.json").read_text("utf-8"))

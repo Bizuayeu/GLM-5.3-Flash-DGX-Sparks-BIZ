@@ -524,7 +524,7 @@ LINE3 = dict(
 
 
 class Line3Tests(unittest.TestCase):
-    """3.x pins the checkpoint it serves, XSFP4, in its own lock (from 3.6.0)."""
+    """3.x pins its default checkpoint, XSFP4, in its own lock (from 3.6.0)."""
 
     def check(self, **changes):
         with tempfile.TemporaryDirectory() as tmp:

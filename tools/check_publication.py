@@ -441,8 +441,8 @@ LINE_REQUIRED = {
     "CHANGELOG.ja.md",
     "pyproject.toml",
 }
-# Each line's pin of the checkpoint it serves: 2.x NVIDIA's NVFP4 (as 1.x does), 3.x XSFP4
-# (from 3.6.0 its only one).
+# Each line's pin of its default checkpoint: 2.x NVIDIA's NVFP4 (as 1.x does), 3.x XSFP4
+# (from 3.6.0; Jammed XSFP4, a choice from 3.10.0, has a lock of its own, not read here).
 LINE_LOCK = {"v2": "config/model.lock.json", "v3": "config/xsfp4.lock.json"}
 
 

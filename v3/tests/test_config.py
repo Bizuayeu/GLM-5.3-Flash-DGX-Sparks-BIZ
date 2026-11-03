@@ -127,7 +127,8 @@ class ServeScriptTests(unittest.TestCase):
             self.assertIn("CONTEXT=1048576 ", text)
 
     def test_the_examples_name_no_other_checkpoint(self):
-        # 3.6.0: serve.sh's default, XSFP4, is the checkpoint 3.x serves.
+        # serve.sh's default is XSFP4 (from 3.6.0); Jammed XSFP4 (3.10.0) is a line
+        # the operator adds.
         for path in sorted((LINE / "examples").glob("tp*-rank*.env")):
             with self.subTest(example=path.name):
                 text = path.read_text(encoding="utf-8")
