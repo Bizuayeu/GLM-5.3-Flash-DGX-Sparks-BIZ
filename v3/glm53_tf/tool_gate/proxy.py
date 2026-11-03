@@ -1,12 +1,14 @@
 """Serve the tool-argument gate on a loopback port in front of the model API (entry and side effects).
 
     python -m glm53_tf tool-gate [--port 8896] [--upstream http://127.0.0.1:8095] [--log FILE]
-                                 [--timeout 2400]
+                                 [--timeout 2400] [--parallel-tool-calls one|client]
 
-Only POST /v1/chat/completions requests that declare tools are checked (repair.applies); every other
-request is relayed unchanged, credentials included. The listener binds 127.0.0.1 only, like the
-model API behind it. The log is one JSON line per checked request with the tool and argument names
-of any violation; it never holds argument values, prompts or replies.
+Only POST /v1/chat/completions requests that declare tools are checked (repair.applies). They ask the engine
+for one completed tool call a turn (parallel_tool_calls false, whatever the client sent) and say so in their
+system message (ONE_CALL_NOTE) unless the gate runs with --parallel-tool-calls client; every other request
+is relayed unchanged, credentials included. The listener binds 127.0.0.1 only, like the model API behind it.
+The log is one JSON line per checked request with the tool and argument names of any violation; it never
+holds argument values, prompts or replies.
 """
 
 import argparse
@@ -22,6 +24,11 @@ from .check import violations
 from .repair import applies, gate, retry_request
 
 CHAT_PATH = "/v1/chat/completions"
+# tool-eval-bench's TC-51 failed its Safety Gate when send_email went out beside create_calendar_event, before that
+# result; told nothing, the model gave up on the calls one call a turn left out (TC-27, TC-67, TC-69).
+ONE_CALL_NOTE = (
+    "Make one tool call a turn, and the next one after its result has come back."
+)
 # A 1,035,454-token request with one declared tool is 4.1 MB (2.3.0's acceptance at TP=3); 64 MiB leaves
 # room for images. Raise it when a real request is refused with 413.
 MAX_BODY = 64 * 2**20
@@ -38,6 +45,29 @@ HOP = {
     "te",
     "upgrade",
 }
+
+
+def one_call(request):
+    """The request with parallel_tool_calls false and ONE_CALL_NOTE once in its system message (put first when it has none)."""
+    messages = list(request.get("messages") or [])
+    first = messages[0] if messages and isinstance(messages[0], dict) else {}
+    content = first.get("content")
+    if first.get("role") == "system" and isinstance(content, str):
+        if ONE_CALL_NOTE not in content:
+            messages[0] = dict(
+                first,
+                content=f"{content}\n\n{ONE_CALL_NOTE}" if content else ONE_CALL_NOTE,
+            )
+    elif first.get("role") == "system" and isinstance(content, list):
+        if not any(
+            isinstance(p, dict) and p.get("text") == ONE_CALL_NOTE for p in content
+        ):
+            messages[0] = dict(
+                first, content=[*content, {"type": "text", "text": ONE_CALL_NOTE}]
+            )
+    else:
+        messages.insert(0, {"role": "system", "content": ONE_CALL_NOTE})
+    return dict(request, messages=messages, parallel_tool_calls=False)
 
 
 class Passthrough(Exception):
@@ -118,7 +148,9 @@ def _calls_chunk(held, calls):
     return chunk
 
 
-def make_server(port, upstream, log=sys.stderr, timeout=DEFAULT_TIMEOUT):
+def make_server(
+    port, upstream, log=sys.stderr, timeout=DEFAULT_TIMEOUT, parallel="one"
+):
     host, upstream_port = _loopback_origin(upstream)
     lock = threading.Lock()
 
@@ -205,6 +237,8 @@ def make_server(port, upstream, log=sys.stderr, timeout=DEFAULT_TIMEOUT):
             if not isinstance(request, dict) or not applies(request):
                 self._relay_raw(self._upstream("POST", raw))
                 return
+            if parallel == "one":
+                request = one_call(request)
             if request.get("stream"):
                 self._stream(request)
                 return
@@ -313,9 +347,21 @@ def main(argv=None):
         "--log", help="Append the JSON-line log to this file (default: stderr)"
     )
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT)
+    parser.add_argument(
+        "--parallel-tool-calls",
+        choices=("one", "client"),
+        default="one",
+        help="one: a checked request asks for one call a turn and says so in its system message; client: as sent",
+    )
     args = parser.parse_args(argv)
     log = open(args.log, "a", encoding="utf-8") if args.log else sys.stderr
-    server = make_server(args.port, args.upstream, log=log, timeout=args.timeout)
+    server = make_server(
+        args.port,
+        args.upstream,
+        log=log,
+        timeout=args.timeout,
+        parallel=args.parallel_tool_calls,
+    )
     print(
         f"tool-gate on 127.0.0.1:{args.port} -> {args.upstream}",
         file=sys.stderr,

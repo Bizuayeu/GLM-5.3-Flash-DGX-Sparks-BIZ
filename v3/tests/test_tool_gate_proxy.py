@@ -198,6 +198,58 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(json.loads(body), completion("hi"))
         self.assertEqual(len(self.upstream.received), 2)
 
+    def test_a_tool_request_asks_for_one_call_and_says_so(self):
+        # tool-eval-bench's TC-51 sent send_email beside create_calendar_event, before that result.
+        brief = {"role": "system", "content": "Be brief."}
+        sent = [
+            TOOL_REQUEST,
+            dict(TOOL_REQUEST, parallel_tool_calls=True),
+            dict(TOOL_REQUEST, messages=[brief, *TOOL_REQUEST["messages"]]),
+        ]
+        for body in sent:
+            self.upstream.push_json(completion(args={"query": "x"}))
+            self.request("POST", "/v1/chat/completions", body)
+        self.upstream.push_sse(sse(args={"query": "x"}))
+        self.request("POST", "/v1/chat/completions", dict(TOOL_REQUEST, stream=True))
+        got = [json.loads(b) for _, _, _, b in self.upstream.received]
+        note = {"role": "system", "content": proxy.ONE_CALL_NOTE}
+        self.assertEqual([g["parallel_tool_calls"] for g in got], [False] * 4)
+        self.assertEqual(got[0]["messages"], [note, *TOOL_REQUEST["messages"]])
+        self.assertEqual(
+            got[2]["messages"][0]["content"], "Be brief.\n\n" + proxy.ONE_CALL_NOTE
+        )
+        self.assertEqual(got[3]["messages"][0], note)
+        self.upstream.push_json(completion("hi"))
+        self.request("POST", "/v1/chat/completions", {"messages": []})
+        self.assertEqual(json.loads(self.upstream.received[4][3]), {"messages": []})
+
+    def test_the_note_goes_in_once(self):
+        noted = proxy.one_call(TOOL_REQUEST)
+        self.assertEqual(proxy.one_call(noted), noted)
+        again = proxy.one_call(dict(noted, parallel_tool_calls=True))
+        self.assertEqual(again, noted)
+        system = {"role": "system", "content": [{"type": "text", "text": "Be brief."}]}
+        once = proxy.one_call(dict(TOOL_REQUEST, messages=[system]))
+        self.assertEqual(
+            once["messages"][0]["content"][-1],
+            {"type": "text", "text": proxy.ONE_CALL_NOTE},
+        )
+        self.assertEqual(proxy.one_call(once), once)
+        self.assertEqual([m["role"] for m in TOOL_REQUEST["messages"]], ["user"])
+        self.assertNotIn("parallel_tool_calls", TOOL_REQUEST)
+
+    def test_a_request_goes_as_sent_when_the_gate_is_told_so(self):
+        gate = proxy.make_server(
+            0, f"http://127.0.0.1:{self.upstream.port}", log=self.log, parallel="client"
+        )
+        threading.Thread(target=gate.serve_forever, daemon=True).start()
+        self.addCleanup(gate.server_close)
+        self.addCleanup(gate.shutdown)
+        self.port = gate.server_address[1]
+        self.upstream.push_json(completion(args={"query": "x"}))
+        self.request("POST", "/v1/chat/completions", TOOL_REQUEST)
+        self.assertEqual(json.loads(self.upstream.received[0][3]), TOOL_REQUEST)
+
     def test_a_violating_call_is_repaired_without_reaching_the_client(self):
         self.upstream.push_json(completion(args={"query": ""}))
         self.upstream.push_json(completion("What should I search for?"))
@@ -212,7 +264,8 @@ class ProxyTests(unittest.TestCase):
         )
         retry = json.loads(self.upstream.received[1][3])
         self.assertEqual(
-            [m["role"] for m in retry["messages"]], ["user", "assistant", "tool"]
+            [m["role"] for m in retry["messages"]],
+            ["system", "user", "assistant", "tool"],
         )
         record = json.loads(self.log.getvalue().splitlines()[-1])
         self.assertEqual(record["outcome"], "repaired")
@@ -344,7 +397,7 @@ class ProxyTests(unittest.TestCase):
         retry = json.loads(self.upstream.received[1][3])
         self.assertTrue(retry["stream"])
         self.assertEqual(
-            json.loads(retry["messages"][1]["tool_calls"][0]["function"]["arguments"]),
+            json.loads(retry["messages"][2]["tool_calls"][0]["function"]["arguments"]),
             {"query": ""},
         )
 
