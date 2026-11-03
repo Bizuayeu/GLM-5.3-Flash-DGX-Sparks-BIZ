@@ -8,18 +8,18 @@
 
 - **ホスト。** 参照機のMSI EdgeXpert（GB10）。TP=2は直結の対、TP=3はリングの3台で、GPUには他に何も載せていません（2.x系のcontainerは停止）。
 - **GPUクロック**は[ホストのツール](../../host/README.ja.md)の起動時のunitで2,200 MHzを上限にしました（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）。
-- **エンジンとimage。** 各版の[リリースでの測定値](../README.ja.md#リリースでの測定値)か[前の版](measurements.ja.md)の項が名指すimageとエンジンを、その既定で：3.8.xまでは1本のstream、3.9.0からはTP=2で4本・TP=3で8本、TP=2で3.4.0までは245,760 token（3.5.0から524,288、3.9.0から1,048,576）・TP=3で1,048,576 tokenの窓、92 °C／88 °Cの熱の待ち。空の `PARALLEL=`（エンジン自身によるstreamの選択）で走らせた起動は、その版の項にそう書いています。
+- **エンジンとimage。** 各版の[リリースでの測定値](../README.ja.md#リリースでの測定値)か[前の版](measurements.ja.md)の項が名指すimageとエンジンを、その既定で：3.8.xまでは1本のstream、3.9.0からはTP=2で4本・TP=3で8本、TP=2で3.4.0までは245,760 token（3.5.0から524,288、3.9.0から1,048,576）・TP=3で1,048,576 tokenの窓、92 °C／88 °Cの熱の待ち。空の `PARALLEL=`（エンジン自身によるstreamの選択）で走らせた起動は、その版の項にそう書いています。既定でないcheckpointの起動も同じで、3.10.0のJammed XSFP4の起動は、rankのファイルにその `CHECKPOINT` の1行だけを足しました。
 - **core。** 全containerを効率coreの0-4と10-14に。`create_container.sh` が作るとおりです。
 - **見張り。** メモリの見張りを全ホストで、熱の見張りを起動の全ホストで動かしました。
 - **クライアント。** 要求は[同時の要求](#同時の要求)を除いてすべてrank 0からloopbackのエンジンへ一つずつ、検査が別に言わない限りtemperature 0、推論のeffortはlowです。道具はcontainerの中で、作業directory（`/work`）の下のcheckoutの `v3/` から動かしました。
 
 ## 長い要求の合間の冷却
 
-各起動と測定のまとまりの前ごとに冷却gateを回しました。rank 0のホストのACPIの最も熱いzoneが55.8 °C以下になるか、上限の時間（3.3.0・3.8.0・3.9.0の受け入れではTP=3で936秒、TP=2で600秒）がたつまで待ちます。[`host/cool-gate`](../../host/README.ja.md#長い運転の間)の規則です。55.8 °Cと936秒は1.x系の測定のときにリングのrank 0のホストで較正し、2.x系も使った値で、TP=2の対は自分の較正を持たないので、同じ帯と `cool-gate` の既定の上限で待ちました。他のrankのホストは記録し、待ちませんでした：3.2.0までのエンジンは、要求の無い間も2本のCPUのthreadを空回りさせ続け（[効率coreにする理由](../README.ja.md#配信の既定)）、全coreではrank 1のホストは約70 °Cで待機し、2.x系が使ったどの帯よりも上でした。
+各起動と測定のまとまりの前ごとに冷却gateを回しました。rank 0のホストのACPIの最も熱いzoneが55.8 °C以下になるか、上限の時間（3.3.0・3.8.0・3.9.0・3.10.0の受け入れではTP=3で936秒、TP=2で600秒）がたつまで待ちます。[`host/cool-gate`](../../host/README.ja.md#長い運転の間)の規則です。55.8 °Cと936秒は1.x系の測定のときにリングのrank 0のホストで較正し、2.x系も使った値で、TP=2の対は自分の較正を持たないので、同じ帯と `cool-gate` の既定の上限で待ちました。他のrankのホストは記録し、待ちませんでした：3.2.0までのエンジンは、要求の無い間も2本のCPUのthreadを空回りさせ続け（[効率coreにする理由](../README.ja.md#配信の既定)）、全coreではrank 1のホストは約70 °Cで待機し、2.x系が使ったどの帯よりも上でした。
 
 ## decode検査
 
-[検証](validation.ja.md#decode検査)のとおりです：各タスク（count、prose、code）を3回、約2,048 tokenの固定promptの後にgreedyで512 token。道具は速さ、MTPの受理長（各応答の `speculative` blockから1＋accepted／rounds）、各completionの文章のhashとエンジンの `token_sha256` を出します。最初の後のサンプルはprompt cacheからpromptを再開することがあり（`cached`）、同じtokenを出します。各TPで2回起動し、それぞれを1回目と比べます。
+[検証](validation.ja.md#decode検査)のとおりです：各タスク（count、prose、code）を3回、約2,048 tokenの固定promptの後にgreedyで512 token。道具は速さ、MTPの受理長（各応答の `speculative` blockから1＋accepted／rounds）、各completionの文章のhashとエンジンの `token_sha256` を出します。最初の後のサンプルはprompt cacheからpromptを再開することがあり（`cached`）、同じtokenを出します。各TPで2回起動し、それぞれを1回目と比べます。3.10.0のXSFP4は各TPで1回で、3.9.0のものと比べました。
 
 ## prefillとdecodeの速さ
 
@@ -38,7 +38,7 @@
 長いpromptはどれも番号付きの行の台帳で（`Ledger <i>: the river barge delivered sacks of barley to the northern granary at dusk.`）、system messageは `You are a careful archivist. Read the ledger.`、temperature 0、effort lowで、行数はエンジンの `/tokenize` で目標に合わせます。各行の `cached` は、promptがprompt cacheから再開したtoken数を示します。受け入れでは、TP=3で3本続けたものも含め、どの長いpromptも全体を読みました（`cached` 0）。
 
 - **199,652 tokenに合言葉一つ**、真ん中に。streamなし、最大512 token。応答に合言葉があれば正答です。両TPで。
-- **499,622 tokenと1,036,859 tokenに合言葉三つ**（先頭から20分の1、真ん中、末尾から20分の1）、TP=3。3.5.0からは499,622 tokenのものをTP=2でも。streamで最大256 token、最初にstreamで届いたtokenまでをクライアントが測ります。応答が三つとも挙げれば正答です。
+- **499,622 tokenと1,036,859 tokenに合言葉三つ**（先頭から20分の1、真ん中、末尾から20分の1）、TP=3。TP=2では3.5.0から499,622 tokenのもの、3.9.0から両方。streamで最大256 token、最初にstreamで届いたtokenまでをクライアントが測ります。応答が三つとも挙げれば正答です。
 
 promptの熱の待ちは、要求の開始と終了の間のrank 0の `heat_wait_s` の行から読みます。
 
@@ -62,7 +62,7 @@ NLL採点セットと採点は[検証](validation.ja.md#teacher-forced-nll)の�
 
 ## 同時の要求
 
-3.9.0から、各TPでリリースの既定の起動を1回、他に何も回さず、次の順で測ります。返答の行は時間だけを読み、返答そのものは[検証](validation.ja.md#同時の要求)が確かめます：
+3.9.0から、各TPでリリースの既定の起動（3.10.0はJammed XSFP4で、その `CHECKPOINT` の1行つき）を1回、他に何も回さず、次の順で測ります。返答の行は時間だけを読み、返答そのものは[検証](validation.ja.md#同時の要求)が確かめます：
 
 - **warm turn。** 新しいnonceの約10,000か40,000 tokenのchatをcoldで送り、その後の4 turnで約500・1,500・3,000 tokenずつ足します。値は4 turnの最初のtokenの平均です。
 - **同じpromptの再送。** `alpha beta gamma delta` を12,800行・25,600行、TP=2では80,000行も並べて問いを1つ付けたchat（約64K・128K・400K token）を2回送ります。値は2回目の返答の全体の時間で、`cached_tokens` はpromptの長さの近くです。

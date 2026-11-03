@@ -8,18 +8,18 @@ How the 3.x figures were taken: those of [measured on the release](../README.md#
 
 - **Hosts.** The reference hosts, MSI EdgeXpert (GB10): the pair over a direct link for TP=2, three hosts in a ring for TP=3, nothing else on their GPUs (2.x's containers stopped).
 - **GPU clock** capped at 2,200 MHz by the boot unit of the [host tools](../../host/README.md) ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)).
-- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) or of [earlier releases](measurements.md) names them, with its defaults: one stream up to 3.8.x and four at TP=2 and eight at TP=3 from 3.9.0, the windows of 245,760 tokens at TP=2 until 3.4.0 (524,288 from 3.5.0, 1,048,576 from 3.9.0) and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. A launch with an empty `PARALLEL=`, the engine's own choice of streams, says so in its release's part.
+- **Engine and image.** Each release's image and engine, as its part of [measured on the release](../README.md#measured-on-the-release) or of [earlier releases](measurements.md) names them, with its defaults: one stream up to 3.8.x and four at TP=2 and eight at TP=3 from 3.9.0, the windows of 245,760 tokens at TP=2 until 3.4.0 (524,288 from 3.5.0, 1,048,576 from 3.9.0) and 1,048,576 at TP=3, the heat wait at 92 °C / 88 °C. A launch with an empty `PARALLEL=`, the engine's own choice of streams, says so in its release's part, and so does a launch on a checkpoint other than the default: 3.10.0's on Jammed XSFP4, with its `CHECKPOINT` line and nothing else in the rank files.
 - **Cores.** Every container on the efficiency cores 0-4 and 10-14, as `create_container.sh` creates it.
 - **Watchers.** The memory guard on every host and the thermal watch on every host of the launch.
 - **Clients.** Every request from rank 0 to the engine on loopback, one at a time but for [requests at once](#requests-at-once), temperature 0 and reasoning effort low unless a check says otherwise; the tools ran in the container from the `v3/` of a checkout under the work directory (`/work`).
 
 ## Cooling between long requests
 
-A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or for at most 936 s at TP=3 and 600 s at TP=2 (3.3.0's, 3.8.0's and 3.9.0's acceptances), the rule of [`host/cool-gate`](../../host/README.md#during-long-runs). The band and the 936 s were calibrated on the ring's rank 0 host during 1.x's measurements, and 2.x used them too; the TP=2 pair has no calibration of its own, so its rank 0 waited for the same band with `cool-gate`'s default cap. The other ranks' hosts were recorded and not waited for: up to 3.2.0's engine they kept two CPU threads spinning even while no request ran ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
+A cooling gate ran before each start and each group of measurements. It waits until rank 0's host's hottest ACPI zone is at or below 55.8 °C, or for at most 936 s at TP=3 and 600 s at TP=2 (3.3.0's, 3.8.0's, 3.9.0's and 3.10.0's acceptances), the rule of [`host/cool-gate`](../../host/README.md#during-long-runs). The band and the 936 s were calibrated on the ring's rank 0 host during 1.x's measurements, and 2.x used them too; the TP=2 pair has no calibration of its own, so its rank 0 waited for the same band with `cool-gate`'s default cap. The other ranks' hosts were recorded and not waited for: up to 3.2.0's engine they kept two CPU threads spinning even while no request ran ([why the efficiency cores](../README.md#serving-defaults)), and on every core rank 1's host idled near 70 °C, above any band 2.x used.
 
 ## Decode check
 
-As [validation](validation.md#decode-check) describes: three samples of each task (count, prose, code), greedy 512 tokens after the fixed prompt of about 2,048 tokens. The tool reports the speed, the MTP acceptance length (1 + accepted / rounds, from each reply's `speculative` block), the hash of each completion's text and the engine's `token_sha256`; a sample after the first may resume the prompt from the prompt cache (`cached`), which gives the same tokens. Two launches at each TP size, each compared with the first.
+As [validation](validation.md#decode-check) describes: three samples of each task (count, prose, code), greedy 512 tokens after the fixed prompt of about 2,048 tokens. The tool reports the speed, the MTP acceptance length (1 + accepted / rounds, from each reply's `speculative` block), the hash of each completion's text and the engine's `token_sha256`; a sample after the first may resume the prompt from the prompt cache (`cached`), which gives the same tokens. Two launches at each TP size, each compared with the first; in 3.10.0 XSFP4 had one at each, compared with 3.9.0's.
 
 ## Prefill and decode speed
 
@@ -38,7 +38,7 @@ Before anything was timed, a prefill of about 3,000 tokens (`bench --kinds prefi
 Every long prompt is a ledger of numbered lines, `Ledger <i>: the river barge delivered sacks of barley to the northern granary at dusk.`, after the system message `You are a careful archivist. Read the ledger.`, at temperature 0 and effort low, its line count fitted to the target with the engine's `/tokenize`. Each row's `cached` gives the tokens a prompt resumed from the prompt cache; in the acceptance every long prompt was read whole (`cached` 0), TP=3's three in a row included.
 
 - **One passphrase at 199,652 tokens**, in the middle. Not streamed, up to 512 tokens; correct when the reply contains it. At both TP sizes.
-- **Three passphrases** (one twentieth from the start, the middle, one twentieth from the end) **at 499,622 and 1,036,859 tokens**, TP=3, and from 3.5.0 the 499,622-token one at TP=2 too. Streamed, up to 256 tokens; the client times the first streamed token; correct when the reply lists all three.
+- **Three passphrases** (one twentieth from the start, the middle, one twentieth from the end) **at 499,622 and 1,036,859 tokens**, TP=3, and at TP=2 from 3.5.0 the 499,622-token one and from 3.9.0 both. Streamed, up to 256 tokens; the client times the first streamed token; correct when the reply lists all three.
 
 The heat waits of a prompt are read from rank 0's `heat_wait_s` lines between the request's start and end.
 
@@ -62,7 +62,7 @@ Forty requests back to back with no pause, not streamed. Each is one user messag
 
 ## Requests at once
 
-From 3.9.0, one launch at each TP size with the release's defaults, nothing else on the engine, in this order; the replies' rows are read for their times, and [validation](validation.md#requests-at-once) checks the replies:
+From 3.9.0, one launch at each TP size with the release's defaults (3.10.0's on Jammed XSFP4, with its `CHECKPOINT` line), nothing else on the engine, in this order; the replies' rows are read for their times, and [validation](validation.md#requests-at-once) checks the replies:
 
 - **Warm turns.** A chat of about 10,000 or 40,000 tokens with a fresh nonce, sent cold, then four turns that each add about 500, 1,500 or 3,000 tokens. The figure is the mean first token of the four turns.
 - **The same prompt sent again.** A chat of 12,800, 25,600 or at TP=2 80,000 lines of `alpha beta gamma delta` with one question, about 64K, 128K and 400K tokens, sent twice. The figure is the second reply's whole time, with `cached_tokens` near the prompt's length.
