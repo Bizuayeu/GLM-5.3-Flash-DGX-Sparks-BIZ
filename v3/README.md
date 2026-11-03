@@ -47,7 +47,7 @@ The steps, with what to check after each, are the [setup runbook](SETUP.md); thi
 python -m glm53_tf download --background
 python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
 
-# One host builds the image, the others load it; compare the image IDs (SETUP §3)
+# From the checkout root, one host builds the image and the others load it; compare the image IDs (SETUP §3)
 docker build -f v3/docker/Dockerfile -t glm53-tf3:3.10.0 .
 
 # Each host, from the checkout root (SETUP §4)

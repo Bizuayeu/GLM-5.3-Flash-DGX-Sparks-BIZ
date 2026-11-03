@@ -10,7 +10,7 @@
 
 ## 要約
 
-- **状況。** 3.10.0は2つ目のcheckpoint、[Jammed XSFP4](#checkpoint)を足します。rankのファイルの `CHECKPOINT` の1行で、XSFP4と同じ速さで配信します。modelはTP=2の各ホストで6.58 GiB軽く、その分は空いたまま残ります。TP=3ではrank 0で4.50 GiB軽く、KVのpoolが窓3本分のpageを取ります。受け入れの全検査を両TPで回しました（[基準値](docs/validation.ja.md#jammed-xsfp4)）。XSFP4は既定のままで、リリースのimageは各TPの1回の起動で3.9.0のdecode検査のhashと編集の返答を返しました。3.9.0はエンジンを上流1.2.1の上へ移し、TP=2でもTP=3と同じくモデルの上限の1,048,576 tokenの窓を開き、配信の既定をTPごとに決めました：TP=2は1人のagentの長い会話のために4本のstream、TP=3は複数の人の同時利用のために8本です（[配信の既定](#配信の既定)）。リリースのimageを、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動すると、TP=2とTP=3の各2回の起動で3.3.0のXSFP4のdecode検査のhashと編集の返答を、さらに同じNLLを返しました。同時の返答は同じ要求の単独の返答と同じで、1,035,295 tokenのpromptを含めて長い入力の合言葉はすべて見つかりました（[3.9.0の測定値](docs/measurements.ja.md#390)）。`mojibake` は、両TPで、temperature 0でもsampledでも、日本語と韓国語の答えに化けた文字を見つけませんでした（[マルチバイト出力](docs/validation.ja.md#マルチバイト出力)）。TP=3ではstop文字列の要求が上限まで走り、短いgreedyの返答が自分のhashを持ちます。どちらも[検証](docs/validation.ja.md#xsfp4)に書いた既知の振る舞いです。[検証](docs/validation.ja.md)の基準値は、2026-11-03の参照機での3.9.0の受け入れで、visionのtowerを読み込んで決めたもので、そのうちdecode検査のhash・編集の返答・NLLは3.3.0のものと同じです。[Jammed XSFP4の基準値](docs/validation.ja.md#jammed-xsfp4)は3.10.0のものです。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
+- **状況。** 3.10.0は2つ目のcheckpoint、[Jammed XSFP4](#checkpoint)を足します。rankのファイルの `CHECKPOINT` の1行で、XSFP4と同じ速さで配信します。modelはTP=2の各ホストで6.58 GiB軽く、その分は空いたまま残ります。TP=3ではrank 0で4.50 GiB軽く、KVのpoolが窓3本分のpageを取ります。受け入れの全検査を両TPで回しました（[基準値](docs/validation.ja.md#jammed-xsfp4)）。XSFP4は既定のままで、リリースのimageは各TPの1回の起動で3.9.0のdecode検査のhashと編集の返答を返しました。3.9.0はエンジンを上流1.2.1の上へ移し、TP=2でもTP=3と同じくモデルの上限の1,048,576 tokenの窓を開き、配信の既定をTPごとに決めました：TP=2は1人がagentと続ける長い会話のために4本のstream、TP=3は複数の人の同時利用のために8本です（[配信の既定](#配信の既定)）。リリースのimageを、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動すると、TP=2とTP=3の各2回の起動で3.3.0のXSFP4のdecode検査のhashと編集の返答を、さらに同じNLLを返しました。同時の返答は同じ要求の単独の返答と同じで、1,035,295 tokenのpromptを含めて長い入力の合言葉はすべて見つかりました（[3.9.0の測定値](docs/measurements.ja.md#390)）。`mojibake` は、両TPで、temperature 0でもsampledでも、日本語と韓国語の答えに化けた文字を見つけませんでした（[マルチバイト出力](docs/validation.ja.md#マルチバイト出力)）。TP=3ではstop文字列の要求が上限まで走り、短いgreedyの返答が自分のhashを持ちます。どちらも[検証](docs/validation.ja.md#xsfp4)に書いた既知の振る舞いです。[検証](docs/validation.ja.md)の基準値は、2026-11-03の参照機での3.9.0の受け入れで、visionのtowerを読み込んで決めたもので、そのうちdecode検査のhash・編集の返答・NLLは3.3.0のものと同じです。[Jammed XSFP4の基準値](docs/validation.ja.md#jammed-xsfp4)は3.10.0のものです。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
 - **何であるか。** XSFP4かJammed XSFP4を、TensorFoldのネイティブエンジンの固定したcommitで一つのOpenAI互換endpointとして配信するための、build手順・起動の台本・受け入れ検査です。2台なら直結のConnectX-7リンクでTP=2、3台ならswitchなしのリングでTP=3です。公開している測定値はMSI EdgeXpert（MS-C931）で取りました。Macでは、TensorFoldが自身のMLXの重みでGLM-5.3-Flashを配信します（[Macでは](../README.ja.md#macでは)）。
 - **反復性。** draftした応答はserialと同じで、起動は同じTPの前の起動のtoken idを出します。ネイティブエンジンのtokenはそれ自身のもので、2.x系のものではありません：kernelとBF16のKV cacheの丸めが違うので、二つの系列はtokenごとではなくteacher-forced NLLで比べます（[2.x系との違い](#2x系との違い)）。
 - **構造化出力とpromptのscore。** JSON schemaつきの `response_format`、`required` か名指しの関数の `tool_choice`（GLM自身のtoolのmarkupで書く）、`/v1/completions` の `prompt_logprobs` は、1.1.1からGLMのCUDAのエンジンで上流のTensorFold自身のものです。この系列のpull request #1016・#1017・#1018の後に上流が書きました（[API](#api)）。
@@ -47,7 +47,7 @@
 python -m glm53_tf download --background
 python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
 
-# 1台がimageをbuildし、他はそれを読み込む。image IDを比べる（SETUP §3）
+# checkoutの根で、1台がimageをbuildし、他はそれを読み込む。image IDを比べる（SETUP §3）
 docker build -f v3/docker/Dockerfile -t glm53-tf3:3.10.0 .
 
 # 各ホストで、checkoutのルートから（SETUP §4）
@@ -98,7 +98,7 @@ Jammed XSFP4はBF16への近さの一部をメモリと引き換えにします�
 
 ## 配信の既定
 
-TPで分かれるものは [`config/tp2.env`](config/tp2.env) と [`config/tp3.env`](config/tp3.env) が持ち、残りはそれを読む [`scripts/serve.sh`](scripts/serve.sh) が持ち、全rankで同じです。TP=2の既定は1人のagentの長い会話のため、TP=3の既定は複数の人の同時利用のためのものです。何と比べて選び、何が起きれば見直すかは[決定](docs/decisions.ja.md)にあります。
+TPで分かれるものは [`config/tp2.env`](config/tp2.env) と [`config/tp3.env`](config/tp3.env) が持ち、残りはそれを読む [`scripts/serve.sh`](scripts/serve.sh) が持ち、全rankで同じです。TP=2の既定は1人がagentと続ける長い会話のため、TP=3の既定は複数の人の同時利用のためのものです。何と比べて選び、何が起きれば見直すかは[決定](docs/decisions.ja.md)にあります。
 
 | 設定 | TP=2（2台） | TP=3（3台） |
 |---|---|---|
