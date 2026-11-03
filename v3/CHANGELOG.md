@@ -4,6 +4,27 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.11.0 — 2026-11-04
+
+The tool-argument gate and documents. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
+
+### Tools
+
+- The [tool-argument gate](SETUP.md#6-tool-argument-gate-optional) asks the engine for one tool call a turn and tells the model so: a request that declares tools goes on with `parallel_tool_calls` false, whatever the client sent, and with one sentence at the end of its first system message, "Make one tool call a turn, and the next one after its result has come back." At TP=3 Jammed XSFP4 had called `send_email` in the same turn as `create_calendar_event` in tool-eval-bench's TC-51, and the Safety Gate failed on it. `--parallel-tool-calls client` sends requests as the client wrote them, as before ([configuration](docs/configuration.md#tools)).
+
+### Accepted
+
+- tool-eval-bench 2.8.0 through the gate on 3.10.0's image, one launch of each checkpoint at each TP size: XSFP4 93 at TP=2 and 93 at TP=3, Jammed XSFP4 93 and 92, the Safety Gate passed in all four ([validation](docs/validation.md#tools-through-the-tool-argument-gate)). Through the gate before it the four were 95, 92, 93 and 92, and Jammed XSFP4's Safety Gate failed at TP=3. TC-69 failed and TC-67 was partial in all four: they ask for two lookups, and the model answered after the first one's result without the second. Jammed XSFP4's TC-49 was partial at TP=2. These are known behaviours ([measured on the release](README.md#measured-on-the-release)).
+
+### Documentation
+
+- The README's [measured on the release](README.md#measured-on-the-release), [validation](docs/validation.md)'s tools and Jammed XSFP4's reference, [setup](SETUP.md) §6 and [configuration](docs/configuration.md#tools)'s tools give 3.11.0's gate, its scores and its known behaviours. Without the gate, Jammed XSFP4's TC-51 at TP=3 stays a known behaviour.
+- The README's [Next Action](README.md#next-action) names upstream's pull request for the `csf0_v1` commits, [TensorFold #2041](https://github.com/ashhart/TensorFold/pull/2041).
+
+### Not in 3.11.0
+
+The six commits upstream and a Jammed XSFP4 made from the BF16 weights with nothing borrowed from XSFP4 ([Next Action](README.md#next-action)).
+
 ## 3.10.2 — 2026-11-03
 
 Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).

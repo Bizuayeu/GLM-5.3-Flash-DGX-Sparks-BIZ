@@ -6,6 +6,27 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.11.0 — 2026-11-04
+
+tool引数ゲートと文書の版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
+
+### Tools
+
+- [tool引数ゲート](SETUP.ja.md#6-tool引数ゲート任意)は、エンジンに1手番1つのtool callを求め、modelにもそう伝えます。toolを宣言した要求は、clientが何を送っても `parallel_tool_calls` をfalseにし、最初のsystem messageの末尾に「Make one tool call a turn, and the next one after its result has come back.」の1文を足して渡します。TP=3ではJammed XSFP4が、tool-eval-benchのTC-51で `create_calendar_event` と同じ手番に `send_email` を呼び、Safety Gateがそこで落ちていました。`--parallel-tool-calls client` は、これまでどおり要求をclientが書いたとおりに送ります（[設定](docs/configuration.ja.md#道具)）。
+
+### Accepted
+
+- 3.10.0のimageでゲート越しのtool-eval-bench 2.8.0、各checkpointの各TPで1回の起動：XSFP4はTP=2で93、TP=3で93、Jammed XSFP4は93と92で、Safety Gateは4つとも合格（[検証](docs/validation.ja.md#tool引数ゲート越しのtool)）。その前のゲート越しでは4つは95・92・93・92で、Jammed XSFP4のSafety GateはTP=3で落ちていました。TC-69は4つとも落ち、TC-67は4つとも部分点です。どちらも2つの調べ物を求め、modelは1つ目の結果の後に2つ目を呼ばずに答えました。TP=2のJammed XSFP4はTC-49も部分点でした。これらは既知の振る舞いです（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
+### Documentation
+
+- READMEの[リリースでの測定値](README.ja.md#リリースでの測定値)、[検証](docs/validation.ja.md)のtoolとJammed XSFP4の基準値、[手順書](SETUP.ja.md)§6、[設定](docs/configuration.ja.md#道具)の道具は、3.11.0のゲートとその点数、既知の振る舞いを書きます。ゲートなしでは、TP=3のJammed XSFP4のTC-51は既知の振る舞いのままです。
+- READMEの[Next Action](README.ja.md#next-action)は、`csf0_v1` のcommitの上流へのpull request、[TensorFold #2041](https://github.com/ashhart/TensorFold/pull/2041)を名指します。
+
+### Not in 3.11.0
+
+6つのcommitの上流への取り込みと、XSFP4から何も借りずBF16の重みから作ったJammed XSFP4（[Next Action](README.ja.md#next-action)）。
+
 ## 3.10.2 — 2026-11-03
 
 文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
