@@ -4,6 +4,21 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.10.1 — 2026-11-03
+
+Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
+
+### Documentation
+
+- The README's [measured on the release](README.md#measured-on-the-release) gives XSFP4 and Jammed XSFP4 in one table at each TP size: Jammed XSFP4's columns are 3.10.0's launches', and XSFP4's are 3.9.0's acceptance, as the column headers say. The README keeps the current release's part alone, so 3.9.0's part moves word for word to [measurements of earlier releases](docs/measurements.md#390).
+- [Configuration](docs/configuration.md) follows 3.10.0's engine and defaults: GLM on CUDA takes `--mtp-confidence` and refuses `--mtp-drafts`, or `--mtp-confidence` beside `--drafter`; `TF_KV_PAGES=off` needs an empty `TF_GLM_KV_SHARE=` beside it; the TP=3 prompt cache is the pool's pages; the TP=3 reserve's two windows are XSFP4's; the locks table names `config/jammed.lock.json`. The TP=3 examples' commented KV-pages line names the empty `TF_GLM_KV_SHARE=` too, and [setup](SETUP.md) §4 lists it.
+- The [benchmark method](docs/benchmarks.md) says how 3.10.0's launches were taken, and the [cheatsheet](docs/cheatsheet.md) gives the 1,035,295-token prompt's first token of 3.9.0 and 3.10.0 at both TP sizes.
+- The [licensing guide](../docs/licensing.md) and the repository README name Jammed XSFP4 beside XSFP4. The README's Japanese page has the person in TP=2's long conversation with an agent, and its Quick Start builds the image from the checkout root.
+
+### Not in 3.10.1
+
+The six commits upstream and a Jammed XSFP4 made from the BF16 weights with nothing borrowed from XSFP4 ([Next Action](README.md#next-action)).
+
 ## 3.10.0 — 2026-11-03
 
 Adds Jammed XSFP4, a checkpoint whose routed experts take 6.58 GiB less on each host at TP=2 and 4.50 GiB less on rank 0 at TP=3, where the KV pool takes a third window of pages, served by one `CHECKPOINT` line in the rank files. XSFP4 stays the default and gives 3.9.0's tokens. The engine's release branch gains the six commits that read the new form.

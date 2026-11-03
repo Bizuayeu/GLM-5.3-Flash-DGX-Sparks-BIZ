@@ -6,6 +6,21 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.10.1 — 2026-11-03
+
+文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
+
+### Documentation
+
+- READMEの[リリースでの測定値](README.ja.md#リリースでの測定値)は、XSFP4とJammed XSFP4を各TPで1枚の表に並べます。Jammed XSFP4の列は3.10.0の起動、XSFP4の列は3.9.0の受け入れのもので、列の見出しにそう書きました。READMEは今の版の項だけを持つので、3.9.0の項は[前の版の測定値](docs/measurements.ja.md#390)へ一字一句そのまま移しました。
+- [設定](docs/configuration.ja.md)を3.10.0のエンジンと既定に合わせました：CUDAのGLMは `--mtp-confidence` を受け、`--mtp-drafts` と、`--drafter` と一緒の `--mtp-confidence` を断ります。`TF_KV_PAGES=off` には空の `TF_GLM_KV_SHARE=` が要ります。TP=3のprompt cacheはpoolのpageの上にあります。TP=3のreserveの窓2本はXSFP4のものです。lockの表に `config/jammed.lock.json` を足しました。TP=3のexampleのKVのpageのコメント行も空の `TF_GLM_KV_SHARE=` を示し、[手順書](SETUP.ja.md)§4がそれを挙げます。
+- [ベンチマークの方法](docs/benchmarks.ja.md)は3.10.0の起動の取り方を書き、[チートシート](docs/cheatsheet.ja.md)は1,035,295 tokenのpromptの最初のtokenを、3.9.0と3.10.0の両TPの値で書きます。
+- [ライセンスの整理](../docs/licensing.ja.md)とリポジトリのREADMEは、XSFP4の横にJammed XSFP4を名指します。READMEの日本語の頁は、TP=2の長い会話を1人がagentと続けるものと書き、はじめ方はcheckoutの根でimageをbuildします。
+
+### Not in 3.10.1
+
+6つのcommitの上流への取り込みと、XSFP4から何も借りずBF16の重みから作ったJammed XSFP4（[Next Action](README.ja.md#next-action)）。
+
 ## 3.10.0 — 2026-11-03
 
 Jammed XSFP4を足します。routed expertがTP=2の各ホストで6.58 GiB、TP=3のrank 0で4.50 GiB少ないcheckpointで、rankのファイルの `CHECKPOINT` の1行で配信します。TP=3ではKVのpoolが窓3本分のpageを取ります。XSFP4は既定のままで、tokenは3.9.0と同じです。エンジンのrelease branchは、新しい形を読む6つのcommitを足します。
