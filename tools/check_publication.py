@@ -430,7 +430,7 @@ def project_problems(root, files):
 
 
 # The TensorFold lines' checks (2.x, 3.x): the files a line needs, its version, license
-# and model pin. 1.x has its own, above.
+# and model pins. 1.x has its own, above.
 TENSORFOLD_LINES = ("v2", "v3")
 LINE_REQUIRED = {
     "README.md",
@@ -441,24 +441,29 @@ LINE_REQUIRED = {
     "CHANGELOG.ja.md",
     "pyproject.toml",
 }
-# Each line's pin of its default checkpoint: 2.x NVIDIA's NVFP4 (as 1.x does), 3.x XSFP4
-# (from 3.6.0; Jammed XSFP4, a choice from 3.10.0, has a lock of its own, not read here).
-LINE_LOCK = {"v2": "config/model.lock.json", "v3": "config/xsfp4.lock.json"}
+# Each line's pins of the checkpoints it serves, a lock each: 2.x NVIDIA's NVFP4 (as 1.x
+# does), 3.x XSFP4 (from 3.6.0) and Jammed XSFP4 (from 3.10.0).
+LINE_LOCKS = {
+    "v2": ("config/model.lock.json",),
+    "v3": ("config/xsfp4.lock.json", "config/jammed.lock.json"),
+}
 
 
 def line_problems(line, root, files):
     """A TensorFold line's checks, on ``files`` named relative to its directory ``root``."""
-    pin = LINE_LOCK[line]
+    pins = LINE_LOCKS[line]
     problems = [
         f"missing required file: {line}/{name}"
-        for name in sorted((LINE_REQUIRED | {pin}) - files)
+        for name in sorted((LINE_REQUIRED | set(pins)) - files)
     ]
-    if pin in files:
+    for pin in pins:
+        if pin not in files:
+            continue
         lock = json.loads((root / pin).read_text(encoding="utf-8"))
         if not lock.get("model") or not re.fullmatch(
             r"[0-9a-f]{40}", str(lock.get("revision", ""))
         ):
-            problems.append(f"{line}: model and revision must be pinned")
+            problems.append(f"{line}: model and revision must be pinned in {pin}")
     if "pyproject.toml" in files:
         project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))[
             "project"

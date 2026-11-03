@@ -488,7 +488,9 @@ class Line2Tests(unittest.TestCase):
     def test_an_unpinned_revision_is_reported(self):
         lock = '{"model": "m", "revision": "main"}'
         found = self.check(**{"config/model.lock.json": lock})
-        self.assertIn("v2: model and revision must be pinned", found)
+        self.assertIn(
+            "v2: model and revision must be pinned in config/model.lock.json", found
+        )
 
     def test_version_license_and_changelog_sections(self):
         project = '[project]\nname = "x"\nversion = "2.0.6"\nlicense = "MIT"\n'
@@ -519,12 +521,17 @@ LINE3 = dict(
         "config/xsfp4.lock.json": '{"model": "Bizuayeu/GLM-5.3-Flash-XSFP4", "revision": "'
         + "b" * 40
         + '"}',
+        "config/jammed.lock.json": '{"model": "Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4", '
+        + '"revision": "'
+        + "c" * 40
+        + '"}',
     },
 )
 
 
 class Line3Tests(unittest.TestCase):
-    """3.x pins its default checkpoint, XSFP4, in its own lock (from 3.6.0)."""
+    """3.x pins each checkpoint it serves in a lock of its own: XSFP4 (from 3.6.0) and
+    Jammed XSFP4 (from 3.10.0)."""
 
     def check(self, **changes):
         with tempfile.TemporaryDirectory() as tmp:
@@ -540,10 +547,23 @@ class Line3Tests(unittest.TestCase):
         found = self.check(**{"config/xsfp4.lock.json": None})
         self.assertIn("missing required file: v3/config/xsfp4.lock.json", found)
 
+    def test_jammed_xsfp4s_lock_is_required_too(self):
+        found = self.check(**{"config/jammed.lock.json": None})
+        self.assertIn("missing required file: v3/config/jammed.lock.json", found)
+
     def test_an_unpinned_revision_is_reported(self):
         lock = '{"model": "m", "revision": "main"}'
         found = self.check(**{"config/xsfp4.lock.json": lock})
-        self.assertIn("v3: model and revision must be pinned", found)
+        self.assertIn(
+            "v3: model and revision must be pinned in config/xsfp4.lock.json", found
+        )
+
+    def test_an_unpinned_jammed_xsfp4_revision_is_reported(self):
+        lock = '{"model": "m", "revision": "0a22bb4"}'
+        found = self.check(**{"config/jammed.lock.json": lock})
+        self.assertEqual(
+            found, ["v3: model and revision must be pinned in config/jammed.lock.json"]
+        )
 
 
 class DuplicateNumberTests(unittest.TestCase):
