@@ -6,7 +6,7 @@
 
 ## XSFP4とFP4-Localの形式をそのまま
 
-エンジンは、pull request #1050のcode（1.1.5から上流自身のもの。それより前の上流のリリースがGLMに受けたのは、NVIDIAのNVFP4のrecipe（`modelopt-nvfp4`）だけ）で、NVIDIAのGLM-5.3-Flash-FP4-Localとその派生のXSFP4を、保存された形のまま読みます。XSFP4は `serve.sh` の既定なので、何も設定しません。FP4-Local自身（道具はdownloadしない）や別のfolderは、全rankのファイルの `CHECKPOINT` で、受け入れの外です（[checkpoint](../README.ja.md#checkpoint)）：
+エンジンは、pull request #1050のcode（1.1.5から上流自身のもの。それより前の上流のリリースがGLMに受けたのは、NVIDIAのNVFP4のrecipe（`modelopt-nvfp4`）だけ）で、NVIDIAのGLM-5.3-Flash-FP4-Localとその派生のXSFP4を、保存された形のまま読みます。XSFP4は `serve.sh` の既定なので、何も設定しません。Jammed XSFP4は全rankのファイルの `CHECKPOINT` の1行で（[手順2](../SETUP.ja.md#2-checkoutとcheckpoint)）、その `csf0_v1` の形には3.10.0からのこの系列のエンジンが要ります。FP4-Local自身（道具はdownloadしない）や別のfolderは、全rankのファイルの `CHECKPOINT` で、受け入れの外です（[checkpoint](../README.ja.md#checkpoint)）：
 
 ```sh
 CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-FP4-Local/snapshots/<revision>

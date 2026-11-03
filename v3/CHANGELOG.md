@@ -4,6 +4,35 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.10.0 — 2026-11-03
+
+Adds Jammed XSFP4, a checkpoint whose routed experts take 6.58 GiB less on each host at TP=2 and 4.50 GiB less on rank 0 at TP=3, where the KV pool takes a third window of pages, served by one `CHECKPOINT` line in the rank files. XSFP4 stays the default and gives 3.9.0's tokens. The engine's release branch gains the six commits that read the new form.
+
+### Checkpoint
+
+- [Jammed XSFP4](README.md#checkpoints), `Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4` at the revision in [`config/jammed.lock.json`](config/jammed.lock.json): the routed experts of layers 3 to 44 fitted again at a block scale every 32 inputs, with XSFP4's smoothing, and those scales held as one base a row and a 4-bit offset a block (`csf0_v1`), in the file as on the GPU. The MTP layer's experts are FP4-Local's.
+- `download` and `verify-download` take `--checkpoint jammed`, with the status under `state/jammed`, and `serve.sh` serves the folder `CHECKPOINT` names. Nothing else changes ([setup §2](SETUP.md#2-checkout-and-checkpoint)).
+- At TP=2 what it frees stays free: rank 0 keeps 14.16 GiB after load against XSFP4's 8.33. At TP=3 the same 14 GiB reserve leaves room for a third window of pages, 6,147 (38.27 GiB) against 4,098, and rank 0 keeps 12.15 GiB against 20.69.
+- Its replies are its own, so it has reference values of its own ([validation](docs/validation.md#jammed-xsfp4)). At TP=3 tool-eval-bench's Safety Gate fails on TC-51, and its decode check's `count` is slower than XSFP4's: known behaviours ([measured on the release](README.md#measured-on-the-release)). Only this line's engine reads the form ([limits](README.md#limits)).
+
+### Engine
+
+- The fork's branch `release/3.10.0` (`a9642aef`) is upstream v1.2.1 (`1db3edbe`) with six commits of this line's: the form, its packer, five kernels and the loader's path to them. A checkpoint without `csf0_v1` takes upstream's path as it was. On a GB10 the five kernels pass all four gates of upstream's kernel contract, and the commits go to upstream next.
+- `config/engine.lock.json` and the Dockerfile's `ENGINE_REF` pin that commit.
+
+### Documentation
+
+- The README's [checkpoints](README.md#checkpoints), [limits](README.md#limits) and [measured on the release](README.md#measured-on-the-release), [validation](docs/validation.md#jammed-xsfp4), [decisions](docs/decisions.md#checkpoint), [configuration](docs/configuration.md), the [cheatsheet](docs/cheatsheet.md) and the setup runbook name Jammed XSFP4. XSFP4's reference values stay 3.9.0's.
+- The commands in the README, setup and operations build and name `glm53-tf3:3.10.0`.
+
+### Accepted
+
+On the reference hosts on 2026-11-03, with the release image (`glm53-tf3:3.10.0`) started by its own `serve.sh` and `cluster.sh` and every container on the efficiency cores: with no `CHECKPOINT` or `CONTEXT` in the rank files a launch at each TP size gave 3.9.0's XSFP4 decode-check hashes and `bench --kinds edit` reply. With Jammed XSFP4's `CHECKPOINT` line and nothing else in the rank files, two launches at each TP size repeated their hashes and reply, and the first found all the passphrases of the 199,307, 499,254 and 1,035,295-token prompts. With `PARALLEL=` empty the engine took 8 streams at TP=2 and 8 at TP=3, each giving the count hash. At one stream and four, and eight at TP=3, 20 replies at TP=2 and 52 at TP=3 equalled the same request alone. tool-eval-bench 2.8.0 gave 93 at TP=2 and 92 at TP=3 through the gate and 92 and 91 without it, the Safety Gate passed at TP=2 and failed at TP=3 on TC-51 (a known behaviour), and `mojibake` found no broken character ([measured on the release](README.md#measured-on-the-release)).
+
+### Not in 3.10.0
+
+The six commits upstream and a Jammed XSFP4 made from the BF16 weights with nothing borrowed from XSFP4 ([Next Action](README.md#next-action)). The serving defaults are 3.9.0's.
+
 ## 3.9.0 — 2026-11-03
 
 The engine moves onto upstream TensorFold 1.2.1 itself, TP=2 opens the model's whole 1,048,576-token window, as TP=3 does, and the serving defaults are set by TP size: TP=2 for one person's long conversation with an agent, TP=3 for several people at once. Four streams at TP=2 and eight at TP=3 share the KV pool, and kept prompts stay on the pool's pages. The documents' measured values are 3.9.0's acceptance's.

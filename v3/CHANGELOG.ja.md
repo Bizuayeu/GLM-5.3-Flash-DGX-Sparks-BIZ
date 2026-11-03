@@ -6,6 +6,35 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.10.0 — 2026-11-03
+
+Jammed XSFP4を足します。routed expertがTP=2の各ホストで6.58 GiB、TP=3のrank 0で4.50 GiB少ないcheckpointで、rankのファイルの `CHECKPOINT` の1行で配信します。TP=3ではKVのpoolが窓3本分のpageを取ります。XSFP4は既定のままで、tokenは3.9.0と同じです。エンジンのrelease branchは、新しい形を読む6つのcommitを足します。
+
+### Checkpoint
+
+- [Jammed XSFP4](README.ja.md#checkpoint)、`Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4` を [`config/jammed.lock.json`](config/jammed.lock.json) のrevisionで：3〜44層のrouted expertを、XSFP4の平滑化のまま入力32個ごとのblockのスケールで合わせ直し、そのスケールを行に1つのbaseとblockごとの4 bitのoffset（`csf0_v1`）で、fileでもGPUでも同じ形で持ちます。MTP層のexpertはFP4-Localのものです。
+- `download` と `verify-download` は `--checkpoint jammed` を受け、状況を `state/jammed` に置きます。`serve.sh` は `CHECKPOINT` が名指すfolderを配信します。他は変わりません（[手順2](SETUP.ja.md#2-checkoutとcheckpoint)）。
+- TP=2では空いた分が空いたまま残ります：読み込みの後のrank 0の空きは14.16 GiBで、XSFP4は8.33 GiBです。TP=3では同じ14 GiBのreserveの下で窓3本分のpage、6,147（38.27 GiB、XSFP4は4,098）を取り、rank 0の空きは12.15 GiB、XSFP4は20.69 GiBです。
+- 返答はこのcheckpointのものなので、自分の基準値を持ちます（[検証](docs/validation.ja.md#jammed-xsfp4)）。TP=3でtool-eval-benchのSafety GateがTC-51で落ちることと、decode検査の `count` がXSFP4より遅いことは既知の振る舞いです（[リリースでの測定値](README.ja.md#リリースでの測定値)）。この形を読むのはこの系列のエンジンだけです（[制限](README.ja.md#制限)）。
+
+### Engine
+
+- forkのbranch `release/3.10.0`（`a9642aef`）は、上流v1.2.1（`1db3edbe`）にこの系列の6つのcommitを足したものです：形、そのpacker、5つのkernel、loaderからの道です。`csf0_v1` を持たないcheckpointは上流の道をそのまま通ります。GB10で5つのkernelは上流のkernel contractの4つのgateを全部通り、これらのcommitは次に上流へ出します。
+- `config/engine.lock.json` とDockerfileの `ENGINE_REF` はそのcommitを固定します。
+
+### Documentation
+
+- READMEの[checkpoint](README.ja.md#checkpoint)・[制限](README.ja.md#制限)・[リリースでの測定値](README.ja.md#リリースでの測定値)、[検証](docs/validation.ja.md#jammed-xsfp4)、[決定](docs/decisions.ja.md#checkpoint)、[設定](docs/configuration.ja.md)、[チートシート](docs/cheatsheet.ja.md)、手順書がJammed XSFP4を挙げます。XSFP4の基準値は3.9.0のままです。
+- README・手順書・運用のコマンドは `glm53-tf3:3.10.0` をbuildして名指します。
+
+### Accepted
+
+2026-11-03に参照機で、リリースのimage（`glm53-tf3:3.10.0`）をそれ自身の `serve.sh` と `cluster.sh` で、全containerを効率coreに置いて起動しました：rankのファイルに `CHECKPOINT` も `CONTEXT` も書かない各TPの1回の起動は、3.9.0のXSFP4のdecode検査のhashと `bench --kinds edit` の返答を返しました。Jammed XSFP4の `CHECKPOINT` の1行だけを足すと、各TPの2回の起動はhashと返答を繰り返し、1回目は199,307・499,254・1,035,295 tokenのpromptの合言葉を全部見つけました。`PARALLEL=` を空にすると、エンジンはTP=2で8本、TP=3で8本のstreamを取り、どれもcountのhashを返しました。1本と4本、TP=3では8本も、TP=2で20本、TP=3で52本の返答が同じ要求の単独の返答と同じでした。tool-eval-bench 2.8.0は、ゲート越しでTP=2が93・TP=3が92、ゲートなしで92と91で、Safety GateはTP=2で合格し、TP=3でTC-51で落ちました（既知の振る舞い）。`mojibake` は化けた文字を見つけませんでした（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
+### Not in 3.10.0
+
+6つのcommitの上流への取り込みと、XSFP4から何も借りずBF16の重みから作ったJammed XSFP4（[Next Action](README.ja.md#next-action)）。配信の既定は3.9.0のままです。
+
 ## 3.9.0 — 2026-11-03
 
 エンジンを上流のTensorFold 1.2.1そのものの上へ移し、TP=2もTP=3と同じくモデルの上限の1,048,576 tokenの窓を開き、配信の既定をTPごとに決めます：TP=2は1人のagentの長い会話のため、TP=3は複数の人の同時利用のためです。TP=2で4本、TP=3で8本のstreamがKVのpoolを分け合い、保持するpromptはpoolのpageに残ります。文書の測定値は3.9.0の受け入れのものです。

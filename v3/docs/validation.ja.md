@@ -2,7 +2,7 @@
 
 [English](validation.md) · [3.x系の概要](../README.ja.md) · [配備の手順書](../SETUP.ja.md) · [ベンチマークの方法](benchmarks.ja.md)
 
-3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値は、3.x系が配信するcheckpointであるXSFP4（[checkpoint](../README.ja.md#checkpoint)）でのネイティブエンジン自身のもので、参照機で、そのリリースの既定（`serve.sh`、3.9.0からは `config/tp*.env` も）、全containerを効率coreにして測りました。decode検査のhash・編集の返答・NLLは、2026-10-22の3.3.0の受け入れで、tiledのBF16のlinearが両TPで回る上流1.1.2（issue #1067）の上で決め、3.4.0・3.6.0・3.8.0・3.9.0のリリースのimageは両TPで、3.5.0のものはTP=2で、同じ値を出しました。他の基準値は、2026-11-03の上流1.2.1の上での3.9.0の受け入れのものです。3.3.0まで既定で3.5.x系まで選べたNVIDIAのNVFP4は自分の基準値を持ち、それはそれらのリリースのtagと[変更履歴](../CHANGELOG.ja.md)に残ります。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
+3.x系の起動を何で受け入れるかを、回す順に基準値と一緒に並べます。基準値は、3.x系の既定のcheckpointであるXSFP4（[checkpoint](../README.ja.md#checkpoint)）でのネイティブエンジン自身のもので、参照機で、そのリリースの既定（`serve.sh`、3.9.0からは `config/tp*.env` も）、全containerを効率coreにして測りました。decode検査のhash・編集の返答・NLLは、2026-10-22の3.3.0の受け入れで、tiledのBF16のlinearが両TPで回る上流1.1.2（issue #1067）の上で決め、3.4.0・3.6.0・3.8.0・3.9.0のリリースのimageは両TPで、3.5.0のものはTP=2で、同じ値を出しました。3.10.0のものは両TPでhashと編集の返答を同じにしました。他の基準値は、2026-11-03の上流1.2.1の上での3.9.0の受け入れのものです。3.10.0から選べるJammed XSFP4は自分の基準値を持ちます（[Jammed XSFP4](#jammed-xsfp4)）。3.3.0まで既定で3.5.x系まで選べたNVIDIAのNVFP4は自分の基準値を持ち、それはそれらのリリースのtagと[変更履歴](../CHANGELOG.ja.md)に残ります。2.x系の基準は当てはまりません：ネイティブエンジンのkernelとBF16のKV cacheは別のtokenを出すので、二つの系列はteacher-forced NLLで比べ、2.x系の値はここでは参考としてだけ載せます。これらと比べてどのimageを受け入れたかはREADMEの[状況](../README.ja.md#要約)にあります。違う結果は日常の利用の前に説明すべき所見で、基準を置き換える値ではありません。
 
 検査は、何が繰り返されるかの上に立ちます。一つの起動の中では、同じ要求はdraftの有無（`"draft": false`）によらず同じtokenを出し、prompt cacheから再開したpromptは新しいものと同じtokenを出します。起動は、同じTPとbuildの前の起動のtoken idを出します。TP=2とTP=3は設計上違い、和の取り方が違うkernel、例えばtiledのkernelに対するglueのkernel（`TF_GLM_MM`）も違います。同じcommitを別のホストでbuildすると、同じように答えながらSHA-256の違うbinaryになることがあるので、二つのbuildを見分けるのはhashではなくdecode検査です（[手順書 §3](../SETUP.ja.md#3-image)）。同時の要求は、同じ要求を単独で送った時と同じtokenを出します（[同時の要求](#同時の要求)）。数を数える返答で一つの数を二度書くのは、生成とpromptが分かれる既知の場所です（[3.3.0の測定値](measurements.ja.md#330)）。
 
@@ -160,3 +160,26 @@ python3 tools/bench_concurrent.py http://127.0.0.1:8095 glm-tf --tokens 256 --re
 `PARALLEL=` を空にすると、エンジンはKVのpageの上でTP=2で8本、TP=3で8本のstreamを取り、どれもそのTPのcountのhashを出しました。rank 0の `kv pool idle` の行はどれも合っていました：約束されたpageは0で、空きのpageとprompt cacheのpageでpoolの全部です。cacheがpageを持つ間、エンジンはこの行に ` (UNEVEN)` と付けます。draftした応答はserialと同じでした（絵を含む要求も）。H.264とVP9の動画はdraftしても `"draft": false` でも同じ応答で、GIFとaudioの部分は400で断られました。TP=2では熱で待った要求はありませんでした。TP=3でもありませんでした。
 
 **TP=3の既知の振る舞い。** [応答を止める](#応答を止める)のstop文字列の要求は、4,000 tokenの上限まで走ります：数え上げが300の前で繰り返しに入るためで、上流1.1.1でも1.1.5でも1.2.1でも同じでした（切った応答と切ったpromptは合格）。[promptのscoreと構造化出力](#promptのscoreと構造化出力)のscoreもgrammarも無い要求は、NVIDIAのNVFP4が「… pronounced」で終わったのに対して「 Paris. In French, Paris is spelled」で終わり、そのhashは上の値です。どちらも既知の振る舞いで（[3.3.0の測定値](measurements.ja.md#330)）、受け入れを止める理由にはしません。
+
+## Jammed XSFP4
+
+上の検査は、[Jammed XSFP4](../README.ja.md#checkpoint)の起動を次の値と比べて受け入れます。2026-11-03の3.10.0の受け入れの値で、上流1.2.1に `csf0_v1` の6つのcommitを足したエンジンで、rankのファイルにその `CHECKPOINT` の1行だけを足しました。blockのスケールが粗いのでdecode検査の返答はこのcheckpointのものになり、XSFP4のdecode検査のhashは当てはまりません。`bench --kinds edit` は両TPでXSFP4と同じ返答でした。`score-nll` には自身の `tokenizer.json`（XSFP4のものとbyteまで同じ）を渡します。hashは各TPの2回目の起動でも保たれ、countは、各TPで `PARALLEL=` を空にした起動でも保たれました。
+
+| 検査 | TP=2 | TP=3 |
+|---|---|---|
+| countの `completion_sha256` / `token_sha256` | `6cf5efdd958836e2` / `ae95484b0c712062` | `162a62fc4ce62ab1` / `3c7d03a70550394a` |
+| proseの `completion_sha256` / `token_sha256` | `508d5733a7b2b8db` / `315eaea6c98bebd0` | `3a33bb0d52620e52` / `7b36abfa998ada94` |
+| codeの `completion_sha256` / `token_sha256` | `a07c4ea6a01415b5` / `461c6e99e77f3069` | `5422385c56407b6c` / `71da6274bad5c9be` |
+| 受理長、count / prose / code | 2.808 / 1.889 / 2.937 | 2.792 / 2.020 / 3.042 |
+| `bench --kinds edit`：`token_sha256`、round | `c419bce559d86b66`, 190 | `c419bce559d86b66`, 189 |
+| NLL、日本語 / 英語 / code / math | 2.5349 / 2.9247 / 1.3125 / 0.6235 | 2.5320 / 2.9090 / 1.3107 / 0.6249 |
+| prefill / decode（tok/s） | 1,437.8 / 53.31 | 1,682.5 / 68.55 |
+| 長い入力、199,307 token（秒） / 499,254と1,035,295 token、最初のtoken（秒）、合言葉はすべて見つかる | 144.5 / 389.0, 911.0 | 122.3 / 327.1, 758.1 |
+| scoreもgrammarも無い要求：`token_sha256` | `09a15f0582e7…` | `09a15f0582e7…` |
+| tool-eval-bench 2.8.0、ゲート越し / ゲートなし | 93 / 92 | 92 / 91 |
+| 40の返答（秒） | 1,269.3 | 951.7 |
+| 同じ要求の単独の返答と同じ返答 | 20 | 52 |
+| 最低の `MemAvailable`、rankごと（GiB） | 13 / 14 | 11 / 12 / 16 |
+| 起動の中の最も熱いzone、rankごと（°C） | 87.6 / 88.8 | 90.5 / 88.8 / 88.9 |
+
+draftした応答はserialと同じでした（絵を含む要求も）。化けた文字のある返答はありません。stop文字列の要求は両TPで299で止まり、`finish_reason` は `stop` でした。TP=3でSafety GateがTC-51で落ちることと、decode検査の `count` がXSFP4より遅いことは[既知の振る舞い](../README.ja.md#リリースでの測定値)です。メモリの見張りと熱の見張りに止められた要求はありません。

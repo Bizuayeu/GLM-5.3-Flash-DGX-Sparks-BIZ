@@ -45,7 +45,7 @@
 
 本プロジェクトはこの規則を一度適用しました。基準の2台が配信するattentionと `lm_head` のW4A16再パックを[Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-NVFP4-attn-lmhead-W4A16)としてMITで公開し、NVIDIAのモデルカードを `README.nvidia.md` として同梱、Z.AIの通知を参照し、元のrevision・toolのcommit・targetをカードと `config.json` に記録、学習データは足していません（weight-onlyの変換）。変換toolのApache-2.0はtoolに掛かり、重みには及びません。
 
-NVIDIA Open Model Agreementの規則も一度適用しました：3.x系が3.3.0から配信し、3.4.0から既定に、3.6.0から唯一のcheckpointにした[Bizuayeu/GLM-5.3-Flash-XSFP4](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)は、[nvidia/GLM-5.3-Flash-FP4-Local](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)のDerivative Workで、routed expertとMTPのexpertをZ.AIのBF16の重みから量子化し直したものです。そのrepositoryは契約の全文を `LICENSE` に、契約の文言を書いた `NOTICE`、NVIDIAのモデルカードを `README.nvidia.md` として持ち、カードに元のrevision・量子化し直したもの・較正のデータ（配布しない）・Z.AIのMIT通知を記載しています。名前にNVIDIAのものを使うのは出所を示すためだけです。
+NVIDIA Open Model Agreementの規則も一度適用しました：3.x系が3.3.0から配信し、3.4.0から既定にした[Bizuayeu/GLM-5.3-Flash-XSFP4](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)は、[nvidia/GLM-5.3-Flash-FP4-Local](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)のDerivative Workで、routed expertとMTPのexpertをZ.AIのBF16の重みから量子化し直したものです。そのrepositoryは契約の全文を `LICENSE` に、契約の文言を書いた `NOTICE`、NVIDIAのモデルカードを `README.nvidia.md` として持ち、カードに元のrevision・量子化し直したもの・較正のデータ（配布しない）・Z.AIのMIT通知を記載しています。名前にNVIDIAのものを使うのは出所を示すためだけです。3.10.0から選べる[Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4)は同じモデルのDerivative Workで、routed expertを同じBF16の重みから量子化し直したものです。そのrepositoryも同じfileを持ちます。
 
 ## LPA projector
 

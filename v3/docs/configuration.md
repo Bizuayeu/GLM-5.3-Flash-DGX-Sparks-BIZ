@@ -39,7 +39,7 @@ Every setting a 3.x deployment reads: where it is set, its default, what it does
 | `MODEL_NAME`, `HOST`, `PORT` | `glm-tf`, `127.0.0.1`, `8095` | rank 0's model id and listener (`--name`, `--host`, `--port`) | rank 0 |
 | `REASONING_EFFORT` | `high` | the effort for a request that names none (`--reasoning-effort`): `low`, `medium`, `high` or `xhigh`, and another value, `max` among them, stops every rank at start; an empty value passes none and leaves it to the chat template. A request itself may name `none`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max` | rank 0 |
 | `API_KEY_FILE` | none | rank 0's key file for serving beyond loopback (`--api-key-file`, [API keys](#api-keys)) | rank 0 |
-| `CHECKPOINT` | XSFP4's snapshot at its lock's revision under `/hub` | the checkpoint folder inside the container; 3.x accepts XSFP4 alone ([checkpoints](../README.md#checkpoints)) | the same; compared at start, by its digest |
+| `CHECKPOINT` | XSFP4's snapshot at its lock's revision under `/hub` | the checkpoint folder inside the container; 3.x accepts XSFP4 and Jammed XSFP4, the latter by this line in every rank file with the revision in `config/jammed.lock.json` ([checkpoints](../README.md#checkpoints)) | the same; compared at start, by its digest |
 | `TF_HEAT_HIGH`, `TF_HEAT_LOW` | `92`, `88` (°C) | the prefill heat wait's band ([compared across the ranks](#compared-across-the-ranks)); `serve.sh` unsets an empty one, and the engine refuses one without the other, so empty both for no wait | the same; compared at start |
 | any other variable | none | exported to the engine: the [engine environment](#engine-environment) (`TF_GLM_*`, `TF_ROCE*` and the rest) and the [NCCL settings](#nccl) | as each says |
 
@@ -219,8 +219,8 @@ The commands of `python -m glm53_tf`, run from `v3/`; what each check does is in
 
 | Command | Options (default) | Environment |
 |---|---|---|
-| `download` | `--background` (Linux; its log and status under `state/xsfp4/`), `--checkpoint` (`xsfp4`, the only choice) | sets `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` and `HF_HUB_DOWNLOAD_TIMEOUT=120` when unset, and reads Hugging Face's own variables; a cache moved with `HF_HUB_CACHE` needs `create_container.sh`'s `HF_HUB` there too |
-| `verify-download` | `--hf` (the `hf` client) and `--output`, required; `--wait` (polls every 30 s; exits 2 while the download is paused); `--checkpoint` (`xsfp4`) | none |
+| `download` | `--background` (Linux; its log and status under `state/<checkpoint>/`), `--checkpoint` (`xsfp4`, the default, or `jammed`) | sets `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` and `HF_HUB_DOWNLOAD_TIMEOUT=120` when unset, and reads Hugging Face's own variables; a cache moved with `HF_HUB_CACHE` needs `create_container.sh`'s `HF_HUB` there too |
+| `verify-download` | `--hf` (the `hf` client) and `--output`, required; `--wait` (polls every 30 s; exits 2 while the download is paused); `--checkpoint` (`xsfp4`, `jammed`) | none |
 | `tool-gate` | `--port` (8896), `--upstream` (`http://127.0.0.1:8095`, an HTTP origin on loopback only), `--log` (stderr), `--timeout` (2400 s a call to the engine) | listens on 127.0.0.1 only, refuses a request body over 64 MiB with 413 and passes a request's key on |
 | `decode-check` | none | `BASE` (`http://127.0.0.1:8095`), `MODEL` (`glm-tf`), `PROMPT_KIND` (`count`, `prose` or `code`), `SAMPLES` (3), `MAX_TOKENS` (512), `PROMPT_TOKENS` (2048), `TOKENS_OUT` (a file for the completions), `TENSORFOLD_API_KEY` |
 | `decode-divergence` | two `TOKENS_OUT` files | none |

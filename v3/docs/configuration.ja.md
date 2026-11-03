@@ -39,7 +39,7 @@
 | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け（`--name`・`--host`・`--port`） | rank 0 |
 | `REASONING_EFFORT` | `high` | effortを指定しない要求のeffort（`--reasoning-effort`）：`low`・`medium`・`high`・`xhigh`。他の値は `max` も含めて起動時に全rankを止める。空の値は何も渡さず、chat templateに任せる。要求そのものは `none`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max` を指定できる | rank 0 |
 | `API_KEY_FILE` | なし | loopbackの外で配信するときのrank 0のkeyのファイル（`--api-key-file`、[APIのkey](#apiのkey)） | rank 0 |
-| `CHECKPOINT` | `/hub` の下のXSFP4のsnapshot（lockのrevision） | container内のcheckpointのfolder。3.x系が受け入れるのはXSFP4だけ（[checkpoint](../README.ja.md#checkpoint)） | 同じ。起動時にdigestで比べる |
+| `CHECKPOINT` | `/hub` の下のXSFP4のsnapshot（lockのrevision） | container内のcheckpointのfolder。3.x系が受け入れるのはXSFP4とJammed XSFP4で、後者は `config/jammed.lock.json` のrevisionでこの行を全rankのファイルに書く（[checkpoint](../README.ja.md#checkpoint)） | 同じ。起動時にdigestで比べる |
 | `TF_HEAT_HIGH`・`TF_HEAT_LOW` | `92`・`88`（°C） | prefillの熱の待ちの帯（[rankの間で比べるもの](#rankの間で比べるもの)）。`serve.sh` は空のものをunsetし、エンジンは片方だけを断るので、待たないときは両方を空にする | 同じ。起動時に比べる |
 | 他の変数 | なし | エンジンにexportされる：[エンジンの環境変数](#エンジンの環境変数)（`TF_GLM_*`・`TF_ROCE*` など）と[NCCLの設定](#nccl) | それぞれによる |
 
@@ -219,8 +219,8 @@ rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serv
 
 | コマンド | option（既定） | 環境 |
 |---|---|---|
-| `download` | `--background`（Linux。logと状態は `state/xsfp4/` の下）、`--checkpoint`（`xsfp4`、唯一の選択） | 無ければ `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` と `HF_HUB_DOWNLOAD_TIMEOUT=120` を設定し、Hugging Face自身の変数を読む。`HF_HUB_CACHE` でcacheを動かしたら、`create_container.sh` の `HF_HUB` もそこへ |
-| `verify-download` | `--hf`（`hf` のclient）と `--output` は必須。`--wait`（30秒ごとに見る。downloadが一時停止の間は2で終わる）、`--checkpoint`（`xsfp4`） | なし |
+| `download` | `--background`（Linux。logと状態は `state/<checkpoint>/` の下）、`--checkpoint`（既定の `xsfp4` か `jammed`） | 無ければ `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` と `HF_HUB_DOWNLOAD_TIMEOUT=120` を設定し、Hugging Face自身の変数を読む。`HF_HUB_CACHE` でcacheを動かしたら、`create_container.sh` の `HF_HUB` もそこへ |
+| `verify-download` | `--hf`（`hf` のclient）と `--output` は必須。`--wait`（30秒ごとに見る。downloadが一時停止の間は2で終わる）、`--checkpoint`（`xsfp4`、`jammed`） | なし |
 | `tool-gate` | `--port`（8896）、`--upstream`（`http://127.0.0.1:8095`、loopbackのHTTPのoriginだけ）、`--log`（stderr）、`--timeout`（エンジンへの1回の呼び出しに2400秒） | 127.0.0.1でだけ待ち受け、64 MiBを越える要求の本文は413で断り、要求のkeyはそのまま渡す |
 | `decode-check` | なし | `BASE`（`http://127.0.0.1:8095`）、`MODEL`（`glm-tf`）、`PROMPT_KIND`（`count`・`prose`・`code`）、`SAMPLES`（3）、`MAX_TOKENS`（512）、`PROMPT_TOKENS`（2048）、`TOKENS_OUT`（completionを書くファイル）、`TENSORFOLD_API_KEY` |
 | `decode-divergence` | 2つの `TOKENS_OUT` のファイル | なし |
