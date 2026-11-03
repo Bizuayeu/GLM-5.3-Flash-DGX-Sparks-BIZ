@@ -1,3 +1,4 @@
+import contextlib
 import importlib.util
 import io
 import json
@@ -10,9 +11,35 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from glm53_tf import config, download
+from glm53_tf import config, download, verify_download
 
 LINE = Path(__file__).resolve().parents[1]
+
+
+class FreeLock:
+    """Stands in for filelock's FileLock where filelock is not installed: always free."""
+
+    def __init__(self, path, timeout=-1):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+# The background start takes download.lock. The job needs filelock; these tests start no
+# job, so where it is not installed a lock that is always free stands in for it.
+FILELOCK = (
+    {}
+    if importlib.util.find_spec("filelock")
+    else {
+        "filelock": SimpleNamespace(
+            FileLock=FreeLock, Timeout=type("Timeout", (Exception,), {})
+        )
+    }
+)
 
 
 class BackgroundTests(unittest.TestCase):
@@ -23,6 +50,7 @@ class BackgroundTests(unittest.TestCase):
                 patch.object(download, "STATE", Path(tmp)),
                 patch.object(download, "os", posix),
                 patch.object(download.subprocess, "Popen") as popen,
+                patch.dict(sys.modules, FILELOCK),
                 redirect_stdout(io.StringIO()),
             ):
                 popen.return_value.pid = 1
@@ -46,6 +74,109 @@ class BackgroundTests(unittest.TestCase):
         popen, logs = self.background("--checkpoint", "axl")
         self.assertEqual(logs, ["axl/download.log"])
         self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "axl"])
+
+
+class Waiting(Exception):
+    """verify-download went to sleep: it is waiting for the download."""
+
+
+class BackgroundStatusTests(unittest.TestCase):
+    """The start writes the job's status before it returns (from 2.9.5), so a
+    verify-download run right after it finds this job's status rather than none or the
+    last job's."""
+
+    @contextlib.contextmanager
+    def folder(self, which="pinned"):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "state"
+            model, revision, folder = config.checkpoint(which, root)
+            folder.mkdir(parents=True)
+            posix = SimpleNamespace(name="posix", environ=os.environ)
+            with (
+                patch.object(download, "STATE", root),
+                patch.object(verify_download, "STATE", root),
+                patch.object(download, "os", posix),
+                patch.object(download.subprocess, "Popen") as popen,
+                patch.dict(sys.modules, FILELOCK),
+                redirect_stdout(io.StringIO()),
+            ):
+                popen.return_value.pid = 1
+                yield SimpleNamespace(
+                    model=model, revision=revision, folder=folder, popen=popen, tmp=tmp
+                )
+
+    def status(self, folder):
+        return json.loads((folder / download.STATUS_FILE).read_text("utf-8"))
+
+    def write_status(self, folder, **status):
+        (folder / download.STATUS_FILE).write_text(json.dumps(status), "utf-8")
+
+    def test_the_jobs_status_is_written_before_the_start_returns(self):
+        for which in config.CHECKPOINTS:
+            with self.subTest(checkpoint=which), self.folder(which) as job:
+                download.main(["--background", "--checkpoint", which])
+                status = self.status(job.folder)
+                self.assertEqual(
+                    (status["model"], status["revision"], status["status"]),
+                    (job.model, job.revision, "downloading"),
+                )
+
+    def test_verify_download_right_after_the_start_waits_for_the_job(self):
+        # The setup runs the two commands one after the other; before 2.9.5 the second
+        # could find no status yet and exit 1 ("run download first").
+        with self.folder() as job:
+            download.main(["--background"])
+            output = str(Path(job.tmp) / "checksum")
+            with (
+                patch.object(verify_download.time, "sleep", side_effect=Waiting),
+                self.assertRaises(Waiting),
+            ):
+                verify_download.main(["--hf", "hf", "--output", output, "--wait"])
+
+    def test_the_last_jobs_status_does_not_answer_for_the_new_one(self):
+        with self.folder() as job:
+            self.write_status(
+                job.folder,
+                model=job.model,
+                revision=job.revision,
+                status="failed",
+                error_type="RuntimeError",
+            )
+            download.main(["--background"])
+            status = self.status(job.folder)
+        self.assertEqual(status["status"], "downloading")
+        self.assertNotIn("error_type", status)
+
+    @unittest.skipUnless(importlib.util.find_spec("filelock"), "needs filelock")
+    def test_a_start_while_a_download_owns_the_folder_is_refused(self):
+        from filelock import FileLock
+
+        with self.folder() as job:
+            running = dict(
+                model=job.model,
+                revision=job.revision,
+                status="downloading",
+                total_bytes=5,
+            )
+            self.write_status(job.folder, **running)
+            with (
+                FileLock(job.folder / "download.lock"),
+                self.assertRaisesRegex(SystemExit, "already owns this workspace"),
+            ):
+                download.main(["--background"])
+            job.popen.assert_not_called()
+            self.assertEqual(self.status(job.folder), running)
+
+    def test_a_job_that_cannot_start_leaves_a_failed_status(self):
+        with self.folder() as job:
+            job.popen.side_effect = OSError("no interpreter")
+            with self.assertRaises(SystemExit) as raised:
+                download.main(["--background"])
+            status = self.status(job.folder)
+        self.assertEqual(raised.exception.code, 1)
+        self.assertEqual(
+            (status["status"], status["error_type"]), ("failed", "OSError")
+        )
 
 
 def fake_hub(snapshot, sha, sizes):
