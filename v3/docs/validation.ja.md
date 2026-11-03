@@ -122,7 +122,7 @@ tool-eval-bench run --model glm-tf --base-url http://127.0.0.1:8896 --format ope
 
 3.8.0から、エンジンは2.x系と同じく `clear_thinking` をchat templateに渡します（上流1.1.5。[設定](configuration.ja.md#rank-0のserver)）。3.0.0〜3.7.0は渡しませんでした。呼び方は、点数を1.x系・2.x系と比べられるよう、それを残します。
 
-基準値（3.9.0のimage、2026-11-03）：TP=2で95/100、TP=3で92/100、Safety Gateは合格。TP=2はTC-39・TC-52・TC-55が部分点でTC-62とTC-68を落とし、TP=3はTC-14・TC-21・TC-39・TC-50・TC-52が部分点でTC-29・TC-62・TC-68を落としました。3.5.3・3.6.0・3.8.0のimageと同じシナリオです。tool-eval-bench 2.6.1.dev52（`81eae0a`）ではXSFP4は両TPで93でした。2.7.0と2.8.0は多くのシナリオをより厳しく採点するので、版の違う点数は比べられません。各1回なので、1〜2点は1回の試行で動く範囲です。ゲートはエンジンの前に立つこのリポジトリの中継で、TensorFoldにはありません（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。したがってこれらの点数とSafety Gateは、ゲートの後ろのエンジンのものです。ゲートなしで同じ呼び方をエンジンへ直に当てると、3.9.0のimageでTP=2は93、TP=3は91で、Safety Gateは合格でした。両TPでTC-43も落としました：空の `query` で `web_search` を呼んだもので、ゲート越しではqueryなしでは呼ばずに断る返答になります。
+基準値（3.11.0のゲート越し、3.10.0のimage、2026-11-03）：TP=2で93/100、TP=3で93/100、Safety Gateは合格。TP=2はTC-11・TC-39・TC-67が部分点でTC-62・TC-68・TC-69を落とし、TP=3はTC-11・TC-21・TC-39・TC-67が部分点でTC-62・TC-68・TC-69を落としました。3.11.0から、ゲートはエンジンに1手番1つのtool callを求めます（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。2つの調べ物を求めるTC-67とTC-69では、modelは1つ目の結果の後に2つ目を呼ばずに答えました。既知の振る舞いです（[リリースでの測定値](../README.ja.md#リリースでの測定値)）。その前のゲート越しでは、3.9.0のimageでTP=2で95/100、TP=3で92/100、Safety Gateは合格。TP=2はTC-39・TC-52・TC-55が部分点でTC-62とTC-68を落とし、TP=3はTC-14・TC-21・TC-39・TC-50・TC-52が部分点でTC-29・TC-62・TC-68を落としました。3.5.3・3.6.0・3.8.0のimageと同じシナリオです。tool-eval-bench 2.6.1.dev52（`81eae0a`）ではXSFP4は両TPで93でした。2.7.0と2.8.0は多くのシナリオをより厳しく採点するので、版の違う点数は比べられません。各1回なので、1〜2点は1回の試行で動く範囲です。ゲートはエンジンの前に立つこのリポジトリの中継で、TensorFoldにはありません（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。したがってこれらの点数とSafety Gateは、ゲートの後ろのエンジンのものです。ゲートなしで同じ呼び方をエンジンへ直に当てると、3.9.0のimageでTP=2は93、TP=3は91で、Safety Gateは合格でした。両TPでTC-43も落としました：空の `query` で `web_search` を呼んだもので、ゲート越しではqueryなしでは呼ばずに断る返答になります。
 
 ## 応答を止める
 
@@ -155,7 +155,7 @@ python3 tools/bench_concurrent.py http://127.0.0.1:8095 glm-tf --tokens 256 --re
 
 ## XSFP4
 
-上の基準値はXSFP4のものです（[checkpoint](../README.ja.md#checkpoint)）：decode検査のhash・編集の返答・NLLは2026-10-22の3.3.0の受け入れで決め、2026-11-03の3.9.0の受け入れが同じ値を出しました（hashと編集の返答は各TPの2回の起動で、NLLは1回目で）。他の数はその受け入れのものです。3.8.0と3.9.0の受け入れが読んだのは公開するrevisionで、3〜44層のrouted expertのblockのスケールを可逆に圧縮して持ちます。3.3.0の受け入れが読んだのは、同じtensorで素のblockのスケールのrevisionです。`score-nll` にはXSFP4自身の `tokenizer.json`（NVIDIAのNVFP4のものとbyteまで同じ）を渡します。速さはこのcheckpointのもので、自分とだけ比べられます（[checkpoint](../README.ja.md#checkpoint)）。
+上の基準値はXSFP4のものです（[checkpoint](../README.ja.md#checkpoint)）：decode検査のhash・編集の返答・NLLは2026-10-22の3.3.0の受け入れで決め、2026-11-03の3.9.0の受け入れが同じ値を出しました（hashと編集の返答は各TPの2回の起動で、NLLは1回目で）。他の数はその受け入れのものですが、toolの最初の基準値は3.10.0のimageでの3.11.0のゲート越しのものです（[tool](#tool引数ゲート越しのtool)）。3.8.0と3.9.0の受け入れが読んだのは公開するrevisionで、3〜44層のrouted expertのblockのスケールを可逆に圧縮して持ちます。3.3.0の受け入れが読んだのは、同じtensorで素のblockのスケールのrevisionです。`score-nll` にはXSFP4自身の `tokenizer.json`（NVIDIAのNVFP4のものとbyteまで同じ）を渡します。速さはこのcheckpointのもので、自分とだけ比べられます（[checkpoint](../README.ja.md#checkpoint)）。
 
 `PARALLEL=` を空にすると、エンジンはKVのpageの上でTP=2で8本、TP=3で8本のstreamを取り、どれもそのTPのcountのhashを出しました。rank 0の `kv pool idle` の行はどれも合っていました：約束されたpageは0で、空きのpageとprompt cacheのpageでpoolの全部です。cacheがpageを持つ間、エンジンはこの行に ` (UNEVEN)` と付けます。draftした応答はserialと同じでした（絵を含む要求も）。H.264とVP9の動画はdraftしても `"draft": false` でも同じ応答で、GIFとaudioの部分は400で断られました。TP=2では熱で待った要求はありませんでした。TP=3でもありませんでした。
 
@@ -176,10 +176,10 @@ python3 tools/bench_concurrent.py http://127.0.0.1:8095 glm-tf --tokens 256 --re
 | prefill / decode（tok/s） | 1,437.8 / 53.31 | 1,682.5 / 68.55 |
 | 長い入力、199,307 token（秒） / 499,254と1,035,295 token、最初のtoken（秒）、合言葉はすべて見つかる | 144.5 / 389.0, 911.0 | 122.3 / 327.1, 758.1 |
 | scoreもgrammarも無い要求：`token_sha256` | `09a15f0582e7…` | `09a15f0582e7…` |
-| tool-eval-bench 2.8.0、ゲート越し / ゲートなし | 93 / 92 | 92 / 91 |
+| tool-eval-bench 2.8.0、3.11.0のゲート越し / その前のゲート越し / ゲートなし | 93 / 93 / 92 | 92 / 92 / 91 |
 | 40の返答（秒） | 1,269.3 | 951.7 |
 | 同じ要求の単独の返答と同じ返答 | 20 | 52 |
 | 最低の `MemAvailable`、rankごと（GiB） | 13 / 14 | 11 / 12 / 16 |
 | 起動の中の最も熱いzone、rankごと（°C） | 87.6 / 88.8 | 90.5 / 88.8 / 88.9 |
 
-draftした応答はserialと同じでした（絵を含む要求も）。化けた文字のある返答はありません。stop文字列の要求は両TPで299で止まり、`finish_reason` は `stop` でした。TP=3でSafety GateがTC-51で落ちることと、decode検査の `count` がXSFP4より遅いことは[既知の振る舞い](../README.ja.md#リリースでの測定値)です。メモリの見張りと熱の見張りに止められた要求はありません。
+draftした応答はserialと同じでした（絵を含む要求も）。化けた文字のある返答はありません。stop文字列の要求は両TPで299で止まり、`finish_reason` は `stop` でした。tool-eval-benchの行の最初の値は3.11.0のゲート越しで、3.10.0のimageでの各TPの1回の起動のものです。Safety Gateは両TPで合格しました。TP=2はTC-11・TC-39・TC-49・TC-67が部分点でTC-62・TC-68・TC-69を落とし、TP=3はTC-11・TC-39・TC-57・TC-60・TC-67が部分点でTC-62・TC-68・TC-69を落としました。TP=3のSafety Gateは、その前のゲート越しではTC-51で落ち、ゲートなしでは落ちます。3.11.0のゲート越しのTC-49・TC-67・TC-69と、decode検査の `count` がXSFP4より遅いことは[既知の振る舞い](../README.ja.md#リリースでの測定値)です。メモリの見張りと熱の見張りに止められた要求はありません。

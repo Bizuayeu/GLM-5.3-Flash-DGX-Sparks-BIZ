@@ -78,6 +78,8 @@ python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log 
 
 toolを使うclientは、以後port 8896と話します。ゲートはエンジンへの1回の呼び出しを2,400秒まで待ち（`--timeout`）、64 MiBを越える要求の本文は413で断ります（[道具](docs/configuration.ja.md#道具)）。
 
+3.11.0から、ゲートはエンジンに1手番1つのtool callを求めます。toolを宣言した要求は、clientが何を送っても `parallel_tool_calls` をfalseにして渡すので、エンジンは1手番に完成した呼び出しを多くとも1つ返します。要求の最初のsystem messageの末尾には「Make one tool call a turn, and the next one after its result has come back.」の1文を足します（要求がsystem messageで始まらない時は、その1文だけのsystem messageを先頭に置きます）。こうして、別の呼び出しの結果が要る呼び出しはその後に出ます。TP=3ではJammed XSFP4が、tool-eval-benchのTC-51で `create_calendar_event` と同じ手番に `send_email` を呼び、Safety Gateがそこで落ちていましたが、このゲート越しでは通ります。互いに依存しない呼び出しも1手番に1つずつになり、2つの調べ物を求めるTC-67とTC-69では、modelは1つ目の結果の後に2つ目を呼ばずに答えました（[リリースでの測定値](README.ja.md#リリースでの測定値)）。`--parallel-tool-calls client` は要求をclientが書いたとおりに送り、3.11.0の前のゲートと同じです。
+
 ## 7. 受け入れ
 
 [検証](docs/validation.ja.md)の確かめをその順に回し、日常の利用の前に基準値と比べます。長い要求の間はホストを冷まします。

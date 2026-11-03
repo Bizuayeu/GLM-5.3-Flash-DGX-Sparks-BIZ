@@ -221,7 +221,7 @@ rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serv
 |---|---|---|
 | `download` | `--background`（Linux。logと状態は `state/<checkpoint>/` の下）、`--checkpoint`（既定の `xsfp4` か `jammed`） | 無ければ `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` と `HF_HUB_DOWNLOAD_TIMEOUT=120` を設定し、Hugging Face自身の変数を読む。`HF_HUB_CACHE` でcacheを動かしたら、`create_container.sh` の `HF_HUB` もそこへ |
 | `verify-download` | `--hf`（`hf` のclient）と `--output` は必須。`--wait`（30秒ごとに見る。downloadが一時停止の間は2で終わる）、`--checkpoint`（`xsfp4`、`jammed`） | なし |
-| `tool-gate` | `--port`（8896）、`--upstream`（`http://127.0.0.1:8095`、loopbackのHTTPのoriginだけ）、`--log`（stderr）、`--timeout`（エンジンへの1回の呼び出しに2400秒） | 127.0.0.1でだけ待ち受け、64 MiBを越える要求の本文は413で断り、要求のkeyはそのまま渡す |
+| `tool-gate` | `--port`（8896）、`--upstream`（`http://127.0.0.1:8095`、loopbackのHTTPのoriginだけ）、`--log`（stderr）、`--timeout`（エンジンへの1回の呼び出しに2400秒）、`--parallel-tool-calls`（既定は `one`：toolのある要求はエンジンに1手番1つの呼び出しを求め、system messageでそう伝える。`client`：clientが送ったとおり） | 127.0.0.1でだけ待ち受け、64 MiBを越える要求の本文は413で断り、要求のkeyはそのまま渡す |
 | `decode-check` | なし | `BASE`（`http://127.0.0.1:8095`）、`MODEL`（`glm-tf`）、`PROMPT_KIND`（`count`・`prose`・`code`）、`SAMPLES`（3）、`MAX_TOKENS`（512）、`PROMPT_TOKENS`（2048）、`TOKENS_OUT`（completionを書くファイル）、`TENSORFOLD_API_KEY` |
 | `decode-divergence` | 2つの `TOKENS_OUT` のファイル | なし |
 | `score-nll` | `--url`・`--tokenizer`・`--out` は必須。`--set`（`config/nll_set.json`）、`--model`（serverの最初のもの）、`--seed`（42） | `TENSORFOLD_API_KEY`。tokenizerかtextが集合のものでなければ2、serverが `prompt_logprobs` を断れば3、集合が失敗すれば1で終わる |
