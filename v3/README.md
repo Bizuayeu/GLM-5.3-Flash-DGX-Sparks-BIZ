@@ -227,7 +227,7 @@ Earlier releases' figures are in [measurements of earlier releases](docs/measure
 
 ## Limits
 
-- **Jammed XSFP4 is read by this line's engine alone.** Its `csf0_v1` form is this line's own: vLLM, other NVFP4 loaders and engines without its kernels, upstream's releases among them, do not read it, and 3.8.0's engine refuses it by name at load. Its coarser block scales give replies of its own ([checkpoints](#checkpoints)).
+- **Of the released engines, only this line's reads Jammed XSFP4.** Its `csf0_v1` form is this line's own, in upstream's main from 2026-11-04 (#2041) but in none of upstream's releases up to 1.2.2: vLLM, other NVFP4 loaders and engines without its kernels do not read it, and 3.8.0's engine refuses it by name at load. Its coarser block scales give replies of its own ([checkpoints](#checkpoints)).
 - **Four streams at TP=2 and eight at TP=3.** A request beyond them waits for a stream. They share one KV pool: 2,052 pages at TP=2, enough for one stream at the whole window, and 4,098 at TP=3, enough for two (6,147 on Jammed XSFP4, enough for three). Several long conversations at once were not measured ([serving defaults](#serving-defaults)).
 - **Images and videos within the engine's limits.** At most 4 images a request, counting every image the submitted history holds (a client that resends earlier turns with their images reaches it), sharing 4,096 image tokens; 10 MiB an image and 20 MiB a request; PNG, JPEG and WebP data URLs, GIF and animated pictures refused. Videos in user messages only, 2 a request (16 MiB each, 20 MiB together, an hour of footage), sampled at 2 frames a second up to 256 frames, sharing 16,384 video tokens; a clip under half a second is refused. Images and videos take their tokens from the window. HTTPS URLs need `--vision-urls`, which `serve.sh` does not pass. Audio parts are refused with 400.
 - **No log-probabilities of generated tokens.** `logprobs` and `top_logprobs` are refused with 400; `prompt_logprobs` is served on non-streamed `/v1/completions` only.
@@ -275,7 +275,7 @@ v3/
 - **BIZ is an intent, not a promise** ([repository README](../README.md#biz)).
 - **The acceptance is the reference hosts'.** A launch elsewhere, or on another image ID, is accepted by running [validation](docs/validation.md) there.
 - **XSFP4 and Jammed XSFP4 are this repository's maintainer's checkpoints**, derivatives of NVIDIA's FP4-Local under the NVIDIA Open Model Agreement; they are not NVIDIA or Z.ai releases.
-- **The engine is the release branch of this line's fork of upstream.** What serves other users goes to upstream TensorFold as pull requests (#1016, #1017 and #1018 became upstream's own in 1.1.1; #1050, #1163, #1178 and #1211 in 1.1.5; #1352, #1404 and #1424 in 1.1.9; #1516, #1524, #1616 and #1636 in 1.2.0; #1823 in 1.2.1); the release branch keeps the rest, and 3.10.0's keeps the six commits of `csf0_v1` on upstream v1.2.1, which go to upstream next.
+- **The engine is the release branch of this line's fork of upstream.** What serves other users goes to upstream TensorFold as pull requests (#1016, #1017 and #1018 became upstream's own in 1.1.1; #1050, #1163, #1178 and #1211 in 1.1.5; #1352, #1404 and #1424 in 1.1.9; #1516, #1524, #1616 and #1636 in 1.2.0; #1823 in 1.2.1); the release branch keeps the rest, and 3.10.0's keeps the six commits of `csf0_v1` on upstream v1.2.1, which upstream took into its main on 2026-11-04 (#2041) and no release of upstream's carries yet.
 
 ## Next Action
 
@@ -283,7 +283,7 @@ Each item is a trigger and what this line then does.
 
 - 3.3.0's engine has upstream's pull request #1053 (the waiting ranks sleep while rank 0 has no stream, in 1.1.2); the releases since ran on the efficiency cores, so it is still open → measure again whether the container still needs them.
 - Upstream takes #1423 (a prompt's paired steps) or #1580 (the L2 read-ahead of the routed experts) → add it as an arm, as 3.9.0's defaults were chosen, and accept what it gives.
-- Upstream takes the `csf0_v1` commits (#2041) → the release branch goes back to an upstream release.
+- An upstream release carries the `csf0_v1` commits (#2041, in upstream's main from 2026-11-04) → the release branch goes back to that release.
 - A Jammed XSFP4 made from the BF16 weights with nothing borrowed from XSFP4, its calibration and the MTP layer's included, scores better and its acceptance holds → the lock moves to that revision.
 
 ## Local Data and Contribution
