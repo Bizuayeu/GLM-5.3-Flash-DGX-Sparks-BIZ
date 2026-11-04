@@ -4,6 +4,18 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.11.3 — 2026-11-04
+
+Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
+
+### Documentation
+
+- Upstream took the `csf0_v1` commits into its main on 2026-11-04 ([TensorFold #2041](https://github.com/ashhart/TensorFold/pull/2041)), and no release of upstream's carries them yet. The [README](README.md#limits) and the [decisions](docs/decisions.md#engine) say so where they said the commits go upstream next, and the README's limit on Jammed XSFP4 says that of the released engines only this line's reads it. An upstream release that carries the commits is now what takes the release branch back to an upstream release and reopens [Jammed XSFP4's row](docs/decisions.md#checkpoint) ([Next Action](README.md#next-action)).
+
+### Not in 3.11.3
+
+The release branch back on an upstream release, which waits for one that carries the commits, and a Jammed XSFP4 made from the BF16 weights with nothing borrowed from XSFP4 ([Next Action](README.md#next-action)).
+
 ## 3.11.2 — 2026-11-04
 
 Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).

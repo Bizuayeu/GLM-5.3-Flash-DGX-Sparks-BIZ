@@ -6,6 +6,18 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.11.3 — 2026-11-04
+
+文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
+
+### Documentation
+
+- 上流は2026-11-04に `csf0_v1` のcommitをmainに取り込みました（[TensorFold #2041](https://github.com/ashhart/TensorFold/pull/2041)）。それを持つ上流のリリースはまだありません。[README](README.ja.md#制限)と[判断](docs/decisions.ja.md#エンジン)は、commitを次に上流へ出すと書いていた所でそう書き、READMEのJammed XSFP4の制限は、リリースされたエンジンでそれを読むのはこの系列のものだけと書きます。リリースのbranchを上流のリリースへ戻し、[Jammed XSFP4の行](docs/decisions.ja.md#checkpoint)を開き直すのは、commitを持つ上流のリリースが出た時になります（[Next Action](README.ja.md#next-action)）。
+
+### Not in 3.11.3
+
+上流のリリースへ戻したリリースのbranch（commitを持つ上流のリリースを待ちます）と、XSFP4から何も借りずBF16の重みから作ったJammed XSFP4（[Next Action](README.ja.md#next-action)）。
+
 ## 3.11.2 — 2026-11-04
 
 文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
