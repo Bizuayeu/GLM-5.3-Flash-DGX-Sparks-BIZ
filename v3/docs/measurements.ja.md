@@ -23,7 +23,7 @@
 | 約64K / 128K tokenの同じpromptの再送、返答の全体（秒） | 2.06 / 2.34 | 1.54 / 2.11 |
 | 約400K tokenの同じpromptの再送、返答の全体（秒） | 2.17 | — |
 | 32K tokenのpromptに6〜8秒で来た短い要求、最初のtoken（秒） | 1.20 | 1.38 |
-| 32K tokenのpromptの横の3本のdecode、tokenの間隔の中央値（ms） | 45 | 37 |
+| 32K tokenのpromptの横の別々のpromptの3本のdecode、tokenの間隔の中央値（ms） | 62 | 47 |
 | 別々の4つのpromptを同時に：合計のtok/s、最初のtokenの最悪（秒） | 55.63、1.00 | 75.00、0.79 |
 | 別々の8つのpromptを同時に：合計のtok/s、最初のtokenの最悪（秒） | — | 94.23、1.65 |
 | teacher-forced NLL、ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |

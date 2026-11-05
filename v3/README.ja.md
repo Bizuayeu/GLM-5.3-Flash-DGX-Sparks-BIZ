@@ -123,7 +123,7 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env) と [`config/tp3.e
 
 **prompt cacheをpoolのpageに置く理由。** 長い会話の保持の状態は4本のstreamの横のstoreに入らないことがあり、次の長いpromptが前の状態を追い出します。`TF_GLM_KV_SHARE` はpromptを埋めたpoolのpageのまま保つので、poolに余地がある間は状態が次のpromptの後も残り、poolの横にstoreを持ちません。約64K tokenと128K tokenのpromptの再送はTP=2で2.06秒と2.34秒、TP=3で1.54秒と2.11秒、400K tokenのpromptはTP=2で2.17秒でした。読み直せば数分かかります。16と32はstream 1本に4状態で、エンジン自身の線です。その下では、動いているstreamが互いの状態を追い出すと警告します。
 
-**promptの取り分を0.7にする理由。** エンジンの `1` では長いpromptのstepとdecodeのroundが1回ずつ交互に回るので、横の返答はtokenごとにstep 1回分止まります。0.7ではpromptが時間の30%をdecodeに渡します：32K tokenのpromptの横のdecodeのtokenの間隔はTP=2で45 ms、TP=3で37 msでした。promptが払うのは何かが横でdecodeしている間だけで、単独のpromptは待ちません。
+**promptの取り分を0.7にする理由。** エンジンの `1` では長いpromptのstepとdecodeのroundが1回ずつ交互に回るので、横の返答はtokenごとにstep 1回分止まります。0.7ではpromptが時間の30%をdecodeに渡します：32K tokenのpromptの横の、別々のpromptの3本のdecodeのtokenの間隔はTP=2で62 ms、TP=3で47 msでした。promptが払うのは何かが横でdecodeしている間だけで、単独のpromptは待ちません。
 
 **TP=3でwireとdraftの確率を使う理由。** `--mtp-confidence 0.5` は、確率が五分を切るdraftでdraftの連なりを終えるので、roundが外れるdraftに使う行が減ります。上流はTP=3でdecodeが4.9%速いとしています。TP=2では切ります：その使い方であるsampledの1本は同じdraftを取り、4本のgreedyのcodeは3.7%遅くなりました。wireはmain streamの小さいall-gatherをエンジンのmultirank RoCEで運び、各rankは最初の1回をNCCLのものとbyteまで比べます。上流はdecodeが2.57%速く、coldの長いpromptが1.2〜1.6%遅いとして、既定をoffにしています。TP=3は返答を読む人のための配信なので、ここではdecodeを優先します。3 rank以上のためのものです。`TF_TP_ROCE_FALLBACK=error` により、準備に失敗すると起動が止まるので、気づかれずにNCCLへ戻ることはありません。
 
@@ -198,7 +198,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 | 約64K / 128K tokenの同じpromptの再送、返答の全体（秒） | 2.06 / 2.34 | 1.97 / 2.40 | 1.54 / 2.11 | 1.78 / 2.03 |
 | 約400K tokenの同じpromptの再送、返答の全体（秒） | 2.17 | 2.22 | — | — |
 | 32K tokenのpromptに6〜8秒で来た短い要求、最初のtoken（秒） | 1.20 | 1.48 | 1.38 | 0.95 |
-| 32K tokenのpromptの横の3本のdecode、tokenの間隔の中央値（ms） | 45 | 46 | 37 | 36 |
+| 32K tokenのpromptの横の別々のpromptの3本のdecode、tokenの間隔の中央値（ms） | 62 | 61 | 47 | 47 |
 | 別々の4つのpromptを同時に：合計のtok/s、最初のtokenの最悪（秒） | 55.63、1.00 | 55.16、1.00 | 75.00、0.79 | 78.43、0.77 |
 | 別々の8つのpromptを同時に：合計のtok/s、最初のtokenの最悪（秒） | — | — | 94.23、1.65 | 96.75、1.70 |
 | teacher-forced NLL、ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5349 / 2.9247 / 1.3125 / 0.6235 | 2.5369 / 2.9244 / 1.3098 / 0.6224 | 2.5320 / 2.9090 / 1.3107 / 0.6249 |

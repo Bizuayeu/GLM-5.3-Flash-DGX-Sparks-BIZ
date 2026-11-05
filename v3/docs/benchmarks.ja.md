@@ -68,7 +68,7 @@ NLL採点セットと採点は[検証](validation.ja.md#teacher-forced-nll)の�
 
 - **warm turn。** 新しいnonceの約10,000か40,000 tokenのchatをcoldで送り、その後の4 turnで約500・1,500・3,000 tokenずつ足します。値は4 turnの最初のtokenの平均です。
 - **同じpromptの再送。** `alpha beta gamma delta` を12,800行・25,600行、TP=2では80,000行も並べて問いを1つ付けたchat（約64K・128K・400K token）を2回送ります。値は2回目の返答の全体の時間で、`cached_tokens` はpromptの長さの近くです。
-- **promptの横のdecode。** draftなしで最大1,200 tokenのdecodeを3本回し、その4秒後に約32,000 tokenのcoldのpromptを送ります。値は、promptが走る間の各decodeのtokenの間隔の中央値です。
+- **promptの横のdecode。** 別々のpromptの3本のdecode（`bench` の数え上げのprompt、1,000からの数え下げ、2,000までの偶数）をdraftなしで最大1,200 tokenずつ回し、その4秒後に約32,000 tokenのcoldのpromptを送ります。値は、promptが走る間の各decodeのtokenの間隔の中央値です。3.11.3までは3本が同じ数え上げのpromptで、同じtokenを書くのでroundが軽く出ていました：TP=2で45・46 ms、TP=3で37・36 msで、同じimageで測り直すと1 ms以内で同じでした。別々のpromptでは2026-11-05に62・61 msと47・47 msでした。
 - **promptの途中の短い要求。** coldの32K tokenのpromptを順に4本送り、それぞれの6.0・6.7・7.4・8.1秒のどれかの後にdraftなしの短い要求を送ります。値は4本の最初のtokenの平均です。
 - **別々のpromptを同時に。** 違うpromptを4本、TP=3では8本も一緒に、それぞれ300 token送ります。値は全部を合わせた1秒あたりのtokenと、最も遅い最初のtokenです。
 

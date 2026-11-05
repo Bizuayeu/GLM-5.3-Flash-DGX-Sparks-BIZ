@@ -123,7 +123,7 @@ Jammed XSFP4 gives up some closeness to BF16 for memory: by the table's three fi
 
 **Why the prompt cache on the pool's pages.** A long conversation's kept state may not fit a store beside four streams, and the next long prompt pushes the last one out of it. `TF_GLM_KV_SHARE` keeps a prompt as the pool's pages it filled, so the state outlives the next prompt while the pool has room, and no store sits beside the pool. A prompt of about 64K and one of 128K tokens sent again took 2.06 and 2.34 s at TP=2 and 1.54 and 2.11 s at TP=3, and one of 400K tokens 2.17 s at TP=2, where reading it again takes minutes. 16 and 32 states are four a stream, the engine's own line, under which it warns that live streams evict each other's states.
 
-**Why a prompt's share of 0.7.** At the engine's `1` a long prompt's steps alternate with single decode rounds, so a reply beside it stalls for a step at each token. At 0.7 the prompt gives the decoding streams 30% of the time: the gap between a decode's tokens beside a 32K prompt was 45 ms at TP=2 and 37 ms at TP=3. The prompt pays only while something decodes beside it, and no prompt alone waits.
+**Why a prompt's share of 0.7.** At the engine's `1` a long prompt's steps alternate with single decode rounds, so a reply beside it stalls for a step at each token. At 0.7 the prompt gives the decoding streams 30% of the time: the gap between the tokens of three decodes of different prompts beside a 32K prompt was 62 ms at TP=2 and 47 ms at TP=3. The prompt pays only while something decodes beside it, and no prompt alone waits.
 
 **Why the wire and the draft confidence at TP=3.** `--mtp-confidence 0.5` ends a chain of drafts at a draft under an even chance, so the rounds spend fewer rows on drafts that fail; upstream gives decode 4.9% faster at TP=3. TP=2 leaves it off: one sampled stream, that size's use, takes the same drafts, and four greedy code streams were 3.7% slower. The wire carries the main stream's small all-gathers on the engine's multirank RoCE, each rank first checking one gather byte for byte against NCCL's. Upstream gives decode 2.57% faster and a cold long prompt 1.2 to 1.6% slower, and keeps it off by default; TP=3 serves people who read replies, so decode comes first here. It is for three ranks or more. `TF_TP_ROCE_FALLBACK=error` makes a setup that fails stop the start, so a launch does not fall back to NCCL unseen.
 
@@ -198,7 +198,7 @@ The two lines' containers both claim every GPU: run one line's engine at a time 
 | The same prompt of about 64K / 128K tokens sent again, whole reply (s) | 2.06 / 2.34 | 1.97 / 2.40 | 1.54 / 2.11 | 1.78 / 2.03 |
 | The same prompt of about 400K tokens sent again, whole reply (s) | 2.17 | 2.22 | — | — |
 | A short request 6 to 8 s into a 32K prompt, first token (s) | 1.20 | 1.48 | 1.38 | 0.95 |
-| Three decodes beside a 32K prompt, gap between tokens, median (ms) | 45 | 46 | 37 | 36 |
+| Three decodes of different prompts beside a 32K prompt, gap between tokens, median (ms) | 62 | 61 | 47 | 47 |
 | Four distinct prompts at once: tok/s together, worst first token (s) | 55.63, 1.00 | 55.16, 1.00 | 75.00, 0.79 | 78.43, 0.77 |
 | Eight distinct prompts at once: tok/s together, worst first token (s) | — | — | 94.23, 1.65 | 96.75, 1.70 |
 | Teacher-forced NLL, ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5349 / 2.9247 / 1.3125 / 0.6235 | 2.5369 / 2.9244 / 1.3098 / 0.6224 | 2.5320 / 2.9090 / 1.3107 / 0.6249 |

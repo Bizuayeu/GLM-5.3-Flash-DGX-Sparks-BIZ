@@ -23,7 +23,7 @@ What each 3.x release before the current one measured at its acceptance, newest 
 | The same prompt of about 64K / 128K tokens sent again, whole reply (s) | 2.06 / 2.34 | 1.54 / 2.11 |
 | The same prompt of about 400K tokens sent again, whole reply (s) | 2.17 | — |
 | A short request 6 to 8 s into a 32K prompt, first token (s) | 1.20 | 1.38 |
-| Three decodes beside a 32K prompt, gap between tokens, median (ms) | 45 | 37 |
+| Three decodes of different prompts beside a 32K prompt, gap between tokens, median (ms) | 62 | 47 |
 | Four distinct prompts at once: tok/s together, worst first token (s) | 55.63, 1.00 | 75.00, 0.79 |
 | Eight distinct prompts at once: tok/s together, worst first token (s) | — | 94.23, 1.65 |
 | Teacher-forced NLL, ja / en / code / math | 2.5494 / 2.9219 / 1.3104 / 0.6249 | 2.5369 / 2.9244 / 1.3098 / 0.6224 |
