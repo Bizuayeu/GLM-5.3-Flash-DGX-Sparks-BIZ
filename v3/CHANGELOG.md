@@ -4,6 +4,14 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.11.4 — 2026-11-05
+
+Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
+
+### Documentation
+
+- The gap between the tokens of three decodes beside a 32K prompt is now taken from three decodes of different prompts: 62 ms at TP=2 and 47 ms at TP=3 on XSFP4, 61 and 47 ms on Jammed XSFP4. Until now the three shared `bench`'s count prompt, so they wrote the same tokens and their rounds came lighter (45, 46, 37 and 36 ms, which the same image gave again within 1 ms). The [README](README.md#serving-defaults)'s measurements and the reason for a prompt's share of 0.7, [measurements](docs/measurements.md), the [method](docs/benchmarks.md#requests-at-once) and the [decisions](docs/decisions.md) say so. The share stays 0.7: at the engine's `1` the gap was 1,484 ms at TP=2 and 1,221 ms at TP=3.
+
 ## 3.11.3 — 2026-11-04
 
 Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).

@@ -6,6 +6,14 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.11.4 — 2026-11-05
+
+文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
+
+### Documentation
+
+- 32K tokenのpromptの横の3本のdecodeのtokenの間隔は、別々のpromptの3本で取った値になりました：XSFP4ではTP=2で62 ms、TP=3で47 ms、Jammed XSFP4では61 msと47 msです。これまでは3本が `bench` の同じ数え上げのpromptで、同じtokenを書くのでroundが軽く出ていました（45・46・37・36 msで、同じimageで測り直すと1 ms以内で同じでした）。[README](README.ja.md#配信の既定)の測定値とpromptの取り分を0.7にする理由、[測定値](docs/measurements.ja.md)、[測り方](docs/benchmarks.ja.md#同時の要求)、[判断](docs/decisions.ja.md)がそう書きます。取り分は0.7のままです：エンジンの `1` では間隔はTP=2で1,484 ms、TP=3で1,221 msでした。
+
 ## 3.11.3 — 2026-11-04
 
 文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
