@@ -23,7 +23,7 @@ v3/scripts/cluster.sh state/cluster.env start ring
 
 ## The FP8 latent cache at TP=2
 
-The engine's opt-in FP8 latent cache holds about twice the window per GiB. Tried once at TP=2 with XSFP4 and the vision tower: one stream fit the 1,048,576-token window, the prefill took about 5% longer, and the decode check's tokens differ from BF16's. Outside the acceptance; upstream calls its qualification pending ([limits](../README.md#limits)). It keeps a window per stream, so it takes one stream and no share: in both rank files `PARALLEL=1` and an empty `TF_GLM_KV_SHARE=`, then:
+The engine's opt-in FP8 latent cache holds about twice the window per GiB. Tried once at TP=2 with XSFP4 and the vision tower: one stream fit the 1,048,576-token window, the prefill took about 5% longer, and the decode check's tokens differ from BF16's. Outside the acceptance; upstream calls its qualification pending ([limits](../README.md#limits)). It keeps a window per stream, so it takes one stream and no share: in both rank files `PARALLEL=1` and an empty `TF_KV_SHARE=`, then:
 
 ```sh
 v3/scripts/cluster.sh state/cluster.env start fp8 --kv-cache fp8
@@ -31,11 +31,11 @@ v3/scripts/cluster.sh state/cluster.env start fp8 --kv-cache fp8
 
 ## Fewer or more requests at once
 
-The release serves four requests at once at TP=2 and eight at TP=3. An empty `PARALLEL=` lets the engine take what fits, which the acceptance ran; another number is outside it, and `TF_GLM_KV_SHARE` should stay at four states a stream or more ([configuration](configuration.md#rank-file)):
+The release serves four requests at once at TP=2 and eight at TP=3. An empty `PARALLEL=` lets the engine take what fits, which the acceptance ran; another number is outside it, and `TF_KV_SHARE` should stay at four states a stream or more ([configuration](configuration.md#rank-file)):
 
 ```sh
 PARALLEL=2
-TF_GLM_KV_SHARE=8
+TF_KV_SHARE=8
 ```
 
 ## Text alone

@@ -23,7 +23,7 @@ v3/scripts/cluster.sh state/cluster.env start ring
 
 ## TP=2のFP8のlatent cache
 
-エンジンの選べるFP8のlatent cacheは、GiBあたり約2倍の窓を持ちます。TP=2でXSFP4とvision towerで一度試しました：1本のstreamが1,048,576 tokenの窓に収まり、prefillは約5%長く、decode検査のtokenはBF16のものと違いました。受け入れの外で、上流はその確かめを保留としています（[制限](../README.ja.md#制限)）。streamごとに窓を持つので、1本のstreamでshareなしにします。両方のrankのファイルに `PARALLEL=1` と空の `TF_GLM_KV_SHARE=` を書き、次のとおり：
+エンジンの選べるFP8のlatent cacheは、GiBあたり約2倍の窓を持ちます。TP=2でXSFP4とvision towerで一度試しました：1本のstreamが1,048,576 tokenの窓に収まり、prefillは約5%長く、decode検査のtokenはBF16のものと違いました。受け入れの外で、上流はその確かめを保留としています（[制限](../README.ja.md#制限)）。streamごとに窓を持つので、1本のstreamでshareなしにします。両方のrankのファイルに `PARALLEL=1` と空の `TF_KV_SHARE=` を書き、次のとおり：
 
 ```sh
 v3/scripts/cluster.sh state/cluster.env start fp8 --kv-cache fp8
@@ -31,11 +31,11 @@ v3/scripts/cluster.sh state/cluster.env start fp8 --kv-cache fp8
 
 ## 同時の要求を減らす、増やす
 
-リリースは同時にTP=2で4本、TP=3で8本の要求を配信します。空の `PARALLEL=` はエンジンに収まるだけを取らせ、受け入れはこれも走らせました。他の数は受け入れの外で、`TF_GLM_KV_SHARE` は1 streamあたり4 state以上にします（[設定](configuration.ja.md#rankのファイル)）：
+リリースは同時にTP=2で4本、TP=3で8本の要求を配信します。空の `PARALLEL=` はエンジンに収まるだけを取らせ、受け入れはこれも走らせました。他の数は受け入れの外で、`TF_KV_SHARE` は1 streamあたり4 state以上にします（[設定](configuration.ja.md#rankのファイル)）：
 
 ```sh
 PARALLEL=2
-TF_GLM_KV_SHARE=8
+TF_KV_SHARE=8
 ```
 
 ## textだけ
