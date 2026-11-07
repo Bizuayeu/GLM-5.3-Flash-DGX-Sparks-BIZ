@@ -6,6 +6,14 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.11.7 — 2026-11-07
+
+文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
+
+### Documentation
+
+- 上流のリリースは1.2.3（2026-11-05、[TensorFold #2041](https://github.com/ashhart/TensorFold/pull/2041)）から `csf0_v1` のcommitを持ちます。READMEのJammed XSFP4の[制限](README.ja.md#制限)、エンジンについての免責事項、[Next Action](README.ja.md#next-action)、[決定](docs/decisions.ja.md#エンジン)はそう書きます。3.11.3では、それを持つ上流のリリースはまだ無いと書いていました。この系列のリリースのbranchは、上流のリリースへ戻るまで3.10.0のエンジンのままです。
+
 ## 3.11.6 — 2026-11-07
 
 文書と道具のhelpと試験だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
