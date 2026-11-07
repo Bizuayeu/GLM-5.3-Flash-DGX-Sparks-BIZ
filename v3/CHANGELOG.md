@@ -4,6 +4,26 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.11.6 — 2026-11-07
+
+Documents, tool help and tests only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
+
+### Documentation
+
+- [Validation](docs/validation.md) says to make the run's records folder first (`mkdir -p ../records/<run>`): none of the tools creates it, so a fresh checkout lost the first check's file.
+- [Validation](docs/validation.md) says the container runs the tools as `python3 -m glm53_tf` (the image has no `python`), and that `tokenizers`, which `score-nll` needs, is the container's and not the virtual environment's.
+- Validation says the engine keeps prompts as states on the KV pool's pages (`TF_GLM_KV_SHARE`), as it has since 3.9.0, not in a cache sized in GiB.
+- The [method](docs/benchmarks.md#requests-at-once) says the three decodes beside a prompt shared one prompt up to 3.11.3, and the [README](README.md#requirements) names `initcall_blacklist` for the reference hosts' boot setting. The Japanese cheatsheet and method now say what the English ones say about the tool-argument gate's checks and the TP=2 pair's cooling gate.
+
+### Tools
+
+- `decode-check --help` and `long-input --help` say the same about kept prompts, and `tool-gate --help` says it relays `GET`, `POST` and `DELETE` (other methods are answered 501, as before).
+
+### Repository
+
+- New tests tie what two files each write: `serve.sh`'s name, host, port and reply cap to the tools' defaults and to `tool-gate`'s `--upstream`; `Dockerfile.build`'s base and its NCCL and tokenizers versions to `Dockerfile`'s; the paths `cluster.sh` and `serve.sh` use in the image to `Dockerfile`'s; and the container's name across the scripts and the examples.
+- `mojibake`'s and `decode-check`'s tests pass with `TENSORFOLD_API_KEY` or `PROMPT_KIND` set where they run, and `decode-divergence`'s tests no longer hold an assertion that could not fail.
+
 ## 3.11.5 — 2026-11-07
 
 Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).

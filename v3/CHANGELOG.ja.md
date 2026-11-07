@@ -6,6 +6,26 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.11.6 — 2026-11-07
+
+文書と道具のhelpと試験だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
+
+### Documentation
+
+- [検証](docs/validation.ja.md)は、先に回の記録のfolderを作るように書きます（`mkdir -p ../records/<run>`）。どの道具もそのfolderを作らないので、新しいcheckoutでは最初の検査のfileが失われていました。
+- [検証](docs/validation.ja.md)は、containerでは道具を `python3 -m glm53_tf` で回すこと（imageには `python` がありません）と、`score-nll` に要る `tokenizers` は仮想環境ではなくcontainerにあることを書きます。
+- 検証は、エンジンがpromptを、GiB単位の大きさのcacheではなく、3.9.0からのとおりKV poolのpageの上の状態（`TF_GLM_KV_SHARE`）として保つと書きます。
+- 英語の[測り方](docs/benchmarks.md#requests-at-once)は、promptの横の3本のdecodeが3.11.3までは一つのpromptを分けていたと書き、英語の[README](README.md#requirements)は参照機の起動の設定に `initcall_blacklist` の名を出します。日本語のcheatsheetと測り方は、tool引数ゲートが確かめることと、TP=2の対の冷却gateについて、英語と同じことを書くようになりました。
+
+### Tools
+
+- `decode-check --help` と `long-input --help` も保ったpromptについて同じことを書き、`tool-gate --help` は中継するのが `GET`・`POST`・`DELETE` だと書きます（他のmethodには前と同じく501を返します）。
+
+### Repository
+
+- 新しい試験は、二つのfileがそれぞれ書く事実を結びます：`serve.sh` の名前・host・port・応答の上限と、道具の既定と `tool-gate` の `--upstream`。`Dockerfile.build` の基礎とNCCL・tokenizersの版と、`Dockerfile` のもの。`cluster.sh` と `serve.sh` がimageの中で使うpathと、`Dockerfile` のもの。scriptとexamplesのcontainerの名前。
+- `mojibake` と `decode-check` の試験は、回す所に `TENSORFOLD_API_KEY` や `PROMPT_KIND` が立っていても通り、`decode-divergence` の試験からは落ちようのないassertを外しました。
+
 ## 3.11.5 — 2026-11-07
 
 文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
