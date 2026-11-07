@@ -10,7 +10,7 @@ SCRIPTS = LINE / "scripts"
 GB10 = {n: 2808000 if n % 10 < 5 else 3900000 for n in range(20)}
 
 
-@unittest.skipIf(os.name == "nt", "runs bash with a Linux sysfs layout")
+@unittest.skipIf(os.name == "nt", "runs bash")
 class CpusetTests(unittest.TestCase):
     def cpuset(self, freqs, **env):
         with tempfile.TemporaryDirectory() as tmp:
