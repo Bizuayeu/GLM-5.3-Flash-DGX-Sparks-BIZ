@@ -179,7 +179,7 @@ class TokenHashTests(unittest.TestCase):
             path = str(Path(tmp) / "a.json")
             run([stream(ids=[16, 17, 18])] * 3, tokens_out=path)
             saved = json.loads(Path(path).read_text(encoding="utf-8"))
-        self.assertEqual(saved["kind"], "count")
+        self.assertEqual(saved["kind"], decode_check.KIND)
         self.assertEqual(len(saved["samples"]), 3)
         self.assertEqual(saved["samples"][0]["text"], "16\n17\n18\n")
         self.assertNotIn("token_ids", saved["samples"][0])
@@ -229,6 +229,23 @@ class DefaultsTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.split(), ["http://127.0.0.1:8095", "glm-tf"])
+
+    def test_without_prompt_kind_it_runs_the_count_task(self):
+        env = {k: v for k, v in os.environ.items() if k != "PROMPT_KIND"}
+        env["PYTHONPATH"] = str(Path(__file__).resolve().parents[1])
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from glm53_tf import decode_check as d; print(d.KIND)",
+            ],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "count")
 
     def test_it_takes_no_arguments(self):
         with (

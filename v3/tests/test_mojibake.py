@@ -226,9 +226,13 @@ class CommandTests(unittest.TestCase):
             return Reply(json.dumps(reply(body)).encode())
 
         out = io.StringIO()
+        # A key in the runner's environment would reach every request; only env's does.
+        environ = {
+            k: v for k, v in mojibake.os.environ.items() if k != "TENSORFOLD_API_KEY"
+        }
         with (
             patch.object(mojibake.urllib.request, "urlopen", urlopen),
-            patch.dict(mojibake.os.environ, env or {}, clear=False),
+            patch.dict(mojibake.os.environ, {**environ, **(env or {})}, clear=True),
             contextlib.redirect_stdout(out),
         ):
             status = mojibake.main(argv)
@@ -242,12 +246,12 @@ class CommandTests(unittest.TestCase):
         self.assertEqual(status, 0)
         self.assertEqual(len(calls), 6)
         url, auth, body, timeout = calls[0]
-        self.assertEqual(url, "http://127.0.0.1:8095/v1/chat/completions")
+        self.assertEqual(url, f"{mojibake.BASE}/v1/chat/completions")
         self.assertIsNone(auth)
-        self.assertEqual(body["model"], "glm-tf")
+        self.assertEqual(body["model"], mojibake.MODEL)
         self.assertEqual(timeout, 3600)
         self.assertEqual(record["verdict"], "pass")
-        self.assertEqual(record["model"], "glm-tf")
+        self.assertEqual(record["model"], mojibake.MODEL)
         self.assertEqual(record["max_tokens"], 32768)
         self.assertEqual(record["runs"][0]["content"], JAPANESE)
         # The terminal gets each row without its texts, then the summary.
