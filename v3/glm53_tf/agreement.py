@@ -176,7 +176,7 @@ def run(tokenize, complete, texts, top_k=TOP_K, repeats=2):
         "first_raw_response": raw_first,
         # Every request answered in the checked shape. Repeats are reported in
         # self_agreement, not required to be identical: whether they are depends
-        # on the server (TensorFold: its contract, README.md#differences-from-1x;
+        # on the server (TensorFold: its contract, README.md#differences-from-2x;
         # vLLM: ../v1/docs/server-configuration.md#repeatability-switches).
         "passed": not errors and bool(self_checks),
     }
