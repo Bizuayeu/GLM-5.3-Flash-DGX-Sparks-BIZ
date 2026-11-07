@@ -102,12 +102,13 @@ class ServeScriptTests(unittest.TestCase):
         self.assertEqual(match[3], revision)
 
     def test_serve_sh_reads_images_and_videos_unless_the_rank_file_says_otherwise(self):
-        # Unset: --vision. Empty: text alone. Every rank the same (the ranks agree on --vision at start).
+        # Unset: --vision. 0: text alone. Every rank the same (the ranks agree on --vision at start); another value,
+        # an empty one included, stops serve.sh (test_serve_defaults' ServeTests run it).
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
         self.assertIn("vision=${VISION-1}\n", serve)
-        self.assertIn('[ -n "$vision" ] && args+=(--vision)', serve)
+        self.assertIn('[ "$vision" = 1 ] && args+=(--vision)', serve)
         self.assertEqual(serve.count("--vision"), 1)
-        self.assertIn("vision ${vision:-off}", serve)
+        self.assertIn("vision $vision", serve)
 
     def test_serve_sh_leaves_the_streams_to_the_engine_when_they_are_empty(self):
         # tp*.env names them and the rank file may. Empty: no --parallel, the engine's auto (from the memory free at start).

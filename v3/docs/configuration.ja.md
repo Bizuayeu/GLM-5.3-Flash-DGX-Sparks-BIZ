@@ -28,14 +28,14 @@
 | `NCCL_PORT` | `29583` | `NCCL_COMM_ID` のrank 0のport。rank 0のNCCLのbootstrapがここで待ち受ける。rankどうしの生存の線はその次のportを使う | 同じ |
 | `CONTEXT` | `1048576`。空の値は既定になる | 窓（`--context`） | 同じ。起動時に比べる |
 | `PARALLEL` | TP=2で `4`、TP=3で `8` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（両TPで受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
-| `TF_GLM_KV_SHARE` | TP=2で `16`、TP=3で `32` | KVのpoolのpageの上のprompt cache：保持するpromptをpageのまま持ち、その先のstateをこの数まで持つ。1 streamあたり4 stateを下回ると、動いているstreamどうしが追い出し合うとエンジンが警告する。空の値か `0` はコピーのprompt cache（`--prompt-cache-gib`）に戻す | 同じ |
+| `TF_KV_SHARE` | TP=2で `16`、TP=3で `32` | KVのpoolのpageの上のprompt cache：保持するpromptをpageのまま持ち、その先のstateをこの数まで持つ。1 streamあたり4 stateを下回ると、動いているstreamどうしが追い出し合うとエンジンが警告する。空の値か `0` はコピーのprompt cache（`--prompt-cache-gib`）に戻す。3.11.xまでは `TF_GLM_KV_SHARE` で、上流1.2.4のエンジンは起動時にこれを断る（#2211） | 同じ |
 | `TENSORFOLD_PREFILL_SHARE` | `0.7` | 他のstreamがdecodeしている間の、長いpromptの時間の取り分（[rank 0のserver](#rank-0のserver)）。空の値はエンジンの `1` のまま | rank 0 |
 | `TF_GLM_CHUNK_SOLO` | 空 | `4096` は、他のstreamがdecodeしていない間、promptのpassを4,096行にする。そのpassの途中で来た要求はpassの終わりを待ち、全rankが広いprompt bufferを持つ。空の値か `2048` は2,048行のpassのまま。`--drafter` とは組めない | 同じ。起動時に比べる |
 | `MTP_CONFIDENCE` | TP=2で空、TP=3で `0.5` | MTPのdraftの列を止める所（`--mtp-confidence`、0から1）：draftの確率がこの値を下回ると列が終わる。空の値は何も渡さない | 同じ |
-| `TF_GLM_ROCE_MULTI` | TP=2で空、TP=3で `1` | wire：3 rankで、主streamの小さいall-gatherをNCCLの横でエンジンのmultirank RoCEに通す。`serve.sh` が次の行を渡す。空の値か `0` はNCCLのまま | 同じ。起動時に比べる |
+| `TF_GLM_ROCE_MULTI` | TP=2で `0`、TP=3で `1` | wire：3 rankで、主streamの小さいall-gatherをNCCLの横でエンジンのmultirank RoCEに通す。`serve.sh` が次の行を渡す。`0` はNCCLのまま。他の値は、空も含めて `serve.sh` が起動時に断る | 同じ。起動時に比べる |
 | `TENSORFOLD_MEMORY_RESERVE_GIB` | TP=2で `9`、TP=3で `14` | エンジンがシステムに残すメモリ。TP=2では1,048,576 tokenの窓のKVのpageの余地を作る。エンジン自身のreserve（[下](#各rankが読み比べないもの)）ではその余地が残らない。TP=3ではXSFP4のKVのpoolを窓2本のpageに保つ：余裕は3本目が取る大きさに近く、3本目が入るとrank 0の空きが約12 GiB減る。Jammed XSFP4はmodelが小さく、同じreserveで3本目が入る（[checkpoint](../README.ja.md#checkpoint)）。空の値はエンジン自身の値 | 同じ |
 | `TF_TP_MASTER`・`TF_TP_PORT`・`TF_TP_PLAN_TIMEOUT`・`TF_TP_KERNEL_IMAGE`・`TF_TP_ROCE_FALLBACK` | `MASTER`、`29640`（と7つ上の `29647`）、`900`（秒）、imageの `/opt/glm53-tf3/tp_mailbox.fatbin`、`error` | `TF_GLM_ROCE_MULTI` がonの間に `serve.sh` がwireに渡す値：rank 0のアドレス、rankが落ち合うport、互いを待つ時間、mailboxのkernel、準備か確認に失敗した時の動き。`error` は起動を止め、`nccl` はwireなしで起動する | 同じ |
-| `VISION` | `1` | 画像と動画の入力（`--vision`）。rank 0でcheckpointのvision towerが読む。空でない値は `0` も含めてどれもこれを渡すので、textだけにするのは `VISION=` だけ | 同じ。起動時に比べる |
+| `VISION` | `1` | 画像と動画の入力（`--vision`）。rank 0でcheckpointのvision towerが読む。`0` でtextだけ。他の値は、空も含めて `serve.sh` が起動時に断る | 同じ。起動時に比べる |
 | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け（`--name`・`--host`・`--port`） | rank 0 |
 | `REASONING_EFFORT` | `high` | effortを指定しない要求のeffort（`--reasoning-effort`）：`low`・`medium`・`high`・`xhigh`。他の値は `max` も含めて起動時に全rankを止める。空の値は何も渡さず、chat templateに任せる。要求そのものは `none`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max` を指定できる | rank 0 |
 | `API_KEY_FILE` | なし | loopbackの外で配信するときのrank 0のkeyのファイル（`--api-key-file`、[APIのkey](#apiのkey)） | rank 0 |
@@ -61,7 +61,7 @@ labelの後に付けられるflagと、エンジンの既定です。「比べ�
 | flag | 既定 | 意味 |
 |---|---|---|
 | `--kv-cache fp8` | `bf16` | FP8のlatent cache。GiBあたり約2倍の窓。比べる。TP=2で一度試した（[制限](../README.ja.md#制限)） |
-| `--prompt-cache-gib N` | 無し：16 GiB、ただしstreamの残りまで | 保持するpromptの状態の予算。`0` で保持しない。リリースの `TF_GLM_KV_SHARE` では、promptはこの代わりにKVのpoolのpageの上に残る（[rankのファイル](#rankのファイル)） |
+| `--prompt-cache-gib N` | 無し：16 GiB、ただしstreamの残りまで | 保持するpromptの状態の予算。`0` で保持しない。リリースの `TF_KV_SHARE` では、promptはこの代わりにKVのpoolのpageの上に残る（[rankのファイル](#rankのファイル)） |
 | `--vision-max-images N` | `4`（1〜64） | 要求が持てる画像。送るmessageの全ての画像を数える。比べる |
 | `--vision-image-tokens N` | `4096`（16〜262144） | 要求の画像が分け合うtoken。比べる |
 | `--vision-max-videos N` | `2`（1〜16） | 要求が持てる動画。比べる |
@@ -106,7 +106,7 @@ labelの後に付けられるflagと、エンジンの既定です。「比べ�
 | `TF_GLM_PROMPT_K` | `one` | `shape`：promptに固定のKのslice、試しのもの。`TF_GLM_MM=1` が要る |
 | `TF_GLM_DENSE_BITS`・`TF_GLM_HEAD_BITS` | `16` | `4`・`6`・`8`：denseのlinear、またはheadを、読み込み時にそのbit数へ詰める |
 | `TF_GLM_LAYERS` | 全ての層 | 最初のN層だけ。GPU 1台で確かめるための細いモデル |
-| `TF_KV_PAGES` | unset：`auto` と同じ | streamのKV cacheの置き場：`auto` は2 rank以上で全streamのcacheとエンジン自身のsequenceを1つのpoolのpageに置く。`off` か `0` はどのTPでも窓（空の `TF_GLM_KV_SHARE=` と一緒に。pageの上に残すpromptを、エンジンはpageなしでは断る）。`on`・`all`・他の値（空も含む）はどのTPでもpage。`--kv-cache fp8` では `auto` と `off` は窓のままで、`on` か `all` は起動を止める |
+| `TF_KV_PAGES` | unset：`auto` と同じ | streamのKV cacheの置き場：`auto` は2 rank以上で全streamのcacheとエンジン自身のsequenceを1つのpoolのpageに置く。`off` か `0` はどのTPでも窓（空の `TF_KV_SHARE=` と一緒に。pageの上に残すpromptを、エンジンはpageなしでは断る）。`on`・`all`・他の値（空も含む）はどのTPでもpage。`--kv-cache fp8` では `auto` と `off` は窓のままで、`on` か `all` は起動を止める |
 
 rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vision` とその4つの上限、窓、checkpointの `config.json`、エンジンのbinary、checkpointのdigestも比べます。digestはmetadataと全shardのbyteのもので、containerの中のcacheに残るので、新しいcontainerの最初の起動はcheckpointを全部読みます。
 

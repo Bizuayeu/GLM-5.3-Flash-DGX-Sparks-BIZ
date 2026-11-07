@@ -3,9 +3,11 @@
 # The 3.x serving defaults: the MTP head's drafts (the engine's default), replies of up to 32,768 tokens when a request
 # names no limit, high reasoning effort, and what differs by TP from the release's tp2.env and tp3.env, which sit
 # beside this script: the window, the streams, the kept prompts, a prompt's share beside a decode, the solo passes, the
-# drafts' confidence, the wire and the memory reserve. The rank file follows them, so its value wins, every rank the same, and an empty
-# value turns a setting off. An empty PARALLEL leaves the streams to the engine, which sizes them and the prompt cache
-# from the memory free at start, so they can differ between starts; an empty CONTEXT keeps the release's window.
+# drafts' confidence, the wire and the memory reserve. The rank file follows them, so its value wins, every rank the
+# same. An empty value turns a number or word setting off; the on/off settings (VISION, TF_GLM_ROCE_MULTI,
+# TF_GLM_PROMPT_PAIR, TF_GLM_L2PF) take 1 or 0, and another value, an empty one included, stops the start. An empty
+# PARALLEL leaves the streams to the engine, which sizes them and the prompt cache from the memory free at start, so
+# they can differ between starts; an empty CONTEXT keeps the release's window.
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
 # between the hosts (at TP=3, whose hosts are linked point to point, a /32 address the ring's routes reach). Rank 0
 # makes its NCCL id at NCCL_COMM_ID (MASTER:NCCL_PORT), and the ranks' liveness lines meet it at the next port; the
@@ -35,11 +37,21 @@ release_context=$CONTEXT
 . "$rank_env"
 set +a
 : "${MASTER:?$rank_env must set MASTER, rank 0 address on the link between the hosts}"
+# The on/off settings take 1 or 0, as the engine's own switches do: an empty value or a word would otherwise be read as
+# one of them unseen (VISION= turned images off and VISION=0 turned them on)
+for v in VISION TF_GLM_ROCE_MULTI TF_GLM_PROMPT_PAIR TF_GLM_L2PF; do
+  [ -n "${!v+x}" ] || continue
+  case ${!v} in
+    0 | 1) ;;
+    '') echo "$v: 0 or 1; an empty value no longer turns it off, so write $v=0" >&2; exit 2 ;;
+    *) echo "$v: 0 or 1, not '${!v}'" >&2; exit 2 ;;
+  esac
+done
 export TF_GLM_RANK=$rank TF_GLM_WORLD=$tp
 export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"
 context=${CONTEXT:-$release_context}
 TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}
-for v in TF_HEAT_HIGH TF_HEAT_LOW TF_GLM_KV_SHARE TENSORFOLD_PREFILL_SHARE TF_GLM_CHUNK_SOLO TF_GLM_ROCE_MULTI \
+for v in TF_HEAT_HIGH TF_HEAT_LOW TF_KV_SHARE TENSORFOLD_PREFILL_SHARE TF_GLM_CHUNK_SOLO \
   TENSORFOLD_MEMORY_RESERVE_GIB; do
   if [ -n "${!v-}" ]; then export "$v"; else unset "$v"; fi
 done
@@ -67,13 +79,13 @@ parallel=${PARALLEL-}
 [ -n "${MTP_CONFIDENCE:-}" ] && args+=(--mtp-confidence "$MTP_CONFIDENCE")
 [ -n "${API_KEY_FILE:-}" ] && args+=(--api-key-file "$API_KEY_FILE")
 # VISION: image and video parts (default 1: the checkpoint's tower on rank 0, PNG, JPEG and WebP data URLs, videos;
-# empty: text alone), every rank the same
+# 0: text alone), every rank the same
 vision=${VISION-1}
-[ -n "$vision" ] && args+=(--vision)
+[ "$vision" = 1 ] && args+=(--vision)
 echo "[serve.sh] $(date -Is) TP=$tp rank $rank master $MASTER context $context parallel ${parallel:-auto}" \
-  "kept ${TF_GLM_KV_SHARE:-unset} prefill-share ${TENSORFOLD_PREFILL_SHARE:-unset} solo ${TF_GLM_CHUNK_SOLO:-unset}" \
+  "kept ${TF_KV_SHARE:-unset} prefill-share ${TENSORFOLD_PREFILL_SHARE:-unset} solo ${TF_GLM_CHUNK_SOLO:-unset}" \
   "mtp-confidence ${MTP_CONFIDENCE:-unset} wire ${TF_GLM_ROCE_MULTI:-unset}" \
-  "reserve ${TENSORFOLD_MEMORY_RESERVE_GIB:-unset} vision ${vision:-off}" \
+  "reserve ${TENSORFOLD_MEMORY_RESERVE_GIB:-unset} vision $vision" \
   "heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}" \
   "engine $(sed -n 's/^ref //p' /usr/share/doc/tf3/ENGINE 2>/dev/null || echo '?')" "TF_GLM_MM ${TF_GLM_MM-unset}"
 exec tensorfold-native serve "$CHECKPOINT" "${args[@]}" "$@"

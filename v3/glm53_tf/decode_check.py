@@ -8,7 +8,7 @@ length over the run, 1 + accepted / draft rounds, from each reply's `speculative
 `accepted`; `acceptance_from` says so, and `acceptance_null` why a run has none). TOKENS_OUT, a path,
 receives the completion text of every sample, so two launches can be compared at their first diverging
 character with `python -m glm53_tf decode-divergence` (the server returns no token ids). The engine keeps
-prompts as states on the KV pool's pages (TF_GLM_KV_SHARE), with no request field or endpoint that drops
+prompts as states on the KV pool's pages (TF_KV_SHARE), with no request field or endpoint that drops
 them, so a sample after the first may resume the prompt kept before it: each row's `cached` says so and
 the summary counts those rows (`resumed`); a resumed prompt gives the same tokens as a fresh one. Within a
 launch the samples agree, and across launches the hashes are compared with the previous launch of the same

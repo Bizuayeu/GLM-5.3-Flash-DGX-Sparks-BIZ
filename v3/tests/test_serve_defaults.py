@@ -65,7 +65,7 @@ class ReleaseDefaultsTests(unittest.TestCase):
         for tp in (2, 3):
             values = defaults(tp)
             self.assertGreaterEqual(
-                int(values["TF_GLM_KV_SHARE"]), 4 * int(values["PARALLEL"])
+                int(values["TF_KV_SHARE"]), 4 * int(values["PARALLEL"])
             )
 
     def test_the_files_are_lf_for_bash(self):
@@ -127,8 +127,9 @@ class ToolDefaultsTests(unittest.TestCase):
 
 @unittest.skipIf(os.name == "nt", "runs bash")
 class ServeTests(unittest.TestCase):
-    def serve(self, tp, rank_file=""):
-        """serve.sh beside the release's files with the engine stubbed: its arguments, environment and start line."""
+    def run_serve(self, tp, rank_file=""):
+        """serve.sh beside the release's files with the engine stubbed: its exit code, output (the temporary
+        folder as ROOT) and errors."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             shutil.copy(LINE / "scripts/serve.sh", root)
@@ -146,9 +147,14 @@ class ServeTests(unittest.TestCase):
                 env={"PATH": f"{root}:{os.environ['PATH']}"},
                 capture_output=True,
                 text=True,
-                check=True,
             )
-            lines = run.stdout.replace(str(root), "ROOT").splitlines()
+            return run.returncode, run.stdout.replace(str(root), "ROOT"), run.stderr
+
+    def serve(self, tp, rank_file=""):
+        """serve.sh with the engine stubbed: its arguments, environment and start line."""
+        code, out, err = self.run_serve(tp, rank_file)
+        self.assertEqual(code, 0, err)
+        lines = out.splitlines()
         args = [x[4:] for x in lines if x.startswith("arg ")]
         env = dict(
             x.split("=", 1)
@@ -166,10 +172,10 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(self.flag(args, "--context"), "1048576")
         self.assertEqual(self.flag(args, "--parallel"), "4")
         self.assertNotIn("--mtp-confidence", args)
-        self.assertEqual(env["TF_GLM_KV_SHARE"], "16")
+        self.assertEqual(env["TF_KV_SHARE"], "16")
         self.assertEqual(env["TENSORFOLD_PREFILL_SHARE"], "0.7")
         self.assertNotIn("TF_GLM_CHUNK_SOLO", env)
-        self.assertNotIn("TF_GLM_ROCE_MULTI", env)
+        self.assertEqual(env["TF_GLM_ROCE_MULTI"], "0")
         self.assertNotIn("TF_TP_MASTER", env)
         self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "9")
 
@@ -178,7 +184,7 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(self.flag(args, "--context"), "1048576")
         self.assertEqual(self.flag(args, "--parallel"), "8")
         self.assertEqual(self.flag(args, "--mtp-confidence"), "0.5")
-        self.assertEqual(env["TF_GLM_KV_SHARE"], "32")
+        self.assertEqual(env["TF_KV_SHARE"], "32")
         self.assertEqual(env["TF_GLM_ROCE_MULTI"], "1")
         self.assertEqual(env["TF_TP_MASTER"], "10.0.0.1")
         self.assertEqual(env["TF_TP_KERNEL_IMAGE"], "ROOT/tp_mailbox.fatbin")
@@ -187,12 +193,12 @@ class ServeTests(unittest.TestCase):
 
     def test_the_rank_file_wins(self):
         args, env, _ = self.serve(
-            2, "PARALLEL=2\nTF_GLM_KV_SHARE=8\nCONTEXT=262144\nMTP_CONFIDENCE=0.6\n"
+            2, "PARALLEL=2\nTF_KV_SHARE=8\nCONTEXT=262144\nMTP_CONFIDENCE=0.6\n"
         )
         self.assertEqual(self.flag(args, "--parallel"), "2")
         self.assertEqual(self.flag(args, "--context"), "262144")
         self.assertEqual(self.flag(args, "--mtp-confidence"), "0.6")
-        self.assertEqual(env["TF_GLM_KV_SHARE"], "8")
+        self.assertEqual(env["TF_KV_SHARE"], "8")
 
     def test_one_rank_file_line_serves_jammed_and_changes_nothing_else(self):
         # 3.10.0: XSFP4 stays the default; Jammed XSFP4 is its lock's folder in CHECKPOINT.
@@ -205,18 +211,17 @@ class ServeTests(unittest.TestCase):
                 self.assertEqual(args[:2], ["serve", folder])
                 self.assertEqual(args[2:], base[2:])
 
-    def test_an_empty_value_turns_a_setting_off(self):
+    def test_an_empty_value_turns_a_number_or_word_setting_off(self):
         args, env, _ = self.serve(
             3,
-            "PARALLEL=\nTF_GLM_KV_SHARE=\nTENSORFOLD_PREFILL_SHARE=\nMTP_CONFIDENCE=\nTF_GLM_ROCE_MULTI=\n"
+            "PARALLEL=\nTF_KV_SHARE=\nTENSORFOLD_PREFILL_SHARE=\nMTP_CONFIDENCE=\nTF_GLM_ROCE_MULTI=0\n"
             "TENSORFOLD_MEMORY_RESERVE_GIB=\n",
         )
         self.assertNotIn("--parallel", args)
         self.assertNotIn("--mtp-confidence", args)
         off = (
-            "TF_GLM_KV_SHARE",
+            "TF_KV_SHARE",
             "TENSORFOLD_PREFILL_SHARE",
-            "TF_GLM_ROCE_MULTI",
             "TF_GLM_CHUNK_SOLO",
         )
         for key in off + ("TENSORFOLD_MEMORY_RESERVE_GIB",) + WIRE:
@@ -225,6 +230,32 @@ class ServeTests(unittest.TestCase):
     def test_an_empty_context_keeps_the_releases_window(self):
         args, _, _ = self.serve(2, "CONTEXT=\n")
         self.assertEqual(self.flag(args, "--context"), "1048576")
+
+    def test_the_on_off_settings_take_one_or_zero(self):
+        for name in ("VISION", "TF_GLM_ROCE_MULTI", "TF_GLM_PROMPT_PAIR", "TF_GLM_L2PF"):
+            for value in ("0", "1"):
+                with self.subTest(name=name, value=value):
+                    _, env, _ = self.serve(3, f"{name}={value}\n")
+                    if name != "VISION":
+                        self.assertEqual(env[name], value)
+            for value in ("", "yes", "true", "2", "off"):
+                with self.subTest(name=name, value=value):
+                    code, out, err = self.run_serve(3, f"{name}={value}\n")
+                    self.assertEqual(code, 2, err)
+                    self.assertIn(f"{name}: 0 or 1", err)
+                    self.assertNotIn("[serve.sh]", out)
+
+    def test_an_empty_on_off_value_says_to_write_a_zero(self):
+        _, _, err = self.run_serve(2, "VISION=\n")
+        self.assertIn("write VISION=0", err)
+
+    def test_vision_is_on_unless_a_zero_turns_it_off(self):
+        args, _, start = self.serve(2)
+        self.assertIn("--vision", args)
+        self.assertIn("vision 1", start)
+        args, _, start = self.serve(2, "VISION=0\n")
+        self.assertNotIn("--vision", args)
+        self.assertIn("vision 0", start)
 
     def test_the_wire_can_be_turned_off_with_a_zero(self):
         _, env, _ = self.serve(3, "TF_GLM_ROCE_MULTI=0\n")
@@ -246,7 +277,7 @@ class ServeTests(unittest.TestCase):
             "prefill-share 0.7",
             "solo unset",
             "mtp-confidence unset",
-            "wire unset",
+            "wire 0",
             "reserve 9",
         ):
             self.assertIn(shown, start)
@@ -275,7 +306,7 @@ class ReadmeDefaultsTests(unittest.TestCase):
             table = self.table(name)
             for tp in (two, three):
                 self.assertIn(f"{int(tp['CONTEXT']):,}", table, name)
-                self.assertIn(f"TF_GLM_KV_SHARE={tp['TF_GLM_KV_SHARE']}", table, name)
+                self.assertIn(f"TF_KV_SHARE={tp['TF_KV_SHARE']}", table, name)
                 self.assertIn(
                     f"TENSORFOLD_PREFILL_SHARE={tp['TENSORFOLD_PREFILL_SHARE']}",
                     table,

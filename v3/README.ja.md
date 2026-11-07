@@ -103,11 +103,11 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env) と [`config/tp3.e
 | 設定 | TP=2（2台） | TP=3（3台） |
 |---|---|---|
 | checkpoint | XSFP4、lockのrevision（`CHECKPOINT` を書かない、[checkpoint](#checkpoint)） | 同じ |
-| KV cache | latentとindexのkeyをBF16（エンジンの既定。`--kv-cache fp8` で選べるFP8のlatent cacheは受け入れの外：[制限](#制限)）、KVのpageに：全streamのcacheとエンジン自身のsequenceが1つのpoolのpageを取る（2 rankからのエンジンの既定、`TF_KV_PAGES`。全rankのファイルの `TF_KV_PAGES=off` と空の `TF_GLM_KV_SHARE=` は、TP=2は3.8.xまで、TP=3は3.7.0までと同じくstreamごとの窓） | 同じ |
+| KV cache | latentとindexのkeyをBF16（エンジンの既定。`--kv-cache fp8` で選べるFP8のlatent cacheは受け入れの外：[制限](#制限)）、KVのpageに：全streamのcacheとエンジン自身のsequenceが1つのpoolのpageを取る（2 rankからのエンジンの既定、`TF_KV_PAGES`。全rankのファイルの `TF_KV_PAGES=off` と空の `TF_KV_SHARE=` は、TP=2は3.8.xまで、TP=3は3.7.0までと同じくstreamごとの窓） | 同じ |
 | draft | checkpointのMTP head（エンジンの既定） | 同じ。draftの連なりは確率が0.5未満のdraftで終わる（`MTP_CONFIDENCE`、エンジンの `--mtp-confidence`） |
 | 窓（`--context`） | 1,048,576 token（モデルの上限） | 同じ |
 | 同時にdecodeする要求（`--parallel`） | 4（`PARALLEL`）。空の `PARALLEL=` ではエンジンに任せ、エンジンは起動時の空きメモリの許す限り8本までstreamを取る | 8。同じ |
-| prompt cache（保持するpromptの状態） | KVのpoolのpageの上（`TF_GLM_KV_SHARE=16`）：保持するpromptは埋めたpageのまま残り、その先の状態は最大16で、会話は持っているpageの最後の印から再開する。poolの横にstoreは持たない（loadの行の `the prompt cache over the pool's pages`） | 同じ、状態は最大32（`TF_GLM_KV_SHARE=32`） |
+| prompt cache（保持するpromptの状態） | KVのpoolのpageの上（`TF_KV_SHARE=16`）：保持するpromptは埋めたpageのまま残り、その先の状態は最大16で、会話は持っているpageの最後の印から再開する。poolの横にstoreは持たない（loadの行の `the prompt cache over the pool's pages`） | 同じ、状態は最大32（`TF_KV_SHARE=32`） |
 | decodeの横のprompt | stepが時間の70%を取り、残りをstreamのroundが取る（`TENSORFOLD_PREFILL_SHARE=0.7`。エンジンの `1` はstepとroundを1回ずつ交互に回す） | 同じ |
 | systemに残すメモリ（`TENSORFOLD_MEMORY_RESERVE_GIB`） | 9 GiB | 14 GiB |
 | 要求が指定しないときの応答の上限 | 32,768 token（`--max-tokens`） | 同じ |
@@ -116,12 +116,12 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env) と [`config/tp3.e
 | main streamの小さいall-gather | NCCL | エンジンのmultirank RoCE、wireをNCCLの隣で（`TF_GLM_ROCE_MULTI=1`）。準備に失敗すると起動が止まる |
 | BF16のlinear | 上流のtiledのkernel（エンジンの既定） | 同じ：上流1.1.2から（issue #1067）、TP=3のrankのKDAの入力をtileせずに回す。3.1.0と3.2.0はglueのkernel（`TF_GLM_MM=0`）が要った |
 | 熱によるprefillの休止 | prompt chunkの前ごとに全rankそろって、どれかのrankのACPIの最も熱いzoneが92 °Cを超えている間、全rankが88 °C以下になるまで待つ（`TF_HEAT_HIGH`・`TF_HEAT_LOW`。3.0.0〜3.2.0は93 °Cの天井の手前でも待ったが、3.3.0のエンジンは天井を持たない） | 同じ |
-| 画像と動画の入力 | 有効（`VISION=1`、エンジンの `--vision`）：rank 0にcheckpointのvision tower、PNG・JPEG・WebPの画像と動画をdata URLで、エンジンの制限の中で（[制限](#制限)）。`VISION=` でtextだけ、全rankで同じに | 同じ |
+| 画像と動画の入力 | 有効（`VISION=1`、エンジンの `--vision`）：rank 0にcheckpointのvision tower、PNG・JPEG・WebPの画像と動画をdata URLで、エンジンの制限の中で（[制限](#制限)）。`VISION=0` でtextだけ、全rankで同じに | 同じ |
 | containerのcore | 最大周波数の最も低いcore：GB10の効率core、0-4と10-14（`create_container.sh`、`CPUSET`） | 同じ |
 
 **TP=2で4本、TP=3で8本にする理由。** 1本のstreamでは要求は前の返答の終わりを待ちます。3.8.xまでのTP=2では2本目のstreamが自分の窓を取り、短い窓にしか余地がありませんでした。KVのpageではstreamは使う分を一つのpoolから取るので、窓は本数によらずどの起動でも同じです。TP=2の4本は、agentが長い会話の横で送る短い要求のためのものです：32K tokenのpromptに6〜8秒で来た要求は1.20秒で最初のtokenを返しました。1本ならpromptと返答の全体を待ちます。TP=3の8本は複数の人のためのもので、4本の1本が終わるのを5本目が待たないようにします：別々の8つのpromptを一緒に送ると全部が1.65秒以内に始まり、合計は94.23 tok/s（4本では75.00）でした。同時の返答は同じ要求の単独の返答と同じです（[同時の要求](docs/validation.ja.md#同時の要求)）。
 
-**prompt cacheをpoolのpageに置く理由。** 長い会話の保持の状態は4本のstreamの横のstoreに入らないことがあり、次の長いpromptが前の状態を追い出します。`TF_GLM_KV_SHARE` はpromptを埋めたpoolのpageのまま保つので、poolに余地がある間は状態が次のpromptの後も残り、poolの横にstoreを持ちません。約64K tokenと128K tokenのpromptの再送はTP=2で2.06秒と2.34秒、TP=3で1.54秒と2.11秒、400K tokenのpromptはTP=2で2.17秒でした。読み直せば数分かかります。16と32はstream 1本に4状態で、エンジン自身の線です。その下では、動いているstreamが互いの状態を追い出すと警告します。
+**prompt cacheをpoolのpageに置く理由。** 長い会話の保持の状態は4本のstreamの横のstoreに入らないことがあり、次の長いpromptが前の状態を追い出します。`TF_KV_SHARE` はpromptを埋めたpoolのpageのまま保つので、poolに余地がある間は状態が次のpromptの後も残り、poolの横にstoreを持ちません。約64K tokenと128K tokenのpromptの再送はTP=2で2.06秒と2.34秒、TP=3で1.54秒と2.11秒、400K tokenのpromptはTP=2で2.17秒でした。読み直せば数分かかります。16と32はstream 1本に4状態で、エンジン自身の線です。その下では、動いているstreamが互いの状態を追い出すと警告します。
 
 **promptの取り分を0.7にする理由。** エンジンの `1` では長いpromptのstepとdecodeのroundが1回ずつ交互に回るので、横の返答はtokenごとにstep 1回分止まります。0.7ではpromptが時間の30%をdecodeに渡します：32K tokenのpromptの横の、別々のpromptの3本のdecodeのtokenの間隔はTP=2で62 ms、TP=3で47 msでした。promptが払うのは何かが横でdecodeしている間だけで、単独のpromptは待ちません。
 
