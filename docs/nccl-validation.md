@@ -21,6 +21,8 @@ IMAGE=$(cd v1 && python -c 'from glm53_setup.config import load_lock; print(load
 mkdir -p "records/$RUN_ID"
 ```
 
+A host that got the image through `docker save … | docker load` over the link, not from the registry, holds it without a name, and the lock's digest reference does not resolve there. With Docker's containerd image store the copy's ID was that same digest on the reference hosts (Docker 29.6.2), so set `IMAGE=sha256:<the digest in the lock>` on such a host.
+
 Confirm port 29653 is unused on rank 0. Start rank 1 and then rank 0 promptly (rendezvous timeout is 90 seconds). Keep an external five-minute experiment deadline; if exceeded, stop these specific test containers on both hosts and preserve their logs.
 
 ```sh

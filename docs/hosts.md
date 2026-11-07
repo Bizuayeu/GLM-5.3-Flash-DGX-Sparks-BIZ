@@ -6,7 +6,7 @@ What every serving line needs from its hosts before the line's own setup: the ke
 
 ## Host kernel and multi-node RoCE
 
-**Check the kernel and the driver before installing updates and before the multi-host steps.** Since 2026-10-14 the reference hosts, MSI EdgeXpert (MS-C931), run DGX OS 7.6.0: kernel `7.0.0-1019-nvidia` booted with `kho=off`, driver 580.178.04 and ConnectX-7 firmware 28.45.4028. 2.9.1 and 2.9.2 were accepted on them, and every 3.x release was measured there. Earlier measurements, 1.x's through 1.31.0 and 2.x's through 2.9.0, ran on `6.17.0-1032-nvidia` with driver 580.173.02 and the same firmware.
+**Check the kernel and the driver before installing updates and before the multi-host steps.** The reference hosts, MSI EdgeXpert (MS-C931), run DGX OS 7.6.0. Since 2026-11-07 they boot kernel `7.0.0-1025-nvidia` with `kho=off` and `power_wrap_init` in `initcall_blacklist`, with driver 580.178.04, ConnectX-7 firmware 28.50.1002 and MSI's UEFI 5.36_1.9.0 with the display memory set to Auto ([updating a host](#updating-a-host)). No figure of any line has been measured on this state yet. From 2026-10-14 to 2026-11-07 they booted `7.0.0-1019-nvidia` with `kho=off`, with the same driver, ConnectX-7 firmware 28.45.4028, MSI's earlier board firmware (EC 10800, SoC 10900, USB-C PD 522) and the display memory at its 2 GiB default, which left `MemTotal` 1.5 GiB lower. 2.9.1 and 2.9.2 were accepted on that state, and every 3.x release through 3.11.4 was measured there. Earlier measurements, 1.x's through 1.31.0 and 2.x's through 2.9.0, ran on `6.17.0-1032-nvidia` with driver 580.173.02 and ConnectX-7 firmware 28.45.4028.
 
 Updates available as of 2026-09-15 move the `linux-nvidia-hwe-24.04` metapackages to `7.0.0-1019-nvidia`, with the 580 open driver modules built for it. The same update moves `nvidia-driver-580-open` from 580.173.02 to 580.178.04 (seen in `apt list --upgradable` on both reference hosts, 2026-09-18). An `apt` upgrade or a DGX Dashboard update installs it, so a newly installed system boots it after its first update.
 
@@ -22,7 +22,7 @@ Boot every host with KHO off, as the reference hosts do:
 
 KHO serves kexec-based live update, which this deployment does not use. The workaround was posted in the advisory thread, and the PR reports two-host registration, NCCL and TP2 workload tests passing with KHO off. `kho=off` does nothing for the host freeze described below.
 
-On this state the reference hosts passed, against the same work on `6.17.0-1032-nvidia` and 580.173.02 before the update:
+On the 2026-10-14 state the reference hosts passed, against the same work on `6.17.0-1032-nvidia` and 580.173.02 before the update:
 
 - The [NCCL validation](nccl-validation.md) between the pair and around the three-host ring (2026-10-14).
 - 1.x's vLLM at TP=2 (2026-10-15): with MTP, prompts of 1,024 to 32,768 tokens filled in 0.93 to 1.00 of the earlier times and decode ran at 33.93 and 24.97 tok/s against 33.45 and 24.42; without MTP, 14.16 and 14.18 tok/s against 14.09 and 14.09.
@@ -36,6 +36,26 @@ After the update, repeat the [NCCL validation](nccl-validation.md) and a full-mo
 A separate report with the same error, on MS-C931 systems running an Ubuntu generic 7.0 kernel with driver 595.84, failed with about 118 GiB free before weights loaded and attributes the fix to MSI board firmware updates (embedded controller, SoC firmware, USB-C PD) ([MiaAI-Lab issue #259](https://github.com/MiaAI-Lab/DeepSeek-v4-Flash-DSpark-2x-DGX-Spark/issues/259)). If the error appears without memory pressure, check the vendor firmware as well.
 
 **Check loaded clocks after an unclean restart.** tonyd2wild reports a persistent ~14 W clamp after watchdog resets: 611–890 MHz under load, with BF16 matrix throughput about half the unaffected host. GPU reset, clock/power settings and reboots did not restore it; disconnecting and reconnecting AC did. Running CUDA immediately after a GPU reset without a reboot also faulted (speed-night report, commit `9f5cc2c`; no code adopted). This is an external observation, not reproduced on this reference pair. Before attributing a post-restart slowdown to a model change, record GPU clocks and power under the same workload; an idle power reading alone does not diagnose the clamp.
+
+## Updating a host
+
+On 2026-11-07 the reference hosts moved from the 2026-10-14 state to `7.0.0-1025-nvidia`. These are the steps they took, in order, each with the check that showed it held.
+
+1. **Packages.** `sudo apt update && sudo apt full-upgrade`, and `sudo apt install nvidia-spark-grub-kho` where it is not installed yet. NVIDIA ships the boot settings new kernels need as `nvidia-spark-*` packages, so update the package lists before the kernel comes in. Run the upgrade from the console or detached from your SSH session: unpacking `openssh-server` stops sshd for a moment, and a session that drops in the middle leaves packages unconfigured until `sudo dpkg --configure -a`.
+2. **The ConnectX-7 firmware, before the reboot.** DGX OS 7.6's `nvidia-spark-mlnx-firmware-manager` (6.0.1-1) writes ConnectX-7 firmware 28.50.1002 from its package script, about two minutes (104 s on one reference host), and checks it on the next boot. Reboot only when `systemctl is-active nvidia-spark-mlnx-firmware-manager.service` no longer reads `active`. A reboot during the write stops it, and after three stopped attempts the unit logs `Install and verify exceeded retry limit (3)`, disables itself and leaves the old firmware running: so it went on two reference hosts, whose links kept working on 28.45.4028 while `systemctl is-system-running` read `degraded`. To write it again, `sudo systemctl reset-failed nvidia-spark-mlnx-firmware-manager.service && sudo systemctl enable --now nvidia-spark-mlnx-firmware-manager.service`, wait for `Please reboot the system` in `journalctl -u nvidia-spark-mlnx-firmware-manager`, and reboot; the next boot verifies the write and disables the unit. `cat /sys/class/infiniband/*/fw_ver` shows the running version.
+3. **The boot settings.** After the reboot `/proc/cmdline` holds `kho=off` and `initcall_blacklist=tegra234_cbb_init,power_wrap_init`. `nvidia-spark-initcall-bl` 1.0-2 (2026-11-03) adds `power_wrap_init`; it answers reports of hosts rebooting again and again on `7.0.0-1024-nvidia` ([NVIDIA forum](https://forums.developer.nvidia.com/t/dgx-spark-repeatedly-rebooting-after-most-recent-update/387397)). The reference hosts never ran 1024: they went to 1025 with 1.0-2 already installed.
+4. **Board firmware and display memory (MSI MS-C931).** The reference hosts then took MSI's board firmware from LVFS's `lvfs-testing` remote, which fwupd leaves disabled by default: `sudo fwupdmgr enable-remote lvfs-testing`, `sudo fwupdmgr refresh --force`, `sudo fwupdmgr update`, and a reboot, repeated until nothing is offered (EC 11000, SoC 11100 with UEFI 5.36_1.9.0, USB-C PD 525; a capsule reboot took about 7.5 minutes, and on one host the PD needed a second round). It is testing-channel firmware, taken here for the display memory setting; whether to take it is your choice, and other GB10 systems have their own firmware. With that UEFI the memory it reserves for a display can be set to Auto (Advanced → Advanced Menu → Display Reserved Memory, or from Linux with the request variable below). On a host that boots without a display (`multi-user.target`), Auto reserves 512 MiB instead of 2 GiB, and `MemTotal` rose by 1.50 GiB on every reference host, from 127,598,812 kB to 129,168,464 kB on one ([NVIDIA's porting guide](https://docs.nvidia.com/dgx/dgx-spark-porting-guide/latest/optimization.html) describes the setting). Every figure of every line was measured with the 2 GiB default.
+
+   ```sh
+   V=/sys/firmware/efi/efivars; G=284e19b9-235f-4aab-ae4c-190456d1bd76
+   sudo od -An -tx1 $V/NvidiaDispFrmStatus-$G    # missing: this firmware has no Auto
+   sudo chattr -i $V/NvidiaDispFrmSizeRequest-$G 2>/dev/null
+   printf '\x07\x00\x00\x00\x00' | sudo tee $V/NvidiaDispFrmSizeRequest-$G > /dev/null
+   sudo reboot
+   ```
+
+   After the reboot `NvidiaDispFrmStatus` reads `06 00 00 00 00 00 02 00 00`: four bytes of attributes, the setting (`00` is Auto), and the size in MiB, little-endian (`02 00 00` here, 512 MiB). The UEFI applies the request and removes it; firmware without Auto drops it silently.
+5. **NCCL.** Repeat the [NCCL validation](nccl-validation.md). On `7.0.0-1025-nvidia` with ConnectX-7 28.50.1002 the reference hosts passed it between four directly cabled pairs (2026-11-07): 11 of 11 checks on both ranks, every channel over `NET/IB`, no `Cannot allocate memory`, and a 256 MiB FP32 AllReduce in 20.0 to 24.2 ms (24.6 ms for one of the pairs on `7.0.0-1019-nvidia`, 2026-10-11). The three-host ring and a full-model launch have not been repeated on this state.
 
 ## GPU clock cap
 

@@ -21,6 +21,8 @@ IMAGE=$(cd v1 && python -c 'from glm53_setup.config import load_lock; print(load
 mkdir -p "records/$RUN_ID"
 ```
 
+image を registry からでなく、リンク越しの `docker save … | docker load` で受け取ったホストでは、image に名前が付かず、lock の digest の参照が解決しません。参照機（Docker 29.6.2、containerd の image store）では写しの ID がその digest と同じ値だったので、そのホストでは `IMAGE=sha256:<lock の digest>` とします。
+
 rank 0の29653番ポートが未使用か確認します。rank 1、続けてrank 0を速やかに起動します（待ち合わせのタイムアウトは90秒）。試験全体には外部から5分の期限を設け、超えたら今回の試験コンテナだけを両機で停止し、ログを保存します。
 
 ```sh

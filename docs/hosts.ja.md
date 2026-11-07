@@ -6,7 +6,7 @@
 
 ## ホストカーネルと複数ノードRoCE
 
-**更新を入れる前と、複数台で動かす手順の前に、カーネルとドライバーを確認してください。** 参照機の MSI EdgeXpert（MS-C931）は、2026-10-14 から DGX OS 7.6.0 で動いています。カーネル `7.0.0-1019-nvidia` を `kho=off` で起動し、ドライバー 580.178.04、ConnectX-7 ファームウェア 28.45.4028 です。2.9.1と2.9.2はこの上で受け入れ、3.x系のリリースはどれもここで測りました。それより前の実測（1.x系の 1.31.0 まで、2.x系の 2.9.0 まで）は、`6.17.0-1032-nvidia`、ドライバー 580.173.02、同じファームウェアで行いました。
+**更新を入れる前と、複数台で動かす手順の前に、カーネルとドライバーを確認してください。** 参照機の MSI EdgeXpert（MS-C931）は DGX OS 7.6.0 で動いています。2026-11-07 からは、カーネル `7.0.0-1025-nvidia` を `kho=off` と `initcall_blacklist` の `power_wrap_init` つきで起動し、ドライバー 580.178.04、ConnectX-7 ファームウェア 28.50.1002、MSI の UEFI 5.36_1.9.0 で、表示用のメモリを Auto にしています（[ホストの更新](#ホストの更新)）。この状態では、どの系の数もまだ測っていません。2026-10-14 から 2026-11-07 までは、カーネル `7.0.0-1019-nvidia` を `kho=off` で起動し、同じドライバー、ConnectX-7 ファームウェア 28.45.4028、MSI の前の基板ファームウェア（EC 10800、SoC 10900、USB-C PD 522）で、表示用のメモリは既定の 2 GiB でした。そのぶん `MemTotal` は 1.5 GiB 少なかったことになります。2.9.1と2.9.2はこの状態で受け入れ、3.x系のリリースは 3.11.4 までどれもここで測りました。それより前の実測（1.x系の 1.31.0 まで、2.x系の 2.9.0 まで）は、`6.17.0-1032-nvidia`、ドライバー 580.173.02、ConnectX-7 ファームウェア 28.45.4028 で行いました。
 
 2026-09-15 時点の更新では、`linux-nvidia-hwe-24.04` 系のメタパッケージが `7.0.0-1019-nvidia` へ上がり、580 open ドライバーのモジュールもそのカーネル向けに入ります。同じ更新で `nvidia-driver-580-open` も 580.173.02 から 580.178.04 へ上がります（参照機2台の `apt list --upgradable` で 2026-09-18 に確認）。`apt` の更新でも DGX Dashboard の更新でも入るため、新しく導入した機体も最初の更新の後はこのカーネルで起動します。
 
@@ -22,7 +22,7 @@
 
 KHO は kexec による稼働中更新のための機能で、この構成では使いません。この回避策は告知スレッドに投稿されたもので、PR では KHO 無効で2台間のメモリ登録・NCCL・TP2 の試験が通ったと報告されています。`kho=off` は下記のホスト固着には効きません。
 
-この状態で参照機は次を通りました（比べたのは、更新前の `6.17.0-1032-nvidia`・580.173.02 での同じ作業）。
+2026-10-14 の状態で参照機は次を通りました（比べたのは、更新前の `6.17.0-1032-nvidia`・580.173.02 での同じ作業）。
 
 - 2台の間と3台の輪での [NCCL 検証](nccl-validation.ja.md)（2026-10-14）。
 - 1.x系の vLLM、TP=2（2026-10-15）：MTP ありで、1,024〜32,768 token の prompt を埋める時間は前の 0.93〜1.00 倍、decode は 33.93 と 24.97 tok/s（前は 33.45 と 24.42）。MTP なしで 14.16 と 14.18 tok/s（前は 14.09 と 14.09）。
@@ -36,6 +36,26 @@ KHO は kexec による稼働中更新のための機能で、この構成では
 同じエラーの別の報告もあります。Ubuntu 汎用の 7.0 カーネル・ドライバー 595.84 の MS-C931 機で、空きが約 118 GiB あり重みのロード前だったにもかかわらず失敗し、MSI のボードファームウェア更新（組み込みコントローラー、SoC ファームウェア、USB-C PD）で解決したとしています（[MiaAI-Lab issue #259](https://github.com/MiaAI-Lab/DeepSeek-v4-Flash-DSpark-2x-DGX-Spark/issues/259)）。メモリに余裕があるのにこのエラーが出る場合は、メーカーのファームウェアも確認してください。
 
 **異常終了後は負荷時のクロックを確認する。** tonyd2wildはwatchdog reset後に約14 Wの電力制限が残り、負荷時611〜890 MHz、BF16行列演算の速度が正常機の約半分になったと報告しています。GPU reset・クロック／電力設定・再起動では戻らず、ACの抜き差しで復旧しました。GPU reset直後に再起動を挟まずCUDAを実行した場合もfaultが発生しています（speed-night報告、commit `9f5cc2c`。コードは採用しない）。基準の2台で再現した事実ではなく、外部の観測です。再起動後の低速化をモデル変更の効果と読む前に、同じ負荷でGPUクロックと電力を記録してください。アイドル時の電力だけではこの制限を診断できません。
+
+## ホストの更新
+
+2026-11-07 に、参照機は 2026-10-14 の状態から `7.0.0-1025-nvidia` へ移りました。その手順を順に、それぞれ効いたことを確かめた方法とともに並べます。
+
+1. **パッケージ。** `sudo apt update && sudo apt full-upgrade`。`nvidia-spark-grub-kho` がまだなければ `sudo apt install nvidia-spark-grub-kho`。新しいカーネルに要る起動の設定は NVIDIA が `nvidia-spark-*` のパッケージで配るので、カーネルが入る前にパッケージの一覧を新しくしておきます。更新はコンソールから、または SSH のセッションから切り離して回します。`openssh-server` の展開で sshd が一時止まり、途中でセッションが切れると、`sudo dpkg --configure -a` までパッケージが設定されないまま残ります。
+2. **再起動の前に、ConnectX-7 のファームウェア。** DGX OS 7.6 の `nvidia-spark-mlnx-firmware-manager`（6.0.1-1）は、パッケージのスクリプトから ConnectX-7 ファームウェア 28.50.1002 を書き込み（約 2 分、参照機の 1 台で 104 秒）、次の起動で確かめます。`systemctl is-active nvidia-spark-mlnx-firmware-manager.service` が `active` でなくなってから再起動してください。書き込みの途中で再起動すると止まり、止まった試みが 3 回になると、unit は `Install and verify exceeded retry limit (3)` を記録して自分を無効にし、古いファームウェアのまま残ります。参照機の 2 台がそうなりました。リンクは 28.45.4028 のまま動き、`systemctl is-system-running` は `degraded` でした。書き直すには `sudo systemctl reset-failed nvidia-spark-mlnx-firmware-manager.service && sudo systemctl enable --now nvidia-spark-mlnx-firmware-manager.service` を打ち、`journalctl -u nvidia-spark-mlnx-firmware-manager` に `Please reboot the system` が出るのを待って再起動します。次の起動で書き込みが確かめられ、unit は無効に戻ります。動いている版は `cat /sys/class/infiniband/*/fw_ver` で見られます。
+3. **起動の設定。** 再起動の後、`/proc/cmdline` に `kho=off` と `initcall_blacklist=tegra234_cbb_init,power_wrap_init` があります。`power_wrap_init` を足すのは `nvidia-spark-initcall-bl` 1.0-2（2026-11-03）で、`7.0.0-1024-nvidia` で再起動を繰り返すという報告への手当てです（[NVIDIA のフォーラム](https://forums.developer.nvidia.com/t/dgx-spark-repeatedly-rebooting-after-most-recent-update/387397)）。参照機は 1024 を一度も動かしていません。1.0-2 が入った状態で 1025 へ移りました。
+4. **基板のファームウェアと表示用のメモリ（MSI MS-C931）。** 参照機はその後、MSI の基板ファームウェアを LVFS の `lvfs-testing` から入れました。fwupd の既定では無効の remote です。`sudo fwupdmgr enable-remote lvfs-testing`、`sudo fwupdmgr refresh --force`、`sudo fwupdmgr update` と再起動を、入れる物が無くなるまで繰り返しました（EC 11000、SoC 11100 と UEFI 5.36_1.9.0、USB-C PD 525。capsule の再起動は約 7.5 分、1 台では PD が 2 回目まで残りました）。試験用の配信のファームウェアで、ここでは表示用のメモリの設定のために入れました。入れるかはあなたの判断で、ほかの GB10 機は別のファームウェアです。この UEFI では、表示のために取っておくメモリを Auto にできます（Advanced → Advanced Menu → Display Reserved Memory、Linux からは下の要求の変数で）。画面なしで起動するホスト（`multi-user.target`）では Auto で 2 GiB が 512 MiB になり、`MemTotal` は参照機のどれでも 1.50 GiB 増えました（1 台では 127,598,812 kB から 129,168,464 kB。設定は [NVIDIA の移植ガイド](https://docs.nvidia.com/dgx/dgx-spark-porting-guide/latest/optimization.html) にあります）。どの系の数も、既定の 2 GiB で測ったものです。
+
+   ```sh
+   V=/sys/firmware/efi/efivars; G=284e19b9-235f-4aab-ae4c-190456d1bd76
+   sudo od -An -tx1 $V/NvidiaDispFrmStatus-$G    # 無ければ、このファームウェアに Auto は無い
+   sudo chattr -i $V/NvidiaDispFrmSizeRequest-$G 2>/dev/null
+   printf '\x07\x00\x00\x00\x00' | sudo tee $V/NvidiaDispFrmSizeRequest-$G > /dev/null
+   sudo reboot
+   ```
+
+   再起動の後、`NvidiaDispFrmStatus` は `06 00 00 00 00 00 02 00 00` になります。先頭の 4 バイトが属性、次が設定（`00` が Auto）、残りが MiB の大きさ（リトルエンディアン、ここでは `02 00 00` で 512 MiB）です。UEFI は要求を適用して消します。Auto の無いファームウェアは黙って捨てます。
+5. **NCCL。** [NCCL 検証](nccl-validation.ja.md)をやり直します。`7.0.0-1025-nvidia` と ConnectX-7 28.50.1002 で、参照機は直結した 4 組で通りました（2026-11-07）。両 rank とも 11 項目中 11、全チャネルが `NET/IB`、`Cannot allocate memory` なし、256 MiB の FP32 AllReduce は 20.0〜24.2 ms です（組の 1 つは `7.0.0-1019-nvidia` で 24.6 ms、2026-10-11）。3 台の輪とフルモデルの起動は、この状態ではまだやり直していません。
 
 ## GPUクロックの上限
 
