@@ -158,7 +158,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 | | 2.x（TensorFoldのPythonのエンジン） | 3.x（TensorFoldのネイティブエンジン） |
 |---|---|---|
-| エンジン | TensorFold 0.6.5のBIZ版。PythonとTritonのkernelで、kernelは実行時にcompile | TensorFold 1.2.1のBIZ版（3.0.0は1.0.12、3.1.0と3.2.0は1.1.1、3.3.0〜3.5.xは1.1.2、3.6.0と3.7.0は1.1.3、3.8.xは1.1.5）。ZigとCUDAで、kernelはbinaryの中 |
+| エンジン | TensorFold 0.6.5のBIZ版。PythonとTritonのkernelで、kernelは実行時にcompile | TensorFold 1.2.4のBIZ版（3.0.0は1.0.12、3.1.0と3.2.0は1.1.1、3.3.0〜3.5.xは1.1.2、3.6.0と3.7.0は1.1.3、3.8.xは1.1.5、3.9.0〜3.11.xは1.2.1）。ZigとCUDAで、kernelはbinaryの中 |
 | 出力の反復性 | エンジンの契約として、draftした応答はserialと同じ、再開したpromptは最初からと同じ、chunkの切り方で結果が変わらない | draftした応答はserialと同じで、起動はtoken idを繰り返す。tokenは2.x系のものと違う（別のkernel、BF16 KV）ので、系列の間はNLLで比べる |
 | KVと窓 | latentとindexのkeyをFP8。TP=2で300,000 token、TP=3で1,048,576 | BF16をKVのpageに。両TPで1,048,576 token（TP=2は3.8.xまで524,288） |
 | 同時の要求 | 1 | TP=2で4、TP=3で8。decodeのroundとKVのpoolを分け合う（3.8.xまでは既定で1） |
