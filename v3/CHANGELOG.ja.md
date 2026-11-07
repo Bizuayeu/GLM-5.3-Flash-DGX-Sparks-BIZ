@@ -6,6 +6,17 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.11.5 — 2026-11-07
+
+文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
+
+### Documentation
+
+- 参照機は 2026-11-07 に、カーネル `7.0.0-1025-nvidia`（`kho=off` と、`initcall_blacklist` の `power_wrap_init` つきで起動）、ConnectX-7 ファームウェア 28.50.1002、表示用のメモリを Auto にした MSI の UEFI 5.36_1.9.0 へ移りました。Auto で OS が使えるメモリは 1.5 GiB 増えます。[ホストの準備](../docs/hosts.ja.md#ホストカーネルと複数ノードroce)は、この状態と、3.11.4 までの 3.x系の数をすべて測った状態（`7.0.0-1019-nvidia`、ConnectX-7 28.45.4028、表示用の既定の 2 GiB）を分けて書きます。新しい状態では、3.x系の数はまだ測っていません。
+- 新しい節[ホストの更新](../docs/hosts.ja.md#ホストの更新)は、参照機がたどった手順と、それぞれの確かめ方を並べます。DGX OS 7.6 では、再起動の前に `nvidia-spark-mlnx-firmware-manager` の ConnectX-7 ファームウェアの書き込みが終わるのを待つこと（書き込みの途中の再起動で止まり、止まった試みが 3 回になると、参照機の 2 台で自分を無効にして古いファームウェアを残しました）、`/proc/cmdline` の 2 つの起動の設定、`lvfs-testing` から入れた基板のファームウェアと表示用のメモリの設定、4 組で通った NCCL 検証です。
+- [NCCL 診断](../docs/nccl-validation.ja.md)：`docker save | docker load` で基礎の image を受け取ったホストは、image を ID で指します。
+- [必要な環境](README.ja.md#必要な環境)と[手順 1](SETUP.ja.md#1-機体とfabric)から新しい節へリンクします。
+
 ## 3.11.4 — 2026-11-05
 
 文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。

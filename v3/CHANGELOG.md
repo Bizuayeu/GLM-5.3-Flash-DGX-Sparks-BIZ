@@ -4,6 +4,17 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.11.5 — 2026-11-07
+
+Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
+
+### Documentation
+
+- The reference hosts moved on 2026-11-07 to kernel `7.0.0-1025-nvidia`, booted with `kho=off` and with `power_wrap_init` in `initcall_blacklist`, to ConnectX-7 firmware 28.50.1002, and to MSI's UEFI 5.36_1.9.0 with the display memory at Auto, which leaves the operating system 1.5 GiB more. [Host preparation](../docs/hosts.md#host-kernel-and-multi-node-roce) now keeps that state apart from the one every 3.x figure through 3.11.4 was measured on (`7.0.0-1019-nvidia`, ConnectX-7 28.45.4028, the 2 GiB display default); no 3.x figure has been measured on the new state yet.
+- A new section, [updating a host](../docs/hosts.md#updating-a-host), gives the steps the reference hosts took and how each was checked: on DGX OS 7.6, let `nvidia-spark-mlnx-firmware-manager` finish writing the ConnectX-7 firmware before rebooting (a reboot during the write stops it, and after three stopped attempts it disabled itself on two reference hosts and left the old firmware); both boot settings in `/proc/cmdline`; the board firmware and the display memory setting they took from `lvfs-testing`; and the NCCL validation they passed on four pairs.
+- [NCCL diagnostics](../docs/nccl-validation.md): a host that got the base image through `docker save | docker load` refers to it by its ID.
+- The [requirements](README.md#requirements) and [setup step 1](SETUP.md#1-hosts-and-fabric) link the new section.
+
 ## 3.11.4 — 2026-11-05
 
 Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).
