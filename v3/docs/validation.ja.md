@@ -6,7 +6,7 @@
 
 検査は、何が繰り返されるかの上に立ちます。一つの起動の中では、同じ要求はdraftの有無（`"draft": false`）によらず同じtokenを出し、prompt cacheから再開したpromptは新しいものと同じtokenを出します。起動は、同じTPとbuildの前の起動のtoken idを出します。TP=2とTP=3は設計上違い、和の取り方が違うkernel、例えばtiledのkernelに対するglueのkernel（`TF_GLM_MM`）も違います。同じcommitを別のホストでbuildすると、同じように答えながらSHA-256の違うbinaryになることがあるので、二つのbuildを見分けるのはhashではなくdecode検査です（[手順書 §3](../SETUP.ja.md#3-image)）。同時の要求は、同じ要求を単独で送った時と同じtokenを出します（[同時の要求](#同時の要求)）。数を数える返答で一つの数を二度書くのは、生成とpromptが分かれる既知の場所です（[3.3.0の測定値](measurements.ja.md#330)）。
 
-道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、または `python3`（そこでは `python3 -m glm53_tf` で回します）と、仮想環境には無い `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。containerがmountするのは作業directory（`/work`）とcacheだけなので、そこで使うcheckoutは作業directoryの下に置きます。道具の全てのoptionと環境変数は[設定](configuration.ja.md#道具)にあります。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)（`--container glm53-tf3 --process 'tensorfold-native serve'`）を動かしたままにします。
+道具はrank 0でcheckoutの `v3/` から、その仮想環境で（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）、または `python3`（そこでは `python3 -m glm53_tf` で回します）と、仮想環境には無い `tokenizers` を持つcontainerの中で、loopbackのエンジン（`http://127.0.0.1:8095`、rankのファイルで変えなければモデル `glm-tf`）に当てます。containerがmountするのは作業directory（`/work`）とcacheだけなので、そこで使うcheckoutは作業directoryの下に置きます。道具の全てのoptionと環境変数は[設定](configuration.ja.md#道具)にあります。長い要求の間はホストを冷まし（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）、メモリの見張りと[熱の見張り](../../host/README.ja.md#長い運転の間)（`--container glm53-tf3 --process 'tensorfold-native serve'`）を動かしたままにします。検査は記録を `../records/<run>/` に書きますが、どの道具もそのfolderを作らないので、先に作ります（`mkdir -p ../records/<run>`）。
 
 ## decode検査
 
