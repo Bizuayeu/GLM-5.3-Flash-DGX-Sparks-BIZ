@@ -16,7 +16,7 @@
 
 エンジンは起動時に、空きメモリからstreamの大きさを決め、入らない大きさは断って、rankのうち最も余裕の小さいものを名指しします。例えば `--parallel 2 needs 4.55 GiB for its streams at a 245760-token window, and the CUDA memory budget leaves 4.41 GiB on rank 1, the smallest room of the ranks: serve --parallel 1, or lower --context` です（TP=2、3.0.0のエンジンで参照対が出会いました）。GB10の統合メモリでは、エンジンは空きを `/proc/meminfo` の `MemAvailable` から取り、これはページキャッシュを空きに数えるので、前の読み込みでキャッシュに残ったファイルはその余裕を食いません：別のcheckpointのファイル28 GiBをページキャッシュに置いたまま、3.0.0のTP=2の起動は5.2 GiBを残しました（キャッシュを外した起動は4.4 GiB）。受け入れの窓は各起動の前にHugging Faceのcacheのファイルをページキャッシュから外しましたが（各ファイルに `os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)`）、これは2.x系から残した手順で、エンジンには要りません。
 
-TP=3ではload時にwireを準備し、1回のgatherをNCCLとbyteまで比べて確かめます。`serve.sh` の `TF_TP_ROCE_FALLBACK=error` の下では、失敗すると全rankの起動が止まり、理由はlogに出ます。全rankのファイルの `TF_GLM_ROCE_MULTI=` はwireなしで配信します。`TF_TP_ROCE_FALLBACK=nccl` はwireなしで起動し、rank 0が警告を出します（[設定](configuration.ja.md#rankのファイル)）。
+TP=3ではload時にwireを準備し、1回のgatherをNCCLとbyteまで比べて確かめます。`serve.sh` の `TF_TP_ROCE_FALLBACK=error` の下では、失敗すると全rankの起動が止まり、理由はlogに出ます。全rankのファイルの `TF_GLM_ROCE_MULTI=0` はwireなしで配信します。`TF_TP_ROCE_FALLBACK=nccl` はwireなしで起動し、rank 0が警告を出します（[設定](configuration.ja.md#rankのファイル)）。
 
 ## 一つのrankが止まり、他は待つ
 

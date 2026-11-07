@@ -40,10 +40,10 @@ TF_KV_SHARE=8
 
 ## Text alone
 
-An empty `VISION=` leaves the vision tower out, and its memory on rank 0 goes to the prompt cache; `VISION=0` keeps it in, since any value but an empty one passes `--vision` ([configuration](configuration.md#rank-file)). A request with an image or a video part is then refused with 400:
+`VISION=0` leaves the vision tower out, and its memory on rank 0 goes to the prompt cache; a value other than `1` and `0`, an empty `VISION=` included, stops the start ([configuration](configuration.md#rank-file)). With the tower out, a request with an image or a video part is refused with 400:
 
 ```sh
-VISION=
+VISION=0
 ```
 
 ## Serving beyond loopback with a key

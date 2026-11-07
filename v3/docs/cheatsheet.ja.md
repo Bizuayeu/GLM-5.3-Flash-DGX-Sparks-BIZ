@@ -40,10 +40,10 @@ TF_KV_SHARE=8
 
 ## textだけ
 
-空の `VISION=` はvision towerを読み込まず、rank 0のそのメモリはprompt cacheに回ります。`VISION=0` では読み込みます。空でない値はどれも `--vision` を渡すからです（[設定](configuration.ja.md#rankのファイル)）。そのときは、画像や動画のpartのある要求は400で断られます：
+`VISION=0` はvision towerを読み込まず、rank 0のそのメモリはprompt cacheに回ります。`1`・`0` 以外の値は、空の `VISION=` も含めて起動を止めます（[設定](configuration.ja.md#rankのファイル)）。towerを読み込まないときは、画像や動画のpartのある要求は400で断られます：
 
 ```sh
-VISION=
+VISION=0
 ```
 
 ## keyを付けてloopbackの外へ

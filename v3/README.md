@@ -135,7 +135,7 @@ Jammed XSFP4 gives up some closeness to BF16 for memory: by the table's three fi
 
 ## Configuration
 
-Three places set a deployment: each host's rank file, which `serve.sh` reads; the control machine's cluster file, which `cluster.sh` reads; and `create_container.sh`'s environment. Copy the two files from [`examples/`](examples/), put your own values and keep them out of Git. A rank file's line overrides the release's `config/tp*.env`, and an empty value turns the setting off. The settings most often changed are the window (`CONTEXT`), the requests decoded at once (`PARALLEL`), text alone (`VISION=`), the listener and its keys (`HOST`, `API_KEY_FILE`) and the container's cores (`CPUSET`).
+Three places set a deployment: each host's rank file, which `serve.sh` reads; the control machine's cluster file, which `cluster.sh` reads; and `create_container.sh`'s environment. Copy the two files from [`examples/`](examples/), put your own values and keep them out of Git. A rank file's line overrides the release's `config/tp*.env`; an empty value turns a number or word setting off, and the on/off settings take `1` or `0` alone, so an empty one stops the start. The settings most often changed are the window (`CONTEXT`), the requests decoded at once (`PARALLEL`), text alone (`VISION=0`), the listener and its keys (`HOST`, `API_KEY_FILE`) and the container's cores (`CPUSET`).
 
 [Configuration](docs/configuration.md) lists every setting, each with its default and the ranks that read it: the rank file's, `serve.sh`'s, the engine's flags and environment, NCCL's, the cluster file's, the container's, the tools' and the locks. The engine compares most of them across the ranks at start and refuses to start when they differ. Values other than the defaults are outside what 3.x's acceptance measured, but for those that page names. What this setup does beyond [upstream's own recipe](https://github.com/ashhart/TensorFold/blob/main/docs/recipes/glm-5.3-flash-cuda.md), as lines to copy, is the [cheatsheet](docs/cheatsheet.md).
 
@@ -152,7 +152,7 @@ Rank 0 serves the engine's HTTP API. What the acceptance exercised:
 - **`/health`** (`live`: the connections, the requests waiting and the decode and prefill rates of the last seconds), **`/v1/models`**, **`/tokenize`** and **`/metrics`** (Prometheus, among it the decode rounds and the client disconnections).
 - **Stopping**: a client disconnect or a stop string ends the reply; rank 0 checks the connection between rounds, and the other ranks run only the steps rank 0 sends.
 
-The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through the same chat path; the acceptance did not check them. On GLM's CUDA engine it refuses `logprobs` and `top_logprobs` for the generated tokens (400), audio parts (400), image and video parts when started without `--vision` (an empty `VISION=` in the rank files; 400), and `/v1/decisions` (400).
+The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through the same chat path; the acceptance did not check them. On GLM's CUDA engine it refuses `logprobs` and `top_logprobs` for the generated tokens (400), audio parts (400), image and video parts when started without `--vision` (`VISION=0` in the rank files; 400), and `/v1/decisions` (400).
 
 ## Differences from 2.x
 
