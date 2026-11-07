@@ -5,13 +5,13 @@ Run on rank 0 against the loopback API. The prompt is a ledger of numbered lines
 the middle (--passphrases 1: not streamed, up to 512 tokens) or three at one twentieth from the start, the
 middle and one twentieth from the end (--passphrases 3: streamed, up to 256 tokens). --lines gives the
 ledger's line count; --tokens fits it to that many prompt tokens or fewer with the engine's /tokenize.
-The engine keeps prompts in a cache sized in GiB and has no endpoint that drops them, so the row's
-`cached` says whether the long prompt resumed a kept one (the same ledger sent before can; a fresh
-server gives a cold one). Correct when the reply contains every passphrase. The row carries the time to
-the first streamed token (`ttft`, streamed only), the request's time at the client, the prompt and cached
-tokens, the reply's `tensorfold` fields prefill_seconds, time_to_first_token and token_sha256, and the
-start and end epochs. The prompt's heat waits are in rank 0's log (`heat_wait_s` lines), not in the
-reply. Exit 0 when correct, 1 when not.
+The engine keeps prompts as states on the KV pool's pages (TF_GLM_KV_SHARE) and has no endpoint that drops
+them, so the row's `cached` says whether the long prompt resumed a kept one (the same ledger sent before
+can; a fresh server gives a cold one). Correct when the reply contains every passphrase. The row carries
+the time to the first streamed token (`ttft`, streamed only), the request's time at the client, the prompt
+and cached tokens, the reply's `tensorfold` fields prefill_seconds, time_to_first_token and token_sha256,
+and the start and end epochs. The prompt's heat waits are in rank 0's log (`heat_wait_s` lines), not in
+the reply. Exit 0 when correct, 1 when not.
 
     python -m glm53_tf long-input --passphrases 1 --lines 8806          (199,652 tokens, 1.x's text)
     python -m glm53_tf long-input --passphrases 3 --tokens 500000 --out ../records/<run>/long.jsonl
