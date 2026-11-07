@@ -5,10 +5,10 @@
 
 Only POST /v1/chat/completions requests that declare tools are checked (repair.applies). They ask the engine
 for one completed tool call a turn (parallel_tool_calls false, whatever the client sent) and say so in their
-system message (ONE_CALL_NOTE) unless the gate runs with --parallel-tool-calls client; every other request
-is relayed unchanged, credentials included. The listener binds 127.0.0.1 only, like the model API behind it.
-The log is one JSON line per checked request with the tool and argument names of any violation; it never
-holds argument values, prompts or replies.
+system message (ONE_CALL_NOTE) unless the gate runs with --parallel-tool-calls client; every other GET, POST
+or DELETE request is relayed unchanged, credentials included. The listener binds 127.0.0.1 only, like the
+model API behind it. The log is one JSON line per checked request with the tool and argument names of any
+violation; it never holds argument values, prompts or replies.
 """
 
 import argparse
