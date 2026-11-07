@@ -77,7 +77,7 @@ TF_HEAT_LOW=86
 
 ## tool引数ゲート
 
-このリポジトリのrelayで、TensorFoldの一部ではありません：各tool callの引数をtoolの必須の欄と照らし、一つでも欠ければモデルにもう一度問います（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。toolを使うclientはそのportに話します。tool-eval-benchの点にどう効いたかは[検証](validation.ja.md#tool引数ゲート越しのtool)にあります：
+このリポジトリのrelayで、TensorFoldの一部ではありません：各tool callの引数をtoolの必須の欄と照らし、一つでも外れればモデルにもう一度問います（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。toolを使うclientはそのportに話します。tool-eval-benchの点にどう効いたかは[検証](validation.ja.md#tool引数ゲート越しのtool)にあります：
 
 ```sh
 python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log ../records/<run>/gate.jsonl
