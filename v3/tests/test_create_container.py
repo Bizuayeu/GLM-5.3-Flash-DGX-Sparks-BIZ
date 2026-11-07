@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import tempfile
 import unittest
@@ -53,6 +54,21 @@ class CreateContainerTests(unittest.TestCase):
         self.assertIn('cpuset=$(bash "$(dirname "$0")/cpuset.sh")\n', script)
         self.assertIn('  cpus=(--cpuset-cpus "$cpuset")\n', script)
         self.assertIn('"${cpus[@]}"', script)
+
+
+class ContainerNameTests(unittest.TestCase):
+    """The scripts that reach the container, and the examples, name create_container.sh's."""
+
+    def test_every_script_and_example_defaults_to_the_same_container(self):
+        create = (SCRIPTS / "create_container.sh").read_text(encoding="utf-8")
+        name = re.search(r'--name "\$\{CONTAINER:-([^}]+)\}"', create)[1]
+        cluster = (SCRIPTS / "cluster.sh").read_text(encoding="utf-8")
+        self.assertIn(f"CONTAINER=${{CONTAINER:-{name}}}\n", cluster)
+        watch = (SCRIPTS / "hostwatch.sh").read_text(encoding="utf-8")
+        self.assertIn(f"container=${{2:-{name}}}\n", watch)
+        for tp in (2, 3):
+            path = LINE / f"examples/cluster.tp{tp}.env"
+            self.assertIn(f"# CONTAINER={name} ", path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

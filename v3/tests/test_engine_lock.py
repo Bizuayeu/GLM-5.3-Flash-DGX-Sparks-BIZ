@@ -11,9 +11,9 @@ def lock():
     return json.loads((LINE / "config/engine.lock.json").read_text(encoding="utf-8"))
 
 
-def dockerfile_args():
-    """The image's ARG defaults, quotes removed."""
-    text = (LINE / "docker/Dockerfile").read_text(encoding="utf-8")
+def dockerfile_args(name="Dockerfile"):
+    """A docker file's ARG defaults (the serving image's unless named), quotes removed."""
+    text = (LINE / "docker" / name).read_text(encoding="utf-8")
     return {
         m.group(1): m.group(2).strip('"')
         for m in re.finditer(r"^ARG (\w+)=(.*)$", text, re.MULTILINE)
@@ -87,6 +87,12 @@ class EngineLockTests(unittest.TestCase):
         args = dockerfile_args()
         for name in ("BUILD_IMAGE", "RUNTIME_IMAGE"):
             self.assertRegex(args[name], r"@sha256:[0-9a-f]{64}$", name)
+
+    def test_the_build_image_has_the_serving_images_build_base_and_versions(self):
+        serving, build = dockerfile_args(), dockerfile_args("Dockerfile.build")
+        self.assertEqual(build["BASE_IMAGE"], serving["BUILD_IMAGE"])
+        for name in ("NCCL_VERSION", "TOKENIZERS_VERSION"):
+            self.assertEqual(build[name], serving[name], name)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import ast
 import os
 import re
 import shutil
@@ -6,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from glm53_tf import config
+from glm53_tf import config, mojibake
 
 LINE = Path(__file__).resolve().parents[1]
 SETTING = re.compile(r"^(\w+)=(\S*)", re.MULTILINE)
@@ -24,6 +25,29 @@ def defaults(tp):
     return dict(
         SETTING.findall((LINE / f"config/tp{tp}.env").read_text(encoding="utf-8"))
     )
+
+
+SERVE_ARG = re.compile(r'--(name|host|port) "\$\{\w+:-([^}]*)\}"')
+
+
+def serve_defaults():
+    """The name, host and port serve.sh serves when the rank file sets none, and its reply cap."""
+    script = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+    found = dict(SERVE_ARG.findall(script))
+    found["max-tokens"] = int(re.search(r"--max-tokens (\d+)", script)[1])
+    return found
+
+
+def source_default(module, name):
+    """The default of a module's ``NAME = os.environ.get("NAME", default)``, read from its
+    source, so the runner's environment cannot move it."""
+    tree = ast.parse((LINE / "glm53_tf" / f"{module}.py").read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == name for t in node.targets
+        ):
+            return ast.literal_eval(node.value.args[1])
+    raise AssertionError(f"{module}.py sets no {name}")
 
 
 class ReleaseDefaultsTests(unittest.TestCase):
@@ -59,6 +83,46 @@ class ReleaseDefaultsTests(unittest.TestCase):
         context = (LINE.parent / ".dockerignore").read_text(encoding="utf-8")
         for tp in (2, 3):
             self.assertIn(f"!v3/config/tp{tp}.env\n", context)
+
+    def test_cluster_sh_starts_the_serve_sh_the_image_copies(self):
+        image = (LINE / "docker/Dockerfile").read_text(encoding="utf-8")
+        dest = re.search(r"^COPY v3/scripts/serve\.sh (\S+)$", image, re.MULTILINE)[1]
+        cluster = (LINE / "scripts/cluster.sh").read_text(encoding="utf-8")
+        self.assertIn(f"bash {dest} $TP $1 /work/rank.env", cluster)
+
+    def test_serve_sh_logs_the_engine_ref_where_the_image_records_it(self):
+        image = (LINE / "docker/Dockerfile").read_text(encoding="utf-8")
+        dest = re.search(r"^COPY --from=build /out/ENGINE (\S+)$", image, re.MULTILINE)[
+            1
+        ]
+        self.assertIn('printf "engine %s\\nref %s\\n', image)
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn(f"sed -n 's/^ref //p' {dest}", serve)
+
+
+class ToolDefaultsTests(unittest.TestCase):
+    """The tools default to the address, name and reply cap serve.sh gives rank 0's engine."""
+
+    def test_the_clients_default_to_serve_sh_s_address_and_name(self):
+        serve = serve_defaults()
+        for module in ("bench", "decode_check", "long_input", "mojibake"):
+            self.assertEqual(
+                source_default(module, "BASE"),
+                f"http://{serve['host']}:{serve['port']}",
+                module,
+            )
+            self.assertEqual(source_default(module, "MODEL"), serve["name"], module)
+
+    def test_the_tool_gate_relays_to_serve_sh_s_address(self):
+        serve = serve_defaults()
+        proxy = (LINE / "glm53_tf/tool_gate/proxy.py").read_text(encoding="utf-8")
+        self.assertIn(
+            f'add_argument("--upstream", default="http://{serve["host"]}:{serve["port"]}")',
+            proxy,
+        )
+
+    def test_mojibake_asks_for_serve_sh_s_reply_cap(self):
+        self.assertEqual(mojibake.MAX_TOKENS, serve_defaults()["max-tokens"])
 
 
 @unittest.skipIf(os.name == "nt", "runs bash")
