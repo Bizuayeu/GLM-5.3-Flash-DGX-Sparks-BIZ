@@ -293,7 +293,7 @@ class ServeTests(unittest.TestCase):
             "mtp-confidence 0.5",
             "wire 1",
             "solo unset",
-            "reserve 14",
+            "reserve 16",
         ):
             self.assertIn(shown, start)
 
