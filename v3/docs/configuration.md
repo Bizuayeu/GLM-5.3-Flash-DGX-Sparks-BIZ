@@ -102,7 +102,9 @@ The engine compares these at start, before the weights load, and every rank stop
 | `TF_GLM_MM` | `1` | `0` runs the BF16 linears on the engine's glue kernels instead of the tiled ones, which gives other tokens ([validation](validation.md)); accepted at TP=3 in 3.1.0 and 3.2.0 |
 | `TF_GLM_PREFILL_REDUCE` | `split` | how a prompt chunk's rows are exchanged: `split` sends each rank's rows to every other, after a check at start that every pair of ranks can exchange; `ring` passes them along the ring, for a fabric where some ranks reach only their neighbours; `gather` |
 | `TF_GLM_OVERLAP_PIECES` | `3` | 1 to 8: a prompt chunk's exchanges in this many row pieces |
+| `TF_GLM_PROMPT_PAIR` | `1` | `0` turns off the paired steps: while no stream decodes, a prompt step takes two chunks, each one's exchanges running under the other's work, and solo passes (`TF_GLM_CHUNK_SOLO=4096`) take their place; another value, an empty one included, stops the start (`serve.sh`) |
 | `TF_GLM_KDA_DECODE_WIDE` | `1` | `0` runs decode windows without KDA's three-kernel chain |
+| `TF_GLM_L2PF` | unset: on, on a GB10 at two ranks or more | a decode window's next weights read into L2 on a side stream: `1` on any GPU, `0` off, and another value, an empty one included, stops the start (`serve.sh`); `TF_GLM_L2PF_MB` (`12`, MiB a site), `TF_GLM_L2PF_CTAS` (`2`) and `TF_GLM_L2PF_PACE_GBPS` (`150`, `0` unpaced) tune it and are compared too |
 | `TF_GLM_PROMPT_K` | `one` | `shape`: fixed K slices for prompts, an experiment; needs `TF_GLM_MM=1` |
 | `TF_GLM_DENSE_BITS`, `TF_GLM_HEAD_BITS` | `16` | `4`, `6` or `8`: the dense linears, or the head, packed at load to that many bits |
 | `TF_GLM_LAYERS` | every layer | the first N layers only, a thin model for one-GPU checks |

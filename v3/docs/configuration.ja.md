@@ -102,7 +102,9 @@ labelの後に付けられるflagと、エンジンの既定です。「比べ�
 | `TF_GLM_MM` | `1` | `0` はBF16のlinearをtiledのkernelではなくエンジンのglueのkernelで回し、別のtokenを返す（[検証](validation.ja.md)）。3.1.0と3.2.0のTP=3で受け入れ済み |
 | `TF_GLM_PREFILL_REDUCE` | `split` | prompt chunkの行の交換の仕方：`split` は各rankの行を他の全rankへ送り、起動時に全てのrankの組が交換できることを確かめる。`ring` はリングに沿って隣へ渡す（隣にしか届かないrankがあるfabric向け）。`gather` |
 | `TF_GLM_OVERLAP_PIECES` | `3` | 1〜8：prompt chunkの交換を、この数の行の片に分ける |
+| `TF_GLM_PROMPT_PAIR` | `1` | `0` は対のstepを切る：decodeするstreamが無い間、promptの1 stepが2つのchunkを取り、それぞれの交換をもう一方の計算の下で回す。soloのpass（`TF_GLM_CHUNK_SOLO=4096`）がこれに代わる。ほかの値は、空も含めて起動を止める（`serve.sh`） |
 | `TF_GLM_KDA_DECODE_WIDE` | `1` | `0` はdecodeの窓をKDAの3つのkernelの鎖なしで回す |
+| `TF_GLM_L2PF` | unset：GB10の2 rank以上でon | decodeの窓の次の重みを脇のstreamでL2へ読む：`1` はどのGPUでもon、`0` はoff、ほかの値は空も含めて起動を止める（`serve.sh`）。`TF_GLM_L2PF_MB`（`12`、siteごとのMiB）・`TF_GLM_L2PF_CTAS`（`2`）・`TF_GLM_L2PF_PACE_GBPS`（`150`、`0` で速さを抑えない）で調整し、これらも比べる |
 | `TF_GLM_PROMPT_K` | `one` | `shape`：promptに固定のKのslice、試しのもの。`TF_GLM_MM=1` が要る |
 | `TF_GLM_DENSE_BITS`・`TF_GLM_HEAD_BITS` | `16` | `4`・`6`・`8`：denseのlinear、またはheadを、読み込み時にそのbit数へ詰める |
 | `TF_GLM_LAYERS` | 全ての層 | 最初のN層だけ。GPU 1台で確かめるための細いモデル |

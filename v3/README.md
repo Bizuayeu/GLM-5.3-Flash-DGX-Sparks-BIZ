@@ -282,7 +282,6 @@ v3/
 Each item is a trigger and what this line then does.
 
 - 3.3.0's engine has upstream's pull request #1053 (the waiting ranks sleep while rank 0 has no stream, in 1.1.2); the releases since ran on the efficiency cores, so it is still open → measure again whether the container still needs them.
-- Upstream takes #1423 (a prompt's paired steps) or #1580 (the L2 read-ahead of the routed experts) → add it as an arm, as 3.9.0's defaults were chosen, and accept what it gives.
 - A Jammed XSFP4 made from the BF16 weights with nothing borrowed from XSFP4, its calibration and the MTP layer's included, scores better and its acceptance holds → the lock moves to that revision.
 
 ## Local Data and Contribution
