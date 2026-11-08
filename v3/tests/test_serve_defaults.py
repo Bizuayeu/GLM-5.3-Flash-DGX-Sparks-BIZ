@@ -147,6 +147,7 @@ class ServeTests(unittest.TestCase):
                 env={"PATH": f"{root}:{os.environ['PATH']}"},
                 capture_output=True,
                 text=True,
+                check=False,
             )
             return run.returncode, run.stdout.replace(str(root), "ROOT"), run.stderr
 
@@ -232,7 +233,12 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(self.flag(args, "--context"), "1048576")
 
     def test_the_on_off_settings_take_one_or_zero(self):
-        for name in ("VISION", "TF_GLM_ROCE_MULTI", "TF_GLM_PROMPT_PAIR", "TF_GLM_L2PF"):
+        for name in (
+            "VISION",
+            "TF_GLM_ROCE_MULTI",
+            "TF_GLM_PROMPT_PAIR",
+            "TF_GLM_L2PF",
+        ):
             for value in ("0", "1"):
                 with self.subTest(name=name, value=value):
                     _, env, _ = self.serve(3, f"{name}={value}\n")
