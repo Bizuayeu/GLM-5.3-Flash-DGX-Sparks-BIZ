@@ -190,7 +190,7 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(env["TF_TP_MASTER"], "10.0.0.1")
         self.assertEqual(env["TF_TP_KERNEL_IMAGE"], "ROOT/tp_mailbox.fatbin")
         self.assertEqual(env["TF_TP_ROCE_FALLBACK"], "error")
-        self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "14")
+        self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "16")
 
     def test_the_rank_file_wins(self):
         args, env, _ = self.serve(

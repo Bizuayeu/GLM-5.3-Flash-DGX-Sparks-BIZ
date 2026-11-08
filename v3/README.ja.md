@@ -109,7 +109,7 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env) と [`config/tp3.e
 | 同時にdecodeする要求（`--parallel`） | 4（`PARALLEL`）。空の `PARALLEL=` ではエンジンに任せ、エンジンは起動時の空きメモリの許す限り8本までstreamを取る | 8。同じ |
 | prompt cache（保持するpromptの状態） | KVのpoolのpageの上（`TF_KV_SHARE=16`）：保持するpromptは埋めたpageのまま残り、その先の状態は最大16で、会話は持っているpageの最後の印から再開する。poolの横にstoreは持たない（loadの行の `the prompt cache over the pool's pages`） | 同じ、状態は最大32（`TF_KV_SHARE=32`） |
 | decodeの横のprompt | stepが時間の70%を取り、残りをstreamのroundが取る（`TENSORFOLD_PREFILL_SHARE=0.7`。エンジンの `1` はstepとroundを1回ずつ交互に回す） | 同じ |
-| systemに残すメモリ（`TENSORFOLD_MEMORY_RESERVE_GIB`） | 9 GiB | 14 GiB |
+| systemに残すメモリ（`TENSORFOLD_MEMORY_RESERVE_GIB`） | 9 GiB | 16 GiB |
 | 要求が指定しないときの応答の上限 | 32,768 token（`--max-tokens`） | 同じ |
 | 要求が指定しないときの推論のeffort | `high`（`--reasoning-effort`） | 同じ |
 | NCCL | 各リンク2本のrail・4 channel・IBのtransportを明示、rankごとのファイルから。rank 0のアドレスとportを `NCCL_COMM_ID` に、rank 0のNCCLのidはrankどうしの生存の線で | 2本のrail・4 channel・IBのtransportを明示・subnet-aware routing。rank 0のアドレスとportを `NCCL_COMM_ID` に、rank 0のNCCLのidはrankどうしの生存の線で、他のrankのNCCLのbootstrapはそれぞれの `/32` のinterfaceで（`NCCL_SOCKET_IFNAME`） |
@@ -127,7 +127,7 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env) と [`config/tp3.e
 
 **TP=3でwireとdraftの確率を使う理由。** `--mtp-confidence 0.5` は、確率が五分を切るdraftでdraftの連なりを終えるので、roundが外れるdraftに使う行が減ります。上流はTP=3でdecodeが4.9%速いとしています。TP=2では切ります：その使い方であるsampledの1本は同じdraftを取り、4本のgreedyのcodeは3.7%遅くなりました。wireはmain streamの小さいall-gatherをエンジンのmultirank RoCEで運び、各rankは最初の1回をNCCLのものとbyteまで比べます。上流はdecodeが2.57%速く、coldの長いpromptが1.2〜1.6%遅いとして、既定をoffにしています。TP=3は返答を読む人のための配信なので、ここではdecodeを優先します。3 rank以上のためのものです。`TF_TP_ROCE_FALLBACK=error` により、準備に失敗すると起動が止まるので、気づかれずにNCCLへ戻ることはありません。
 
-**TP=3で14 GiBにする理由。** poolは窓の丸ごとの本数でpageを取ります。エンジン自身の12.2 GiBでは、参照リングの余地は窓3本に要る量の約0.6 GiB上にあるので、空きが少し少ないホストは2本を取り、その2つの間でrank 0の起動後の空きが約12 GiB変わります。14 GiBはpoolを窓2本、512行のpageを4,098（25.51 GiB）に保ち、その線から離します。TP=2のpoolは窓1本です。Jammed XSFP4はmodelが小さいので、同じreserveで窓3本、6,147 page（38.27 GiB）を取ります。
+**TP=3で16 GiBにする理由。** poolは窓の丸ごとの本数でpageを取ります。参照リングのホストは2026-11-07からメモリを1.50 GiB多く報告します（MemTotal 129,168,464 kB）。14 GiBではpoolの余地が39.3〜39.5 GiBと、窓3本に要る38.85 GiB（上流の `kv_pool.plan`）を超えたので、poolは5,989〜6,017 pageを取り、rank 0の起動後の空きは約10.3 GiBでした。16 GiBでは余地が37.2〜37.5 GiBで、poolを窓2本、512行のpageを4,098（25.51 GiB）に保ち、rank 0の空きは22.1〜22.5 GiBです。TP=2のpoolは窓1本です。3.10.0の受け入れでは、Jammed XSFP4はmodelが小さいので14 GiBで窓3本、6,147 page（38.27 GiB）を取りました。3.9.0〜3.11.xのimageはTP=3で14 GiBを残すので、メモリを多く報告するホストでは、rankのファイルの `TENSORFOLD_MEMORY_RESERVE_GIB=16` でpoolを窓2本に保てます。
 
 **TP=2を1,048,576にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取ります。3.8.xまではstreamの窓がまるごとmodelの横に置かれたので、TP=2の窓は245,760 token、3.5.0からはXSFP4で524,288 tokenまででした。KVのpageでは窓はpoolのpageで、streamの本数によりません：512行のpageを2,052（12.77 GiB）でモデルの上限の1,048,576 token全部が入り、1,035,295 tokenのpromptは917.4秒で最初のtokenを返し、合言葉を全部見つけました。エンジン自身のreserve 12.2 GiBでは余地が12.0 GiBで、このpageに足りないので、`config/tp2.env` はsystemに9 GiBを残します：pageとstreamの固定分に15.3 GiBで、それらを1.5 GiB上回り、起動ごとの揺れより離れます。rank 0の起動後の空きは8.03 GiBで、memory guardの5 GiBの上です。`TF_GLM_CHUNK_SOLO=4096` の広いpromptのpassは全rankでさらにメモリを取るので、この窓では切ります（[決定](docs/decisions.ja.md#窓とstream)）。全rankのファイルの `CONTEXT` で別の値を選びます：524,288ならreserveを戻せて、広いpassも入ります。
 
