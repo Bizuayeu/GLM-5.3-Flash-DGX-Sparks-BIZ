@@ -10,6 +10,8 @@ from pathlib import Path
 from glm53_tf import config, mojibake
 
 LINE = Path(__file__).resolve().parents[1]
+# The TP sizes serve.sh takes, each with its release file config/tp*.env.
+SIZES = (2, 3, 4)
 SETTING = re.compile(r"^(\w+)=(\S*)", re.MULTILINE)
 WIRE = (
     "TF_TP_MASTER",
@@ -21,7 +23,7 @@ WIRE = (
 
 
 def defaults(tp):
-    """A TP's defaults as tp2.env and tp3.env write them."""
+    """A TP's defaults as tp2.env, tp3.env and tp4.env write them."""
     return dict(
         SETTING.findall((LINE / f"config/tp{tp}.env").read_text(encoding="utf-8"))
     )
@@ -51,8 +53,9 @@ def source_default(module, name):
 
 
 class ReleaseDefaultsTests(unittest.TestCase):
-    def test_both_tp_sizes_name_the_same_settings(self):
-        self.assertEqual(list(defaults(2)), list(defaults(3)))
+    def test_every_tp_size_names_the_same_settings(self):
+        for tp in SIZES[1:]:
+            self.assertEqual(list(defaults(tp)), list(defaults(2)), tp)
 
     def test_every_setting_is_in_the_configuration_documents(self):
         for name in ("configuration.md", "configuration.ja.md"):
@@ -62,26 +65,27 @@ class ReleaseDefaultsTests(unittest.TestCase):
 
     def test_the_kept_prompts_clear_the_engines_warning(self):
         # The engine warns below four kept states a stream (fewStates).
-        for tp in (2, 3):
+        for tp in SIZES:
             values = defaults(tp)
             self.assertGreaterEqual(
                 int(values["TF_KV_SHARE"]), 4 * int(values["PARALLEL"])
             )
 
     def test_the_files_are_lf_for_bash(self):
-        for tp in (2, 3):
+        for tp in SIZES:
             self.assertNotIn(b"\r", (LINE / f"config/tp{tp}.env").read_bytes())
 
     def test_the_image_puts_the_defaults_and_the_kernels_beside_serve_sh(self):
         image = (LINE / "docker/Dockerfile").read_text(encoding="utf-8")
         self.assertIn(
-            "COPY v3/config/tp2.env v3/config/tp3.env /opt/glm53-tf3/\n", image
+            "COPY v3/config/tp2.env v3/config/tp3.env v3/config/tp4.env /opt/glm53-tf3/\n",
+            image,
         )
         self.assertIn(
             "COPY --from=build /out/tp_mailbox.fatbin /opt/glm53-tf3/\n", image
         )
         context = (LINE.parent / ".dockerignore").read_text(encoding="utf-8")
-        for tp in (2, 3):
+        for tp in SIZES:
             self.assertIn(f"!v3/config/tp{tp}.env\n", context)
 
     def test_cluster_sh_starts_the_serve_sh_the_image_copies(self):
@@ -127,23 +131,23 @@ class ToolDefaultsTests(unittest.TestCase):
 
 @unittest.skipIf(os.name == "nt", "runs bash")
 class ServeTests(unittest.TestCase):
-    def run_serve(self, tp, rank_file=""):
+    def run_serve(self, tp, rank_file="", rank="0"):
         """serve.sh beside the release's files with the engine stubbed: its exit code, output (the temporary
         folder as ROOT) and errors."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             shutil.copy(LINE / "scripts/serve.sh", root)
-            for n in (2, 3):
+            for n in SIZES:
                 shutil.copy(LINE / f"config/tp{n}.env", root)
-            rank = root / "rank.env"
-            rank.write_text("MASTER=10.0.0.1\n" + rank_file, encoding="utf-8")
+            rank_env = root / "rank.env"
+            rank_env.write_text("MASTER=10.0.0.1\n" + rank_file, encoding="utf-8")
             engine = root / "tensorfold-native"
             engine.write_text(
                 '#!/bin/bash\nprintf "arg %s\\n" "$@"\nprintenv\n', encoding="utf-8"
             )
             engine.chmod(0o755)
             run = subprocess.run(
-                ["bash", str(root / "serve.sh"), str(tp), "0", str(rank)],
+                ["bash", str(root / "serve.sh"), str(tp), rank, str(rank_env)],
                 env={"PATH": f"{root}:{os.environ['PATH']}"},
                 capture_output=True,
                 text=True,
@@ -151,9 +155,9 @@ class ServeTests(unittest.TestCase):
             )
             return run.returncode, run.stdout.replace(str(root), "ROOT"), run.stderr
 
-    def serve(self, tp, rank_file=""):
+    def serve(self, tp, rank_file="", rank="0"):
         """serve.sh with the engine stubbed: its arguments, environment and start line."""
-        code, out, err = self.run_serve(tp, rank_file)
+        code, out, err = self.run_serve(tp, rank_file, rank)
         self.assertEqual(code, 0, err)
         lines = out.splitlines()
         args = [x[4:] for x in lines if x.startswith("arg ")]
@@ -192,6 +196,38 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(env["TF_TP_KERNEL_IMAGE"], "ROOT/tp_mailbox.fatbin")
         self.assertEqual(env["TF_TP_ROCE_FALLBACK"], "error")
         self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "16")
+
+    def test_tp4_serves_tp3s_values_with_the_wire_off(self):
+        args, env, _ = self.serve(4)
+        self.assertEqual(self.flag(args, "--context"), "1048576")
+        self.assertEqual(self.flag(args, "--parallel"), "8")
+        self.assertEqual(self.flag(args, "--mtp-confidence"), "0.5")
+        self.assertEqual(env["TF_KV_SHARE"], "32")
+        self.assertEqual(env["TENSORFOLD_PREFILL_SHARE"], "0.7")
+        self.assertEqual(env["TF_GLM_ROCE_MULTI"], "0")
+        for key in WIRE:
+            self.assertNotIn(key, env)
+        self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "14")
+        self.assertEqual(env["TF_GLM_WORLD"], "4")
+
+    def test_each_rank_of_a_tp_starts_and_no_other(self):
+        for tp in SIZES:
+            for rank in range(tp):
+                with self.subTest(tp=tp, rank=rank):
+                    _, env, _ = self.serve(tp, rank=str(rank))
+                    self.assertEqual(env["TF_GLM_RANK"], str(rank))
+        code, out, err = self.run_serve(3, rank="3")
+        self.assertEqual(code, 2, err)
+        self.assertIn("rank 3 is outside TP=3", err)
+        self.assertNotIn("[serve.sh]", out)
+        code, _, err = self.run_serve(4, rank="4")
+        self.assertEqual(code, 2, err)
+        self.assertIn("rank is 0, 1, 2 or 3, not '4'", err)
+        for tp in (1, 5):
+            with self.subTest(tp=tp):
+                code, _, err = self.run_serve(tp)
+                self.assertEqual(code, 2, err)
+                self.assertIn(f"TP is 2, 3 or 4, not '{tp}'", err)
 
     def test_the_rank_file_wins(self):
         args, env, _ = self.serve(

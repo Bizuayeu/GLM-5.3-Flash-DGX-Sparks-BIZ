@@ -4,9 +4,9 @@
 #                                                 cluster.sh CLUSTER_ENV status
 # CLUSTER_ENV (examples/cluster.tp*.env) sets TP, HOSTS (SSH names in rank order), CHECKOUT (this repository on
 # each host, for the memory guard) and optionally SSH, CONTAINER and WORK (each host's directory at /work).
-# start: every rank runs `serve.sh TP RANK /work/rank.env` in its container. TP=2: the highest rank first, rank 0
-#        last. TP=3: the three ranks together, rank 0 last. Then the memory guard (hostwatch.sh) on every host; waits
-#        for rank 0's "serving" line and stops at the first rank that refuses or whose engine is gone. Logs:
+# start: every rank runs `serve.sh TP RANK /work/rank.env` in its container. TP=2 and TP=4: the highest rank first,
+#        rank 0 last. TP=3: the three ranks together, rank 0 last. Then the memory guard (hostwatch.sh) on every host;
+#        waits for rank 0's "serving" line and stops at the first rank that refuses or whose engine is gone. Logs:
 #        WORK/logs/serve-rRANK-LABEL.log, hostwatch-LABEL.log.
 # stop:  rank 0 first (the others leave when it does), then any rank left; prints each host's MemAvailable.
 set -u

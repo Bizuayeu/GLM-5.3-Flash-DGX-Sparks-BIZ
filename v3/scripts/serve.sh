@@ -1,15 +1,15 @@
 #!/bin/bash
 # Inside the container, on every rank: serve.sh TP RANK RANK_ENV [more `tensorfold-native serve` arguments]
 # The 3.x serving defaults: the MTP head's drafts (the engine's default), replies of up to 32,768 tokens when a request
-# names no limit, high reasoning effort, and what differs by TP from the release's tp2.env and tp3.env, which sit
-# beside this script: the window, the streams, the kept prompts, a prompt's share beside a decode, the solo passes, the
-# drafts' confidence, the wire and the memory reserve. The rank file follows them, so its value wins, every rank the
+# names no limit, high reasoning effort, and what differs by TP from the release's tp2.env, tp3.env and tp4.env, which
+# sit beside this script: the window, the streams, the kept prompts, a prompt's share beside a decode, the solo passes,
+# the drafts' confidence, the wire and the memory reserve. The rank file follows them, so its value wins, every rank the
 # same. An empty value turns a number or word setting off; the on/off settings (VISION, TF_GLM_ROCE_MULTI,
 # TF_GLM_PROMPT_PAIR, TF_GLM_L2PF) take 1 or 0, and another value, an empty one included, stops the start. An empty
 # PARALLEL leaves the streams to the engine, which sizes them and the prompt cache from the memory free at start, so
 # they can differ between starts; an empty CONTEXT keeps the release's window.
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
-# between the hosts (at TP=3, whose hosts are linked point to point, a /32 address the ring's routes reach). Rank 0
+# between the hosts (at TP=3 and TP=4, where the hosts form a ring, a /32 address the ring's routes reach). Rank 0
 # makes its NCCL id at NCCL_COMM_ID (MASTER:NCCL_PORT), and the ranks' liveness lines meet it at the next port; the
 # other ranks take the id over their lines, and where the rank file names NCCL_SOCKET_IFNAME, as every example's
 # does, the engine drops NCCL_COMM_ID before NCCL's first call, so NCCL's bootstrap uses that interface (#1178).
@@ -24,12 +24,12 @@ fi
 tp=$1 rank=$2 rank_env=$3
 shift 3
 case $tp in
-  2 | 3) ;;
-  *) echo "TP is 2 or 3, not '$tp'" >&2; exit 2 ;;
+  2 | 3 | 4) ;;
+  *) echo "TP is 2, 3 or 4, not '$tp'" >&2; exit 2 ;;
 esac
 case $rank in
-  [0-2]) [ "$rank" -lt "$tp" ] || { echo "rank $rank is outside TP=$tp" >&2; exit 2; } ;;
-  *) echo "rank is 0, 1 or 2, not '$rank'" >&2; exit 2 ;;
+  [0-3]) [ "$rank" -lt "$tp" ] || { echo "rank $rank is outside TP=$tp" >&2; exit 2; } ;;
+  *) echo "rank is 0, 1, 2 or 3, not '$rank'" >&2; exit 2 ;;
 esac
 set -a
 . "$(dirname "$0")/tp$tp.env"

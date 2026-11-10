@@ -156,6 +156,6 @@ COPY LICENSES/ /usr/share/doc/tf3/LICENSES/
 # The rank's start (cluster.sh runs it in the container on every host), this release's defaults by TP beside it, and
 # the wire's kernels
 COPY v3/scripts/serve.sh /opt/glm53-tf3/serve.sh
-COPY v3/config/tp2.env v3/config/tp3.env /opt/glm53-tf3/
+COPY v3/config/tp2.env v3/config/tp3.env v3/config/tp4.env /opt/glm53-tf3/
 COPY --from=build /out/tp_mailbox.fatbin /opt/glm53-tf3/
 WORKDIR /work
