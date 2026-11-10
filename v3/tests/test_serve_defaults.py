@@ -175,7 +175,8 @@ class ServeTests(unittest.TestCase):
         self.assertNotIn("--mtp-confidence", args)
         self.assertEqual(env["TF_KV_SHARE"], "16")
         self.assertEqual(env["TENSORFOLD_PREFILL_SHARE"], "0.7")
-        self.assertNotIn("TF_GLM_CHUNK_SOLO", env)
+        # tp2.env's empty value: off
+        self.assertEqual(env.get("TF_GLM_CHUNK_SOLO", ""), "")
         self.assertEqual(env["TF_GLM_ROCE_MULTI"], "0")
         self.assertNotIn("TF_TP_MASTER", env)
         self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "9")
@@ -225,8 +226,19 @@ class ServeTests(unittest.TestCase):
             "TENSORFOLD_PREFILL_SHARE",
             "TF_GLM_CHUNK_SOLO",
         )
-        for key in off + ("TENSORFOLD_MEMORY_RESERVE_GIB",) + WIRE:
+        # From upstream 1.2.6 the engine reads an empty value as unset, so serve.sh passes it on as it is.
+        for key in off + ("TENSORFOLD_MEMORY_RESERVE_GIB",):
+            self.assertEqual(env.get(key, ""), "", key)
+        for key in WIRE:
             self.assertNotIn(key, env)
+
+    def test_the_heat_bands_reach_the_engine_and_empty_ones_reach_it_empty(self):
+        _, env, start = self.serve(3)
+        self.assertEqual((env["TF_HEAT_HIGH"], env["TF_HEAT_LOW"]), ("92", "88"))
+        self.assertIn("heat 92/88", start)
+        _, env, start = self.serve(3, "TF_HEAT_HIGH=\nTF_HEAT_LOW=\n")
+        self.assertEqual((env["TF_HEAT_HIGH"], env["TF_HEAT_LOW"]), ("", ""))
+        self.assertIn("heat unset/unset", start)
 
     def test_an_empty_context_keeps_the_releases_window(self):
         args, _, _ = self.serve(2, "CONTEXT=\n")

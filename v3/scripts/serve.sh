@@ -14,8 +14,8 @@
 # other ranks take the id over their lines, and where the rank file names NCCL_SOCKET_IFNAME, as every example's
 # does, the engine drops NCCL_COMM_ID before NCCL's first call, so NCCL's bootstrap uses that interface (#1178).
 # A prefill waits between chunks while any rank's hottest zone is above TF_HEAT_HIGH (92), until all are at or below
-# TF_HEAT_LOW (88). The rank file may set other values, the same on every rank, or empty ones for none (an empty
-# value is left unset: the engine refuses one). Without the bands a 1M prefill held one host at 94-97.7 C.
+# TF_HEAT_LOW (88). The rank file may set other values, the same on every rank, or empty ones for none (from upstream
+# 1.2.6 the engine reads an empty value as unset). Without the bands a 1M prefill held one host at 94-97.7 C.
 set -eu
 if [ $# -lt 3 ]; then
   echo "usage: serve.sh TP RANK RANK_ENV [tensorfold-native serve arguments...]" >&2
@@ -50,11 +50,7 @@ done
 export TF_GLM_RANK=$rank TF_GLM_WORLD=$tp
 export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"
 context=${CONTEXT:-$release_context}
-TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}
-for v in TF_HEAT_HIGH TF_HEAT_LOW TF_KV_SHARE TENSORFOLD_PREFILL_SHARE TF_GLM_CHUNK_SOLO \
-  TENSORFOLD_MEMORY_RESERVE_GIB; do
-  if [ -n "${!v-}" ]; then export "$v"; else unset "$v"; fi
-done
+export TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}
 # The wire takes the main stream's small all-gathers to the engine's multirank RoCE, beside NCCL. It needs rank 0's
 # address and the mailbox kernels, and a failed setup or probe stops the start rather than falling back to NCCL unseen.
 if [ "${TF_GLM_ROCE_MULTI:-0}" != 0 ]; then
