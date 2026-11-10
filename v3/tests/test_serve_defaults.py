@@ -22,6 +22,12 @@ WIRE = (
 )
 
 
+def folder(name):
+    """A checkpoint's folder in the container at its lock's revision, as tp*.env and the rank files name it."""
+    model, revision, _ = config.checkpoint(name, Path("state"))
+    return f"/hub/models--{model.replace('/', '--')}/snapshots/{revision}"
+
+
 def defaults(tp):
     """A TP's defaults as tp2.env, tp3.env and tp4.env write them."""
     return dict(
@@ -131,15 +137,23 @@ class ToolDefaultsTests(unittest.TestCase):
 
 @unittest.skipIf(os.name == "nt", "runs bash")
 class ServeTests(unittest.TestCase):
-    def run_serve(self, tp, rank_file="", rank="0"):
+    def run_serve(self, tp, rank_file="", rank="0", release=None):
         """serve.sh beside the release's files with the engine stubbed: its exit code, output (the temporary
-        folder as ROOT) and errors."""
+        folder as ROOT) and errors. Both checkpoints' folders are made under ROOT/hub, which the release's files
+        and the rank file name for /hub; release, if given, rewrites tp{tp}.env's text."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             shutil.copy(LINE / "scripts/serve.sh", root)
             for n in SIZES:
-                shutil.copy(LINE / f"config/tp{n}.env", root)
+                text = (LINE / f"config/tp{n}.env").read_text(encoding="utf-8")
+                if n == tp and release:
+                    text = release(text)
+                hub = text.replace("/hub/", f"{root}/hub/")
+                (root / f"tp{n}.env").write_text(hub, encoding="utf-8")
+            for name in config.CHECKPOINTS:
+                (root / folder(name).lstrip("/")).mkdir(parents=True)
             rank_env = root / "rank.env"
+            rank_file = rank_file.replace("/hub/", f"{root}/hub/")
             rank_env.write_text("MASTER=10.0.0.1\n" + rank_file, encoding="utf-8")
             engine = root / "tensorfold-native"
             engine.write_text(
@@ -238,16 +252,36 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(self.flag(args, "--mtp-confidence"), "0.6")
         self.assertEqual(env["TF_KV_SHARE"], "8")
 
-    def test_one_rank_file_line_serves_jammed_and_changes_nothing_else(self):
-        # 3.10.0: XSFP4 stays the default; Jammed XSFP4 is its lock's folder in CHECKPOINT.
-        model, revision, _ = config.checkpoint("jammed", Path("state"))
-        folder = f"/hub/models--{model.replace('/', '--')}/snapshots/{revision}"
-        for tp in (2, 3):
+    def test_each_tp_serves_its_checkpoint_and_one_line_serves_the_other(self):
+        # From 3.12.0 Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4 (tp*.env); the rank file's CHECKPOINT line
+        # changes that and nothing else, and an empty one keeps the TP's.
+        for tp in SIZES:
+            own = config.TP_CHECKPOINTS[tp]
+            other = "xsfp4" if own == "jammed" else "jammed"
             with self.subTest(tp=tp):
-                base = self.serve(tp)[0]
-                args = self.serve(tp, f"CHECKPOINT={folder}\n")[0]
-                self.assertEqual(args[:2], ["serve", folder])
+                base, _, start = self.serve(tp)
+                self.assertEqual(base[:2], ["serve", "ROOT" + folder(own)])
+                self.assertTrue(start.endswith(f" checkpoint ROOT{folder(own)}"), start)
+                args = self.serve(tp, f"CHECKPOINT={folder(other)}\n")[0]
+                self.assertEqual(args[:2], ["serve", "ROOT" + folder(other)])
                 self.assertEqual(args[2:], base[2:])
+                self.assertEqual(self.serve(tp, "CHECKPOINT=\n")[0], base)
+        self.assertEqual(config.TP_CHECKPOINTS[2], "jammed")
+
+    def test_a_folder_the_host_lacks_stops_the_start_and_says_what_to_do(self):
+        code, out, err = self.run_serve(2, "CHECKPOINT=/hub/models--a--b/snapshots/0\n")
+        self.assertEqual(code, 2, err)
+        self.assertIn("CHECKPOINT: no folder", err)
+        self.assertIn("download --tp 2", err)
+        self.assertNotIn("[serve.sh]", out)
+
+    def test_a_release_file_without_a_checkpoint_stops_the_start(self):
+        code, out, err = self.run_serve(
+            3, release=lambda text: re.sub(r"(?m)^CHECKPOINT=.*\n", "", text)
+        )
+        self.assertNotEqual(code, 0)
+        self.assertIn("tp3.env names no CHECKPOINT", err)
+        self.assertNotIn("[serve.sh]", out)
 
     def test_an_empty_value_turns_a_number_or_word_setting_off(self):
         args, env, _ = self.serve(

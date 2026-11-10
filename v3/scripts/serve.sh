@@ -2,12 +2,12 @@
 # Inside the container, on every rank: serve.sh TP RANK RANK_ENV [more `tensorfold-native serve` arguments]
 # The 3.x serving defaults: the MTP head's drafts (the engine's default), replies of up to 32,768 tokens when a request
 # names no limit, high reasoning effort, and what differs by TP from the release's tp2.env, tp3.env and tp4.env, which
-# sit beside this script: the window, the streams, the kept prompts, a prompt's share beside a decode, the solo passes,
-# the drafts' confidence, the wire and the memory reserve. The rank file follows them, so its value wins, every rank the
-# same. An empty value turns a number or word setting off; the on/off settings (VISION, TF_GLM_ROCE_MULTI,
-# TF_GLM_PROMPT_PAIR, TF_GLM_L2PF) take 1 or 0, and another value, an empty one included, stops the start. An empty
-# PARALLEL leaves the streams to the engine, which sizes them and the prompt cache from the memory free at start, so
-# they can differ between starts; an empty CONTEXT keeps the release's window.
+# sit beside this script: the checkpoint, the window, the streams, the kept prompts, a prompt's share beside a decode,
+# the solo passes, the drafts' confidence, the wire and the memory reserve. The rank file follows them, so its value
+# wins, every rank the same. An empty value turns a number or word setting off; the on/off settings (VISION,
+# TF_GLM_ROCE_MULTI, TF_GLM_PROMPT_PAIR, TF_GLM_L2PF) take 1 or 0, and another value, an empty one included, stops the
+# start. An empty PARALLEL leaves the streams to the engine, which sizes them and the prompt cache from the memory free
+# at start, so they can differ between starts; an empty CONTEXT or CHECKPOINT keeps the release's.
 # RANK_ENV is this host's file (examples/tp*-rank*.env): its NCCL settings and MASTER, rank 0's address on the link
 # between the hosts (at TP=3 and TP=4, where the hosts form a ring, a /32 address the ring's routes reach). Rank 0
 # makes its NCCL id at NCCL_COMM_ID (MASTER:NCCL_PORT), and the ranks' liveness lines meet it at the next port; the
@@ -34,9 +34,11 @@ esac
 set -a
 . "$(dirname "$0")/tp$tp.env"
 release_context=$CONTEXT
+release_checkpoint=${CHECKPOINT-}
 . "$rank_env"
 set +a
 : "${MASTER:?$rank_env must set MASTER, rank 0 address on the link between the hosts}"
+: "${release_checkpoint:?tp$tp.env names no CHECKPOINT, the folder this TP serves}"
 # The on/off settings take 1 or 0, as the engine's own switches do: an empty value or a word would otherwise be read as
 # one of them unseen (VISION= turned images off and VISION=0 turned them on)
 for v in VISION TF_GLM_ROCE_MULTI TF_GLM_PROMPT_PAIR TF_GLM_L2PF; do
@@ -58,10 +60,13 @@ if [ "${TF_GLM_ROCE_MULTI:-0}" != 0 ]; then
   export TF_TP_KERNEL_IMAGE=${TF_TP_KERNEL_IMAGE:-$(dirname "$0")/tp_mailbox.fatbin}
   export TF_TP_ROCE_FALLBACK=${TF_TP_ROCE_FALLBACK:-error}
 fi
-# XSFP4 at its lock's revision (config/xsfp4.lock.json) as the Hugging Face cache holds it, mounted read-only at /hub
-# (create_container.sh). CHECKPOINT in the rank files names another folder: Jammed XSFP4's at its lock's revision
-# (config/jammed.lock.json), the one other checkpoint 3.x's acceptance covers
-CHECKPOINT=${CHECKPOINT:-/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/88736f916f8939607fde8a4b881dcae749f7551d}
+# The checkpoint by TP from tp$tp.env, each at its lock's revision as the Hugging Face cache holds it, mounted
+# read-only at /hub (create_container.sh): from 3.12.0 Jammed XSFP4 at TP=2 (config/jammed.lock.json), and XSFP4 at
+# TP=3 and TP=4 (config/xsfp4.lock.json). CHECKPOINT in the rank file names another folder, such as the other one's
+# at its lock's revision; an empty one keeps this TP's. A folder the host lacks stops the start here, by name.
+CHECKPOINT=${CHECKPOINT:-$release_checkpoint}
+[ -d "$CHECKPOINT" ] || { echo "CHECKPOINT: no folder $CHECKPOINT on this host; download the checkpoint this TP" \
+  "serves (python -m glm53_tf download --tp $tp) or name a folder the host holds in the rank file" >&2; exit 2; }
 # Every rank takes the same arguments (the ranks compare their settings at start); only rank 0 serves HTTP.
 # REASONING_EFFORT: what a request that names none gets (default high; empty: the chat template's own).
 # PARALLEL: how many requests share the rounds (empty: the engine's auto). MTP_CONFIDENCE: the drafts' confidence
@@ -83,5 +88,6 @@ echo "[serve.sh] $(date -Is) TP=$tp rank $rank master $MASTER context $context p
   "mtp-confidence ${MTP_CONFIDENCE:-unset} wire ${TF_GLM_ROCE_MULTI:-unset}" \
   "reserve ${TENSORFOLD_MEMORY_RESERVE_GIB:-unset} vision $vision" \
   "heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}" \
-  "engine $(sed -n 's/^ref //p' /usr/share/doc/tf3/ENGINE 2>/dev/null || echo '?')" "TF_GLM_MM ${TF_GLM_MM-unset}"
+  "engine $(sed -n 's/^ref //p' /usr/share/doc/tf3/ENGINE 2>/dev/null || echo '?')" "TF_GLM_MM ${TF_GLM_MM-unset}" \
+  "checkpoint $CHECKPOINT"
 exec tensorfold-native serve "$CHECKPOINT" "${args[@]}" "$@"

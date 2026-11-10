@@ -10,12 +10,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import (
-    CHECKPOINT_HELP,
-    CHECKPOINTS,
     DEFAULT_CHECKPOINT,
     LINE,
     STATE,
+    add_checkpoint_arguments,
     checkpoint,
+    chosen_checkpoint,
 )
 from .io import write_json
 
@@ -95,14 +95,10 @@ def download(name=DEFAULT_CHECKPOINT):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--background", action="store_true")
-    parser.add_argument(
-        "--checkpoint",
-        choices=CHECKPOINTS,
-        default=DEFAULT_CHECKPOINT,
-        help=CHECKPOINT_HELP,
-    )
+    add_checkpoint_arguments(parser)
     args = parser.parse_args(argv)
-    model, revision, state = checkpoint(args.checkpoint, STATE)
+    name = chosen_checkpoint(args)
+    model, revision, state = checkpoint(name, STATE)
     busy = "A download already owns this workspace; inspect its state"
     if args.background:
         if os.name != "posix":
@@ -128,7 +124,7 @@ def main(argv=None):
                         "glm53_tf",
                         "download",
                         "--checkpoint",
-                        args.checkpoint,
+                        name,
                     ],
                     cwd=LINE,
                     env=env,
@@ -150,7 +146,7 @@ def main(argv=None):
         try:
             with FileLock(state / "download.lock", timeout=0):
                 (state / "download.pid").write_text(str(os.getpid()) + "\n")
-                download(args.checkpoint)
+                download(name)
         except Timeout:
             raise SystemExit(busy) from None
 

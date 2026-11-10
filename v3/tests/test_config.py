@@ -80,10 +80,11 @@ class CheckpointTests(unittest.TestCase):
             out = io.StringIO()
             with contextlib.redirect_stdout(out), self.assertRaises(SystemExit):
                 tool.main(["--help"])
-            self.assertIn(
-                " ".join(config.CHECKPOINT_HELP.split()),
-                " ".join(out.getvalue().split()),
-            )
+            for shown in (config.CHECKPOINT_HELP, config.TP_HELP):
+                self.assertIn(
+                    " ".join(shown.split()),
+                    " ".join(out.getvalue().split()),
+                )
 
     def test_an_unknown_checkpoint_is_refused(self):
         with self.assertRaisesRegex(ValueError, "unknown checkpoint"):
@@ -91,15 +92,26 @@ class CheckpointTests(unittest.TestCase):
 
 
 class ServeScriptTests(unittest.TestCase):
-    def test_serve_sh_serves_xsfp4_at_its_locked_revision_by_default(self):
+    def test_each_tp_serves_its_checkpoint_at_its_locks_revision(self):
+        # From 3.12.0 config/tp*.env names the TP's checkpoint, Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4,
+        # and serve.sh none of its own; download and verify-download read the same table for --tp.
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
-        pattern = r"/hub/models--([\w.-]+)--([\w.-]+)/snapshots/([0-9a-f]{40})"
-        match = re.search(pattern, serve)
-        self.assertIsNotNone(match)
-        model, revision, _ = config.checkpoint("xsfp4", Path("state"))
+        self.assertNotIn("/hub/models--", serve)
+        self.assertIn("CHECKPOINT=${CHECKPOINT:-$release_checkpoint}\n", serve)
+        self.assertEqual(sorted(config.TP_CHECKPOINTS), [2, 3, 4])
+        self.assertEqual(config.TP_CHECKPOINTS[2], "jammed")
         self.assertEqual(config.DEFAULT_CHECKPOINT, "xsfp4")
-        self.assertEqual(f"{match[1]}/{match[2]}", model)
-        self.assertEqual(match[3], revision)
+        pattern = (
+            r"^CHECKPOINT=/hub/models--([\w.-]+)--([\w.-]+)/snapshots/([0-9a-f]{40})$"
+        )
+        for tp, name in config.TP_CHECKPOINTS.items():
+            with self.subTest(tp=tp):
+                text = (LINE / f"config/tp{tp}.env").read_text(encoding="utf-8")
+                match = re.search(pattern, text, re.MULTILINE)
+                self.assertIsNotNone(match)
+                model, revision, _ = config.checkpoint(name, Path("state"))
+                self.assertEqual(f"{match[1]}/{match[2]}", model)
+                self.assertEqual(match[3], revision)
 
     def test_serve_sh_reads_images_and_videos_unless_the_rank_file_says_otherwise(self):
         # Unset: --vision. 0: text alone. Every rank the same (the ranks agree on --vision at start); another value,
@@ -128,8 +140,8 @@ class ServeScriptTests(unittest.TestCase):
             self.assertIn("CONTEXT=1048576 ", text)
 
     def test_the_examples_name_no_other_checkpoint(self):
-        # serve.sh's default is XSFP4 (from 3.6.0); Jammed XSFP4 (3.10.0) is a line
-        # the operator adds.
+        # The TP's checkpoint is config/tp*.env's (from 3.12.0); the other one is a
+        # line the operator adds.
         for path in sorted((LINE / "examples").glob("tp*-rank*.env")):
             with self.subTest(example=path.name):
                 text = path.read_text(encoding="utf-8")

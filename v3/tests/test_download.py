@@ -88,6 +88,21 @@ class BackgroundTests(unittest.TestCase):
         self.assertEqual(logs, ["jammed/download.log"])
         self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "jammed"])
 
+    def test_a_tp_fetches_the_checkpoint_that_tp_serves_by_default(self):
+        # From 3.12.0: Jammed XSFP4 at TP=2, XSFP4 at TP=3 and TP=4 (config/tp*.env).
+        for tp, name in config.TP_CHECKPOINTS.items():
+            with self.subTest(tp=tp):
+                popen, logs = self.background("--tp", str(tp))
+                self.assertEqual(logs, [f"{name}/download.log"])
+                self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", name])
+
+    def test_a_tp_beside_a_checkpoint_or_another_tp_size_is_refused(self):
+        for extra in (("--tp", "2", "--checkpoint", "xsfp4"), ("--tp", "5")):
+            with self.subTest(extra=extra), redirect_stderr(io.StringIO()):
+                with self.assertRaises(SystemExit) as raised:
+                    self.background(*extra)
+                self.assertEqual(raised.exception.code, 2)
+
 
 class Waiting(Exception):
     """verify-download went to sleep: it is waiting for the download."""
