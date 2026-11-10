@@ -1,11 +1,11 @@
 {
   "repo": "https://github.com/Bizuayeu/TensorFold.git",
   "branch": "release/3.12.0",
-  "ref": "267c5af6ad10779c1a3c75823d8e6e64216db376",
+  "ref": "6e9af930261a88bb28ac0bfb157ce8e57e9eea07",
   "upstream": {
     "repo": "https://github.com/ashhart/TensorFold.git",
-    "version": "1.2.4",
-    "ref": "267c5af6ad10779c1a3c75823d8e6e64216db376"
+    "version": "1.2.6",
+    "ref": "6e9af930261a88bb28ac0bfb157ce8e57e9eea07"
   },
   "zig": {
     "version": "0.17.0",
