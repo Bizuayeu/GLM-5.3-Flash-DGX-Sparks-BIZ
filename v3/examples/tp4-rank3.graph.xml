@@ -1,0 +1,24 @@
+<graphs version="1">
+  <graph id="0" pattern="4" crossnic="1" nchannels="4" speedintra="0.24" speedinter="0.24" latencyinter="0" typeintra="LOC" typeinter="P2C" samechannels="1">
+    <channel>
+      <net dev="0"/>
+      <gpu dev="0" rank="3"/>
+      <net dev="1"/>
+    </channel>
+    <channel>
+      <net dev="2"/>
+      <gpu dev="0" rank="3"/>
+      <net dev="3"/>
+    </channel>
+    <channel>
+      <net dev="0"/>
+      <gpu dev="0" rank="3"/>
+      <net dev="1"/>
+    </channel>
+    <channel>
+      <net dev="2"/>
+      <gpu dev="0" rank="3"/>
+      <net dev="3"/>
+    </channel>
+  </graph>
+</graphs>

@@ -66,9 +66,13 @@ class ContainerNameTests(unittest.TestCase):
         self.assertIn(f"CONTAINER=${{CONTAINER:-{name}}}\n", cluster)
         watch = (SCRIPTS / "hostwatch.sh").read_text(encoding="utf-8")
         self.assertIn(f"container=${{2:-{name}}}\n", watch)
-        for tp in (2, 3):
-            path = LINE / f"examples/cluster.tp{tp}.env"
-            self.assertIn(f"# CONTAINER={name} ", path.read_text(encoding="utf-8"))
+        paths = sorted((LINE / "examples").glob("cluster.*.env"))
+        self.assertLessEqual(
+            {f"cluster.tp{tp}.env" for tp in (2, 3, 4)}, {p.name for p in paths}
+        )
+        for path in paths:
+            with self.subTest(example=path.name):
+                self.assertIn(f"# CONTAINER={name} ", path.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
