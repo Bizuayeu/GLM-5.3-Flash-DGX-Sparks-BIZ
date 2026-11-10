@@ -6,7 +6,7 @@ What this line's setup does beyond [upstream TensorFold's own recipe](https://gi
 
 ## XSFP4 and FP4-Local's formats as stored
 
-The engine loads NVIDIA's GLM-5.3-Flash-FP4-Local and XSFP4, its derivative, as stored, with the code of pull request #1050, upstream's own from 1.1.5 (upstream's releases before it took NVIDIA's NVFP4 recipe, `modelopt-nvfp4`, alone for GLM). XSFP4 is `serve.sh`'s default, so nothing is set. Jammed XSFP4 is one `CHECKPOINT` line in every rank file ([setup §2](../SETUP.md#2-checkout-and-checkpoint)), and its `csf0_v1` form needs this line's engine from 3.10.0. FP4-Local itself, which the tools do not download, or another folder is `CHECKPOINT` in every rank file, outside the acceptance ([checkpoints](../README.md#checkpoints)):
+The engine loads NVIDIA's GLM-5.3-Flash-FP4-Local and XSFP4, its derivative, as stored, with the code of pull request #1050, upstream's own from 1.1.5 (upstream's releases before it took NVIDIA's NVFP4 recipe, `modelopt-nvfp4`, alone for GLM). From 3.12.0 the release files serve Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4, so nothing is set; the other one is one `CHECKPOINT` line in every rank file ([setup §2](../SETUP.md#2-checkout-and-checkpoint)), and its `csf0_v1` form needs this line's engine from 3.10.0. FP4-Local itself, which the tools do not download, or another folder is `CHECKPOINT` in every rank file, outside the acceptance ([checkpoints](../README.md#checkpoints)):
 
 ```sh
 CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-FP4-Local/snapshots/<revision>
@@ -21,6 +21,23 @@ cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKO
 v3/scripts/cluster.sh state/cluster.env start ring
 ```
 
+## TP=4 on a ring of four without a switch
+
+Experimental from 3.12.0: four hosts cabled in a ring with no cable across, each with a `/32` address routed over the links, on TP=3's serving values with the wire off, none tuned at four hosts ([serving defaults](../README.md#serving-defaults)). Each rank file names the ring's NCCL lines, its graph and `TF_GLM_PREFILL_REDUCE=gather` ([NCCL](configuration.md#nccl)):
+
+```sh
+cp v3/examples/tp4-rank0.graph.xml ~/glm53-tf3/graph.xml   # on each host, its rank's graph beside its rank file
+cp v3/examples/cluster.tp4.env state/cluster.env           # HOSTS in rank order round the ring, CHECKOUT
+v3/scripts/cluster.sh state/cluster.env start ring4
+```
+
+The same four hosts serve as two pairs, each at TP=2 on one cable with a cluster file of its own: `tp2-04-05` and `tp2-06-07`, which have each served at TP=2, or `tp2-04-06` and `tp2-05-07`, which have not been started; no two pairs have served at once yet:
+
+```sh
+v3/scripts/cluster.sh state/cluster.tp2-04-05.env start pair-a   # copies of examples/cluster.tp2-*.env
+v3/scripts/cluster.sh state/cluster.tp2-06-07.env start pair-b
+```
+
 ## The FP8 latent cache at TP=2
 
 The engine's opt-in FP8 latent cache holds about twice the window per GiB. Tried once at TP=2 with XSFP4 and the vision tower: one stream fit the 1,048,576-token window, the prefill took about 5% longer, and the decode check's tokens differ from BF16's. Outside the acceptance; upstream calls its qualification pending ([limits](../README.md#limits)). It keeps a window per stream, so it takes one stream and no share: in both rank files `PARALLEL=1` and an empty `TF_KV_SHARE=`, then:
@@ -31,7 +48,7 @@ v3/scripts/cluster.sh state/cluster.env start fp8 --kv-cache fp8
 
 ## Fewer or more requests at once
 
-The release serves four requests at once at TP=2 and eight at TP=3. An empty `PARALLEL=` lets the engine take what fits, which the acceptance ran; another number is outside it, and `TF_KV_SHARE` should stay at four states a stream or more ([configuration](configuration.md#rank-file)):
+The release serves four requests at once at TP=2 and eight at TP=3 and TP=4. An empty `PARALLEL=` lets the engine take what fits, which the acceptance ran; another number is outside it, and `TF_KV_SHARE` should stay at four states a stream or more ([configuration](configuration.md#rank-file)):
 
 ```sh
 PARALLEL=2

@@ -2,27 +2,27 @@
 
 [日本語](SETUP.ja.md) · [3.x overview](README.md) · [Validation](docs/validation.md)
 
-The ordered steps for serving the 3.x line on two hosts at TP=2 or three hosts at TP=3, on TensorFold's native engine. The hosts, cables, kernel and checkpoint are prepared as for 2.x, and those steps link to the [2.x runbook](../v2/SETUP.md). Every host has the same checkout; the commands below run from its root, where the image's build context is; the line's Python tools run from `v3/`. Every command that changes a host (stopping another server, starting this one) belongs inside a window the operator has authorized.
+The ordered steps for serving the 3.x line on two hosts at TP=2, three at TP=3 or, experimental, four at TP=4, on TensorFold's native engine. The hosts, cables, kernel and checkpoint are prepared as for 2.x, and those steps link to the [2.x runbook](../v2/SETUP.md). Every host has the same checkout; the commands below run from its root, where the image's build context is; the line's Python tools run from `v3/`. Every command that changes a host (stopping another server, starting this one) belongs inside a window the operator has authorized.
 
 ## 1. Hosts and fabric
 
-As in [2.x step 1](../v2/SETUP.md#1-hosts-and-fabric): two or three DGX Spark or compatible GB10 systems with ConnectX-7 links, a direct link for the pair, a ring for three hosts, the RDMA device names, the RoCE v2 GID index and the address the ranks meet on recorded for each host, and the GPU clock capped before long runs. Update the hosts as in [updating a host](../docs/hosts.md#updating-a-host): on DGX OS 7.6 let the ConnectX-7 firmware write finish before rebooting, and check `kho=off` and `power_wrap_init` in `/proc/cmdline` after it. On the reference ring each host's address for TP=3 is a `/32` on a dummy interface, routed over the links ([three hosts in a ring](../docs/qsfp-network.md#8-three-hosts-in-a-ring)). The ranks' liveness lines reach rank 0 there through `NCCL_COMM_ID` and carry its NCCL id to the other ranks, whose NCCL bootstrap uses the interface their rank file names in `NCCL_SOCKET_IFNAME`, since NCCL cannot bootstrap through `NCCL_COMM_ID` from another host's `/32` ([step 5](#5-start), [NCCL](docs/configuration.md#nccl)).
+As in [2.x step 1](../v2/SETUP.md#1-hosts-and-fabric): two, three or four DGX Spark or compatible GB10 systems with ConnectX-7 links, a direct link for the pair, a ring for three or four hosts, the RDMA device names, the RoCE v2 GID index and the address the ranks meet on recorded for each host, and the GPU clock capped before long runs. Update the hosts as in [updating a host](../docs/hosts.md#updating-a-host): on DGX OS 7.6 let the ConnectX-7 firmware write finish before rebooting, and check `kho=off` and `power_wrap_init` in `/proc/cmdline` after it. On the reference rings each host's address for TP=3 and TP=4 is a `/32` on a dummy interface, routed over the links ([three hosts in a ring](../docs/qsfp-network.md#8-three-hosts-in-a-ring)). The ranks' liveness lines reach rank 0 there through `NCCL_COMM_ID` and carry its NCCL id to the other ranks, whose NCCL bootstrap uses the interface their rank file names in `NCCL_SOCKET_IFNAME`, since NCCL cannot bootstrap through `NCCL_COMM_ID` from another host's `/32` ([step 5](#5-start), [NCCL](docs/configuration.md#nccl)).
 
 ## 2. Checkout and checkpoint
 
-Check out the same reviewed commit on every host (a `v3.*` release tag). The default checkpoint is XSFP4 ([checkpoints](README.md#checkpoints)): `Bizuayeu/GLM-5.3-Flash-XSFP4` at the revision in [`config/xsfp4.lock.json`](config/xsfp4.lock.json). Prepare the tools' virtual environment from `v3/` and download and verify it as in [2.x step 2](../v2/SETUP.md#2-checkout-and-checkpoint); the download keeps its status and log under `state/xsfp4`:
+Check out the same reviewed commit on every host (a `v3.*` release tag). The checkpoint follows the TP size ([checkpoints](README.md#checkpoints)): from 3.12.0 TP=2 serves Jammed XSFP4, `Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4` at the revision in [`config/jammed.lock.json`](config/jammed.lock.json), and TP=3 and TP=4 serve XSFP4, `Bizuayeu/GLM-5.3-Flash-XSFP4` at the revision in [`config/xsfp4.lock.json`](config/xsfp4.lock.json). Prepare the tools' virtual environment from `v3/` and download and verify the one your TP size serves as in [2.x step 2](../v2/SETUP.md#2-checkout-and-checkpoint), here at TP=3; the download keeps its status and log under `state/xsfp4`:
 
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements/huggingface.lock.txt
-python -m glm53_tf download --background
-python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
+python -m glm53_tf download --tp 3 --background
+python -m glm53_tf verify-download --tp 3 --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
 ```
 
 The engine reads the checkpoint from each host's Hugging Face cache, by default `~/.cache/huggingface/hub`, mounted read-only into the container.
 
-To serve Jammed XSFP4 instead ([checkpoints](README.md#checkpoints)), give both commands `--checkpoint jammed` and `verify-download` an output folder of its own (`../records/checksum-jammed`); the status stays under `state/jammed`, and step 4 adds one line to every rank file.
+At TP=2 give both commands `--tp 2` and `verify-download` an output folder of its own (`../records/checksum-jammed`); the status stays under `state/jammed`. To serve the other checkpoint than your TP size's, give both commands `--checkpoint jammed` or `--checkpoint xsfp4` in place of `--tp`, and step 4 adds one line to every rank file. A start whose checkpoint folder the host lacks stops in `serve.sh`, naming the download.
 
 
 ## 3. Image
@@ -40,29 +40,30 @@ The build compiles the engine from the BIZ release of TensorFold at the commit i
 
 ```sh
 v3/scripts/create_container.sh glm53-tf3:3.10.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
-cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # this host's rank: tp2-rank0/1 or tp3-rank0/1/2
+cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # this host's rank: tp2-rank0/1, tp3-rank0/1/2 or tp4-rank0/1/2/3
+cp v3/examples/tp4-rank0.graph.xml ~/glm53-tf3/graph.xml      # at TP=4 also the rank's NCCL graph, which its rank file names
 ```
 
 `create_container.sh` prints the cores it gives the container: unless `CPUSET` is set, the cores with the lowest maximum frequency, `cpuset 0-4,10-14` on a GB10, whose efficiency cores keep the CPU cooler while the engine's threads spin ([serving defaults](README.md#serving-defaults)). `CPUSET=` before it gives every core, and `CPUSET=<list>` the cores listed.
 
-Edit `~/glm53-tf3/rank.env` with this host's values: `MASTER` (rank 0's address on the link, the same on every rank), `NCCL_IB_HCA` (the RDMA devices on the links, both rails), `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`; also `NCCL_PORT` if 29583 is taken. The examples are the reference hosts' files and say what each line was measured as. The file is sourced by `bash`, not passed to `docker --env-file`. Lines the examples leave commented out change a default: `PARALLEL`, `CONTEXT`, `VISION`, the heat bands and at TP=3 the KV pages (`TF_KV_PAGES=off` with an empty `TF_KV_SHARE=`) for every rank alike, and `API_KEY_FILE` on rank 0 alone ([configuration](docs/configuration.md#rank-file)). Jammed XSFP4 is one more line in every rank file: `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<the revision in config/jammed.lock.json>`.
+Edit `~/glm53-tf3/rank.env` with this host's values: `MASTER` (rank 0's address on the link, the same on every rank), `NCCL_IB_HCA` (the RDMA devices on the links, both rails), `NCCL_IB_GID_INDEX` and `NCCL_SOCKET_IFNAME`; also `NCCL_PORT` if 29583 is taken. The examples are the reference hosts' files and say what each line was measured as. The file is sourced by `bash`, not passed to `docker --env-file`. Lines the examples leave commented out change a default: `PARALLEL`, `CONTEXT`, `VISION`, the heat bands and at TP=3 the KV pages (`TF_KV_PAGES=off` with an empty `TF_KV_SHARE=`) for every rank alike, and `API_KEY_FILE` on rank 0 alone ([configuration](docs/configuration.md#rank-file)). The other checkpoint than your TP size's is one more line in every rank file: `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<the revision in config/xsfp4.lock.json>` at TP=2, `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<the revision in config/jammed.lock.json>` at TP=3 and TP=4. The TP=4 examples are the reference ring of four's, 04 → 05 → 07 → 06 → 04 with no cable across: beside TP=3's NCCL lines they name the ring alone, the rank's graph, connections on first use with cuMem on, and `TF_GLM_PREFILL_REDUCE=gather` ([NCCL](docs/configuration.md#nccl)). The `tp2-04-05`, `tp2-06-07`, `tp2-04-06` and `tp2-05-07` examples serve the same ring as two pairs, each with a cluster file of its own: 04-05 and 06-07 have each served at TP=2, 04-06 and 05-07 have not been started, and no two pairs have served at once yet.
 
 The engine needs no build step on the host: its kernels are in the binary.
 
 ## 5. Start
 
-From a machine with SSH to every host, after copying [`examples/cluster.tp2.env`](examples/cluster.tp2.env) or [`cluster.tp3.env`](examples/cluster.tp3.env) to `state/cluster.env` (untracked, so your site's values stay out of Git) and setting `HOSTS` (SSH names in rank order), `CHECKOUT` (this repository on the hosts) and, if they differ from the defaults, `CONTAINER`, `WORK` and `SSH`:
+From a machine with SSH to every host, after copying [`examples/cluster.tp2.env`](examples/cluster.tp2.env), [`cluster.tp3.env`](examples/cluster.tp3.env) or [`cluster.tp4.env`](examples/cluster.tp4.env) to `state/cluster.env` (untracked, so your site's values stay out of Git) and setting `HOSTS` (SSH names in rank order), `CHECKOUT` (this repository on the hosts) and, if they differ from the defaults, `CONTAINER`, `WORK` and `SSH`:
 
 ```sh
 v3/scripts/cluster.sh state/cluster.env start first
 ```
 
-At TP=2 it starts the highest rank first and rank 0 last. At TP=3 it starts the three ranks together, rank 0 last. Once every rank's liveness line is up, rank 0 sends its NCCL id to the other ranks over the lines. Each rank runs `serve.sh TP RANK /work/rank.env` in its container. It starts the memory guard on every host (`hostwatch.sh`: stops the engine below 5 GiB `MemAvailable`) and waits for rank 0's `[tensorfold] serving` line. It ends with `READY` and the seconds it took; with `FAILED` and every rank's log tail when a rank refuses or an engine is gone; or with `TIMEOUT` after 15 minutes. Each rank logs to `<WORK>/logs/serve-r<RANK>-<LABEL>.log` and the guard to `hostwatch-<LABEL>.log`; arguments after the label go to every rank's `tensorfold-native serve`, and `cluster.sh state/cluster.env status` counts each rank's engine processes. After `FAILED` or `TIMEOUT`, see [operations](docs/operations.md#start-outcomes).
+At TP=2 and TP=4 it starts the highest rank first and rank 0 last. At TP=3 it starts the three ranks together, rank 0 last. Once every rank's liveness line is up, rank 0 sends its NCCL id to the other ranks over the lines. Each rank runs `serve.sh TP RANK /work/rank.env` in its container. It starts the memory guard on every host (`hostwatch.sh`: stops the engine below 5 GiB `MemAvailable`) and waits for rank 0's `[tensorfold] serving` line. It ends with `READY` and the seconds it took; with `FAILED` and every rank's log tail when a rank refuses or an engine is gone; or with `TIMEOUT` after 15 minutes. Each rank logs to `<WORK>/logs/serve-r<RANK>-<LABEL>.log` and the guard to `hostwatch-<LABEL>.log`; arguments after the label go to every rank's `tensorfold-native serve`, and `cluster.sh state/cluster.env status` counts each rank's engine processes. After `FAILED` or `TIMEOUT`, see [operations](docs/operations.md#start-outcomes).
 
 Read each rank's startup lines:
 
-- `[serve.sh]`: TP, rank, `MASTER`, the window (`context`: 1048576), `parallel` (4 at TP=2, 8 at TP=3, `auto` for an empty `PARALLEL=`), the release's other settings (`kept`, `prefill-share`, `solo`, `mtp-confidence` and `reserve`, `unset` for one that is off; `wire`, 0 at TP=2 and 1 at TP=3), `vision` (1, or 0 for `VISION=0`), the heat bands, the engine commit of the image and `TF_GLM_MM` (`unset` unless the rank file sets it)
-- rank 0's load line, `[tensorfold] CUDA sm_121 …`: the model's GiB, the streams at once (`4 streams at once` at TP=2, `8 streams at once` at TP=3), the KV pages they and the engine's own sequence take (`taking N pages of 512 rows`), the GiB left, and `the prompt cache over the pool's pages`
+- `[serve.sh]`: TP, rank, `MASTER`, the window (`context`: 1048576), `parallel` (4 at TP=2, 8 at TP=3 and TP=4, `auto` for an empty `PARALLEL=`), the release's other settings (`kept`, `prefill-share`, `solo`, `mtp-confidence` and `reserve`, `unset` for one that is off; `wire`, 1 at TP=3 and 0 at the other sizes), `vision` (1, or 0 for `VISION=0`), the heat bands, the engine commit of the image, `TF_GLM_MM` (`unset` unless the rank file sets it) and the checkpoint folder (`checkpoint`)
+- rank 0's load line, `[tensorfold] CUDA sm_121 …`: the model's GiB, the streams at once (`4 streams at once` at TP=2, `8 streams at once` at TP=3 and TP=4), the KV pages they and the engine's own sequence take (`taking N pages of 512 rows`), the GiB left, and `the prompt cache over the pool's pages`
 - each rank's NCCL lines (`via NET/IB`, logged once at start by the rank file's `NCCL_DEBUG` lines) name `NET/IB` for every connection, none over sockets
 - the `serving` line: the model name (`glm-tf` unless `MODEL_NAME` is set in the rank file), `127.0.0.1:8095` unless `HOST` and `PORT` are, and the window
 

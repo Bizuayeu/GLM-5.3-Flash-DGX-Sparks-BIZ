@@ -6,7 +6,7 @@
 
 ## XSFP4とFP4-Localの形式をそのまま
 
-エンジンは、pull request #1050のcode（1.1.5から上流自身のもの。それより前の上流のリリースがGLMに受けたのは、NVIDIAのNVFP4のrecipe（`modelopt-nvfp4`）だけ）で、NVIDIAのGLM-5.3-Flash-FP4-Localとその派生のXSFP4を、保存された形のまま読みます。XSFP4は `serve.sh` の既定なので、何も設定しません。Jammed XSFP4は全rankのファイルの `CHECKPOINT` の1行で（[手順2](../SETUP.ja.md#2-checkoutとcheckpoint)）、その `csf0_v1` の形には3.10.0からのこの系列のエンジンが要ります。FP4-Local自身（道具はdownloadしない）や別のfolderは、全rankのファイルの `CHECKPOINT` で、受け入れの外です（[checkpoint](../README.ja.md#checkpoint)）：
+エンジンは、pull request #1050のcode（1.1.5から上流自身のもの。それより前の上流のリリースがGLMに受けたのは、NVIDIAのNVFP4のrecipe（`modelopt-nvfp4`）だけ）で、NVIDIAのGLM-5.3-Flash-FP4-Localとその派生のXSFP4を、保存された形のまま読みます。3.12.0からリリースのファイルがTP=2でJammed XSFP4を、TP=3とTP=4でXSFP4を配信するので、何も設定しません。もう一方は全rankのファイルの `CHECKPOINT` の1行で（[手順2](../SETUP.ja.md#2-checkoutとcheckpoint)）、その `csf0_v1` の形には3.10.0からのこの系列のエンジンが要ります。FP4-Local自身（道具はdownloadしない）や別のfolderは、全rankのファイルの `CHECKPOINT` で、受け入れの外です（[checkpoint](../README.ja.md#checkpoint)）：
 
 ```sh
 CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-FP4-Local/snapshots/<revision>
@@ -21,6 +21,23 @@ cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKO
 v3/scripts/cluster.sh state/cluster.env start ring
 ```
 
+## switchの無い4台のリングでTP=4
+
+3.12.0から試験的に：4台を対角に線の無いリングにつなぎ、各台にリンクの上で経路を引いた `/32` のアドレスを置きます。配信の値はTP=3の値でwireを切ったもので、4台では詰めていません（[配信の既定](../README.ja.md#配信の既定)）。各rankのファイルは、リングのNCCLの行、そのrankのgraph、`TF_GLM_PREFILL_REDUCE=gather` を名指します（[NCCL](configuration.ja.md#nccl)）：
+
+```sh
+cp v3/examples/tp4-rank0.graph.xml ~/glm53-tf3/graph.xml   # on each host, its rank's graph beside its rank file
+cp v3/examples/cluster.tp4.env state/cluster.env           # HOSTS in rank order round the ring, CHECKOUT
+v3/scripts/cluster.sh state/cluster.env start ring4
+```
+
+同じ4台は、2組の対としても配信します。それぞれ1本の線のTP=2で、自分のclusterのファイルを持ちます：`tp2-04-05` と `tp2-06-07`（それぞれTP=2で配信した）、または `tp2-04-06` と `tp2-05-07`（まだ起動していない）。2組を同時に配信したことはまだありません：
+
+```sh
+v3/scripts/cluster.sh state/cluster.tp2-04-05.env start pair-a   # copies of examples/cluster.tp2-*.env
+v3/scripts/cluster.sh state/cluster.tp2-06-07.env start pair-b
+```
+
 ## TP=2のFP8のlatent cache
 
 エンジンの選べるFP8のlatent cacheは、GiBあたり約2倍の窓を持ちます。TP=2でXSFP4とvision towerで一度試しました：1本のstreamが1,048,576 tokenの窓に収まり、prefillは約5%長く、decode検査のtokenはBF16のものと違いました。受け入れの外で、上流はその確かめを保留としています（[制限](../README.ja.md#制限)）。streamごとに窓を持つので、1本のstreamでshareなしにします。両方のrankのファイルに `PARALLEL=1` と空の `TF_KV_SHARE=` を書き、次のとおり：
@@ -31,7 +48,7 @@ v3/scripts/cluster.sh state/cluster.env start fp8 --kv-cache fp8
 
 ## 同時の要求を減らす、増やす
 
-リリースは同時にTP=2で4本、TP=3で8本の要求を配信します。空の `PARALLEL=` はエンジンに収まるだけを取らせ、受け入れはこれも走らせました。他の数は受け入れの外で、`TF_KV_SHARE` は1 streamあたり4 state以上にします（[設定](configuration.ja.md#rankのファイル)）：
+リリースは同時にTP=2で4本、TP=3とTP=4で8本の要求を配信します。空の `PARALLEL=` はエンジンに収まるだけを取らせ、受け入れはこれも走らせました。他の数は受け入れの外で、`TF_KV_SHARE` は1 streamあたり4 state以上にします（[設定](configuration.ja.md#rankのファイル)）：
 
 ```sh
 PARALLEL=2

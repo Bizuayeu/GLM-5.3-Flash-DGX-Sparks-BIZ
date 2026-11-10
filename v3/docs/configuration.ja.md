@@ -10,7 +10,7 @@
 
 | 場所 | 読むもの | 効くとき |
 |---|---|---|
-| [`config/tp2.env`・`config/tp3.env`](../config/) | `serve.sh`。rankのファイルより先に、全変数をexportしながら読む | 新しいimageで |
+| [`config/tp2.env`・`config/tp3.env`・`config/tp4.env`](../config/) | `serve.sh`。rankのファイルより先に、全変数をexportしながら読む | 新しいimageで |
 | rankのファイル、各ホストの `/work/rank.env`（[例](../examples/)） | `serve.sh`。全変数をexportしながら読むので、そこに書いた変数はどれもエンジンに届き、リリースのファイルの値に勝つ | そのrankの次の起動 |
 | `serve.sh` の `TP RANK RANK_ENV` の後の引数。`cluster.sh` からはlabelの後の引数 | `tensorfold-native serve`。`serve.sh` 自身の引数の後ろに付く | 次の起動、全rankで |
 | clusterのファイル、制御機の `state/cluster.env` | `cluster.sh` | 次のコマンド |
@@ -18,7 +18,7 @@
 | 道具のoptionと環境 | `v3/` から実行する `python -m glm53_tf <command>` | 実行のとき |
 | [`config/`](../config/) | imageのbuildと道具 | 次のbuildか実行 |
 
-`cluster.sh` はcheckoutのではなくimageの `serve.sh`（`/opt/glm53-tf3/serve.sh`）を走らせます：[`scripts/serve.sh`](../scripts/serve.sh) と、imageがその隣に持つ `config/tp2.env`・`config/tp3.env` の変更は、新しいimageでだけrankに届きます。
+`cluster.sh` はcheckoutのではなくimageの `serve.sh`（`/opt/glm53-tf3/serve.sh`）を走らせます：[`scripts/serve.sh`](../scripts/serve.sh) と、imageがその隣に持つ `config/tp2.env`・`config/tp3.env`・`config/tp4.env` の変更は、新しいimageでだけrankに届きます。
 
 ## rankのファイル
 
@@ -27,19 +27,19 @@
 | `MASTER` | なし（必須） | ホストの間のリンク上のrank 0のアドレス。`serve.sh` がエンジンに `NCCL_COMM_ID=MASTER:NCCL_PORT` を渡す | 全rankで同じ |
 | `NCCL_PORT` | `29583` | `NCCL_COMM_ID` のrank 0のport。rank 0のNCCLのbootstrapがここで待ち受ける。rankどうしの生存の線はその次のportを使う | 同じ |
 | `CONTEXT` | `1048576`。空の値は既定になる | 窓（`--context`） | 同じ。起動時に比べる |
-| `PARALLEL` | TP=2で `4`、TP=3で `8` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（両TPで受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
-| `TF_KV_SHARE` | TP=2で `16`、TP=3で `32` | KVのpoolのpageの上のprompt cache：保持するpromptをpageのまま持ち、その先のstateをこの数まで持つ。1 streamあたり4 stateを下回ると、動いているstreamどうしが追い出し合うとエンジンが警告する。空の値か `0` はコピーのprompt cache（`--prompt-cache-gib`）に戻す。3.11.xまでは `TF_GLM_KV_SHARE` で、上流1.2.4のエンジンは起動時にこれを断る（#2211） | 同じ |
+| `PARALLEL` | TP=2で `4`、TP=3とTP=4で `8` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（両TPで受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
+| `TF_KV_SHARE` | TP=2で `16`、TP=3とTP=4で `32` | KVのpoolのpageの上のprompt cache：保持するpromptをpageのまま持ち、その先のstateをこの数まで持つ。1 streamあたり4 stateを下回ると、動いているstreamどうしが追い出し合うとエンジンが警告する。空の値か `0` はコピーのprompt cache（`--prompt-cache-gib`）に戻す。3.11.xまでは `TF_GLM_KV_SHARE` で、上流1.2.4のエンジンは起動時にこれを断る（#2211） | 同じ |
 | `TENSORFOLD_PREFILL_SHARE` | `0.7` | 他のstreamがdecodeしている間の、長いpromptの時間の取り分（[rank 0のserver](#rank-0のserver)）。空の値はエンジンの `1` のまま | rank 0 |
 | `TF_GLM_CHUNK_SOLO` | 空 | `4096` は、他のstreamがdecodeしていない間、promptのpassを4,096行にする。そのpassの途中で来た要求はpassの終わりを待ち、全rankが広いprompt bufferを持つ。空の値か `2048` は2,048行のpassのまま。`--drafter` とは組めない | 同じ。起動時に比べる |
-| `MTP_CONFIDENCE` | TP=2で空、TP=3で `0.5` | MTPのdraftの列を止める所（`--mtp-confidence`、0から1）：draftの確率がこの値を下回ると列が終わる。空の値は何も渡さない | 同じ |
-| `TF_GLM_ROCE_MULTI` | TP=2で `0`、TP=3で `1` | wire：3 rankで、主streamの小さいall-gatherをNCCLの横でエンジンのmultirank RoCEに通す。`serve.sh` が次の行を渡す。`0` はNCCLのまま。他の値は、空も含めて `serve.sh` が起動時に断る | 同じ。起動時に比べる |
-| `TENSORFOLD_MEMORY_RESERVE_GIB` | TP=2で `9`、TP=3で `16` | エンジンがシステムに残すメモリ。TP=2では1,048,576 tokenの窓のKVのpageの余地を作る。エンジン自身のreserve（[下](#各rankが読み比べないもの)）ではその余地が残らない。TP=3ではXSFP4のKVのpoolを窓2本のpageに保つ：余裕は3本目が取る大きさに近く、3本目が入るとrank 0の空きが約12 GiB減る。Jammed XSFP4はmodelが小さく、3.10.0の受け入れでは14 GiBで3本目が入った（[checkpoint](../README.ja.md#checkpoint)）。空の値はエンジン自身の値 | 同じ |
+| `MTP_CONFIDENCE` | TP=2で空、TP=3とTP=4で `0.5` | MTPのdraftの列を止める所（`--mtp-confidence`、0から1）：draftの確率がこの値を下回ると列が終わる。空の値は何も渡さない | 同じ |
+| `TF_GLM_ROCE_MULTI` | TP=2とTP=4で `0`、TP=3で `1` | wire：3 rankで、主streamの小さいall-gatherをNCCLの横でエンジンのmultirank RoCEに通す。`serve.sh` が次の行を渡す。4台のリングでは上流の試験的なrelay（`TF_TP_ROCE_RELAY=1`、#2352）を通ることになり、受け入れの外。`0` はNCCLのまま。他の値は、空も含めて `serve.sh` が起動時に断る | 同じ。起動時に比べる |
+| `TENSORFOLD_MEMORY_RESERVE_GIB` | TP=2で `9`、TP=3で `16`、TP=4で `14` | エンジンがシステムに残すメモリ。TP=2では1,048,576 tokenの窓のKVのpageの余地を作る。エンジン自身のreserve（[下](#各rankが読み比べないもの)）ではその余地が残らない。TP=3ではXSFP4のKVのpoolを窓2本のpageに保つ：余裕は3本目が取る大きさに近く、3本目が入るとrank 0の空きが約12 GiB減る。Jammed XSFP4はmodelが小さく、3.10.0の受け入れでは14 GiBで3本目が入った（[checkpoint](../README.ja.md#checkpoint)）。TP=4では参照機の4台のリングを配信した値で、そこでは詰めていない。空の値はエンジン自身の値 | 同じ |
 | `TF_TP_MASTER`・`TF_TP_PORT`・`TF_TP_PLAN_TIMEOUT`・`TF_TP_KERNEL_IMAGE`・`TF_TP_ROCE_FALLBACK` | `MASTER`、`29640`（と7つ上の `29647`）、`900`（秒）、imageの `/opt/glm53-tf3/tp_mailbox.fatbin`、`error` | `TF_GLM_ROCE_MULTI` がonの間に `serve.sh` がwireに渡す値：rank 0のアドレス、rankが落ち合うport、互いを待つ時間、mailboxのkernel、準備か確認に失敗した時の動き。`error` は起動を止め、`nccl` はwireなしで起動する | 同じ |
 | `VISION` | `1` | 画像と動画の入力（`--vision`）。rank 0でcheckpointのvision towerが読む。`0` でtextだけ。他の値は、空も含めて `serve.sh` が起動時に断る | 同じ。起動時に比べる |
 | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け（`--name`・`--host`・`--port`） | rank 0 |
 | `REASONING_EFFORT` | `high` | effortを指定しない要求のeffort（`--reasoning-effort`）：`low`・`medium`・`high`・`xhigh`。他の値は `max` も含めて起動時に全rankを止める。空の値は何も渡さず、chat templateに任せる。要求そのものは `none`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max` を指定できる | rank 0 |
 | `API_KEY_FILE` | なし | loopbackの外で配信するときのrank 0のkeyのファイル（`--api-key-file`、[APIのkey](#apiのkey)） | rank 0 |
-| `CHECKPOINT` | `/hub` の下のXSFP4のsnapshot（lockのrevision） | container内のcheckpointのfolder。3.x系が受け入れるのはXSFP4とJammed XSFP4で、後者は `config/jammed.lock.json` のrevisionでこの行を全rankのファイルに書く（[checkpoint](../README.ja.md#checkpoint)） | 同じ。起動時にdigestで比べる |
+| `CHECKPOINT` | 3.12.0からリリースのファイルの値：TP=2では `/hub` の下のJammed XSFP4のsnapshot、TP=3とTP=4ではXSFP4のsnapshot（どちらもlockのrevision）。空の値は既定 | container内のcheckpointのfolder。3.x系が受け入れるのはXSFP4とJammed XSFP4で、TPの既定と違う方は、そのlockのrevisionでこの行を全rankのファイルに書く（[checkpoint](../README.ja.md#checkpoint)）。ホストに無いfolderは、`download --tp` を名指して起動時に `serve.sh` を止める | 同じ。起動時にdigestで比べる |
 | `TF_HEAT_HIGH`・`TF_HEAT_LOW` | `92`・`88`（°C） | prefillの熱の待ちの帯（[rankの間で比べるもの](#rankの間で比べるもの)）。`serve.sh` は空のものをunsetし、エンジンは片方だけを断るので、待たないときは両方を空にする | 同じ。起動時に比べる |
 | 他の変数 | なし | エンジンにexportされる：[エンジンの環境変数](#エンジンの環境変数)（`TF_GLM_*`・`TF_ROCE*` など）と[NCCLの設定](#nccl) | それぞれによる |
 
@@ -50,7 +50,7 @@
 - `--max-tokens 32768`：`max_tokens` を指定しない要求の応答の上限、推論を含む（エンジン自身の既定は4,096）。
 - `--no-update-check`：このエンジンはflagを受け取り、何もしません。
 - `NCCL_COMM_ID`・`TF_GLM_RANK`・`TF_GLM_WORLD` を、引数とrankのファイルから。
-- 窓・effort・stream・vision tower・checkpoint・wireの設定を、上のとおりリリースのファイルとrankのファイルから。2か3以外のTP、その外のrankは、エンジンが起動する前に `serve.sh` を止めます。
+- 窓・effort・stream・vision tower・checkpoint・wireの設定を、上のとおりリリースのファイルとrankのファイルから。2・3・4以外のTP、その外のrank、`CHECKPOINT` の無いリリースのファイル、ホストに無いcheckpointのfolderは、エンジンが起動する前に `serve.sh` を止めます。
 
 `TP RANK RANK_ENV` の後の引数（`cluster.sh` からはlabelの後）はこれらの後ろに付くので、もう一度与えた値のflagは後の値になり（`CONTEXT` より `--context 131072`）、`--api-key` と `--alias` は一覧に加わります。`cluster.sh` はそれらをSSHと `bash -c` にquoteせずに渡します：空白やquoteを含む引数は、そのままでは届きません。
 
@@ -100,7 +100,7 @@ labelの後に付けられるflagと、エンジンの既定です。「比べ�
 |---|---|---|
 | `TF_HEAT_HIGH`・`TF_HEAT_LOW` | 無し：待たない（`serve.sh` は `92` と `88` を設定） | prefillの熱の待ち：prompt chunkの前ごとに、どれかのrankの最も熱いzoneが高い方の値を超えている間、全rankが2秒ずつ休み、全てが低い方の値以下になるまで待つ。両方か無しか、低い方は高い方以下 |
 | `TF_GLM_MM` | `1` | `0` はBF16のlinearをtiledのkernelではなくエンジンのglueのkernelで回し、別のtokenを返す（[検証](validation.ja.md)）。3.1.0と3.2.0のTP=3で受け入れ済み |
-| `TF_GLM_PREFILL_REDUCE` | `split` | prompt chunkの行の交換の仕方：`split` は各rankの行を他の全rankへ送り、起動時に全てのrankの組が交換できることを確かめる。`ring` はリングに沿って隣へ渡す（隣にしか届かないrankがあるfabric向け）。`gather` |
+| `TF_GLM_PREFILL_REDUCE` | `split` | prompt chunkの行の交換の仕方：`split` は各rankの行を他の全rankへ送り、起動時に全てのrankの組が交換できることを確かめる。`ring` はリングに沿って隣へ渡す（隣にしか届かないrankがあるfabric向け）。`gather` は全rankの部分和をall-gatherし、全rankが全ての行をglueする。switchの無い4台のリングは `split` の確かめに断られるので、TP=4のexampleがこれを名指す |
 | `TF_GLM_OVERLAP_PIECES` | `3` | 1〜8：prompt chunkの交換を、この数の行の片に分ける |
 | `TF_GLM_PROMPT_PAIR` | `1` | `0` は対のstepを切る：decodeするstreamが無い間、promptの1 stepが2つのchunkを取り、それぞれの交換をもう一方の計算の下で回す。soloのpass（`TF_GLM_CHUNK_SOLO=4096`）がこれに代わる。ほかの値は、空も含めて起動を止める（`serve.sh`） |
 | `TF_GLM_KDA_DECODE_WIDE` | `1` | `0` はdecodeの窓をKDAの3つのkernelの鎖なしで回す |
@@ -176,13 +176,23 @@ rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serv
 | `NCCL_MIN_NCHANNELS`・`NCCL_MAX_NCHANNELS` | `4` | `4` | 4 channel |
 | `NCCL_DEBUG`・`NCCL_DEBUG_SUBSYS` | `INFO`・`INIT,NET` | `INFO`・`INIT,NET` | 各接続のtransportを起動時に一度だけlogに書き、[手順書 §5](../SETUP.ja.md#5-起動)がそれを読む |
 
+TP=4のexample（参照機の4台のリング、3.12.0から試験的）は、TP=3の行にrank 0の `tp4host0` の `/32` を使い、次を足します：
+
+| 変数 | TP=4の例 | 意味 |
+|---|---|---|
+| `NCCL_ALGO` | `Ring` | リングだけ |
+| `NCCL_GRAPH_FILE` | `/work/graph.xml`、rankの `examples/tp4-rank*.graph.xml` | rankの4 channel：前のrankへ向くportで受け、次のrankへ向くportで送る |
+| `NCCL_IB_MERGE_NICS` | `0` | portの各デバイスを、graphが名指すとおり別々に保つ |
+| `NCCL_RUNTIME_CONNECT` | `1` | 初めて使う時につなぐ：NCCL 2.30.7はinitで、線の無い対角を通るtreeもつなごうとする |
+| `NCCL_CUMEM_ENABLE` | `1` | NCCL 2.30.7が初めて使う時につなぐのはcuMemがある時だけで、エンジンはrankのファイルが書かなければcuMemを切る |
+
 各ホスト自身の値以外は、測った2.x系から来ています。3.x系が測り直したものは[決定](decisions.ja.md#fabric)にあり、3.x系のどの起動も、全ての接続が `NET/IB` でした。エンジンのTP=2のRoCEの経路（[上](#各rankが読み比べないもの)）も `NCCL_IB_HCA` を読みます。
 
 ## clusterのファイル
 
 | 設定 | 既定 | 意味 |
 |---|---|---|
-| `TP` | なし（必須） | 2か3。`cluster.sh` は他の値をTP=2の順で起動し、`serve.sh` がそれを断る |
+| `TP` | なし（必須） | 2・3・4。`cluster.sh` はTP=3のrankをまとめて、他のTPを大きいrankから起動し、`serve.sh` はこれら以外のTPを断る |
 | `HOSTS` | なし（必須） | rank順のホストのSSH名、`TP` の数だけ。rank 0がHTTPを配信する |
 | `CHECKOUT` | なし（必須） | 各ホストのこのリポジトリ、そこで展開される。メモリの見張りはここから走る |
 | `SSH` | `ssh -o ConnectTimeout=20` | ホストに入るコマンド |
@@ -235,8 +245,8 @@ rankのファイルのNCCLの行です。rank 0のアドレスとportは、`serv
 
 | ファイル | 固定するもの | 読むもの |
 |---|---|---|
-| [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4のrepositoryとrevision | `download` と `verify-download`。`serve.sh` の既定のfolderは同じrevisionを名指し、試験がそれらを一致させる |
-| [`config/jammed.lock.json`](../config/jammed.lock.json) | Jammed XSFP4のrepositoryとrevision | `download --checkpoint jammed` と `verify-download --checkpoint jammed`。rankのファイルの `CHECKPOINT` の行が同じrevisionを名指す（[checkpoint](../README.ja.md#checkpoint)） |
+| [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4のrepositoryとrevision | `download` と `verify-download`（既定と、`--tp 3`・`--tp 4`）。`config/tp3.env`・`config/tp4.env` の `CHECKPOINT` が同じrevisionを名指し、試験がそれらを一致させる |
+| [`config/jammed.lock.json`](../config/jammed.lock.json) | Jammed XSFP4のrepositoryとrevision | `download` と `verify-download` に `--tp 2` か `--checkpoint jammed`。`config/tp2.env` の `CHECKPOINT` が同じrevisionを名指し、試験がそれらを一致させる（[checkpoint](../README.ja.md#checkpoint)） |
 | [`config/engine.lock.json`](../config/engine.lock.json) | エンジンのfork・release branch・commit、その下の上流のrelease、Zigのcompiler（URLとSHA-256）、xgrammar、mediaのlibraryのrelease（SHA-256）、buildのflag | imageのbuild：[`docker/Dockerfile`](../docker/Dockerfile) の引数で、試験がlockと一致させる |
 | [`config/nll_set.json`](../config/nll_set.json) | NLLの集合のtextと、それを切ったtokenizer（SHA-256で） | `score-nll` |
 | [`requirements/huggingface.lock.txt`](../requirements/huggingface.lock.txt) | Hugging Faceのclient | 道具の仮想環境（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)） |

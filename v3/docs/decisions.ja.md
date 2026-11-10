@@ -19,6 +19,7 @@
 | XSFP4（このリポジトリのmaintainerによるNVIDIAのFP4-Localの派生）：3.3.0で二つ目の選択、3.4.0から既定。精度を第一とする上流の隣で、この系列が目指すのは、量子化に何ができるか、FP4-Localのメモリの大きさとdecodeの速さを含めて調べること | 2026-10-23（3.3.0、3.4.0） | このエンジンで同じ文書について、XSFP4はtop-1の一致・NLL・KLのどれでもNVIDIAのNVFP4よりBF16に近く、どちらのTPでもそうで、rank 0で約3.9 GiB軽い（[checkpoint](../README.ja.md#checkpoint)） | — |
 | XSFP4だけ：NVIDIAのNVFP4と、その組み直しで3.x系では受け入れていない公開したAXLの重みは、3.x系の選択から外れる。1.x系と2.x系は持ち続ける | 2026-10-24（3.6.0）、3.9.xまで | FP4-Localが出て、この系列でNVIDIAのNVFP4を使う人は少ないと判断しました。受け入れは毎回一つのcheckpointになります。rankのファイルの `CHECKPOINT` は今も別のfolderを名指せますが、受け入れの外です | — |
 | XSFP4の横にJammed XSFP4を、`CHECKPOINT` の1行で：3〜44層のrouted expertを入力32個ごとのblockのスケールにし、fileでもGPUでも行に1つのbaseとblockごとの4 bitのoffset（`csf0_v1`）で持ち、この系列のrelease branchの5つのkernelで読む。XSFP4は既定のまま：この形を読むのはこの系列のエンジンだけで、返答も違う | 2026-11-03（3.10.0） | 同じimageでTP=2の各ホストで6.58 GiB、TP=3のrank 0で4.50 GiB軽く、BF16への近さを代価にする（[checkpoint](../README.ja.md#checkpoint)）。TP=3では同じreserveでpoolが窓3本を取る。2本に保つにはrankのファイルにもう1行要る。draftなし、1本のstream、40,960 tokenの窓で、これらのcommitのbuildと3.8.0の他の設定：TP=2では同じ値をblock 16で持つ形に比べてdecodeが0〜+0.4%、prefillの時間が1.2〜1.4%短く、TP=3では3.8.0のエンジンのXSFP4に比べてdecodeが−0.3〜−0.2%、prefillの時間が0.6〜1.5%短い | commitを持つ上流のリリースが出た時（#2041、2026-11-04から上流のmainにある）、またはBF16の重みだけから作ったJammed XSFP4の点が良い時（[Next Action](../README.ja.md#next-action)） |
+| TPごとの既定：TP=2はJammed XSFP4、TP=3とTP=4はXSFP4。各リリースのファイルがlockのrevisionでfolderを名指し、`download`・`verify-download` は `--tp` を取り、`CHECKPOINT` の1行でもう一方を配信する | 2026-11-07、3.12.0 | 上流のリリースは1.2.3から `csf0_v1` を読み、TP=2ではJammed XSFP4のrouted expertが各ホストで6.58 GiB少ない（[checkpoint](../README.ja.md#checkpoint)）。3.12.0からTP=2の受け入れはJammed XSFP4のもの（[受け入れ](validation.ja.md)） | — |
 
 ## 窓とstream
 
@@ -69,6 +70,7 @@
 
 | 決定 | 日付 | 測った効き目 | 見直すとき |
 |---|---|---|---|
+| TP=4（試験的）：switchの無い4台のリングで、TP=3のNCCLの行に、リングだけ・rankごとのgraph・cuMemを入れて初めて使う時につなぐこと・`TF_GLM_PREFILL_REDUCE=gather` を足し、配信の値はTP=3のものでwireを切り、14 GiBを残す（[NCCL](configuration.ja.md#nccl)） | 2026-11-07〜2026-11-10、3.12.0 | 2026-11-07から上流のmainで、参照機の4台のリングがこの行で起動して配信し、隣どうしの全channelが `NET/IB` だった。`split` は4台のリングを起動時に止め、そこのwireは上流の試験的なrelayを通り、その最後のheadで1本のdecodeがNCCLより2〜3%速く、4本とcoldのpromptは同じ速さだった。ここでは既定として測っていない。どの値も4台では詰めていない | `config/tp4.env` を4台で詰めた時 |
 | 2.x系からのNCCLの設定：リンクごとに2本のrail、4 channel、IBのtransportを明示、TP=3ではsubnet-aware routingとNCCL自身のIBのtransport（[NCCL](configuration.ja.md#nccl)） | 2026-10-18（3.0.0） | 2.x系で測ったもの（[2.x系の決定](../../v2/docs/decisions.ja.md#fabric)）。ネイティブエンジンではメモリだけを測り直しました：上流1.1.0のTP=2で245,760 tokenの窓のとき、NCCL自身の64 channelは起動時に4.0 GiBを残し、4 channelでは5.3〜5.8 GiBで、1.3〜1.8 GiB多く、2.x系の1.5 GiBと合います。4 channelと64 channelの速さ、rail、routing、pluginは測り直していません。3.x系のどの起動も、全ての接続が `NET/IB` でした | — |
 
 ## 画像と動画の入力
@@ -82,7 +84,7 @@
 開いた項目：3.x系では、どちらの結果もありません。
 
 - **要求と入力。** 長い会話が同時に何本も並ぶ負荷、画像と動画のURL（`--vision-urls`）、`/v1/responses` と `/v1/messages`、harnessとの統合（[制限](../README.ja.md#制限)）。
-- **エンジンの設定。** [設定](configuration.ja.md)が回したと名指すもの以外の全てのエンジンの設定：`TF_ROCE*`・`TF_GLM_PREFILL_REDUCE` などは既定のまま回り、`TF_GLM_PROMPT_K=shape` もDFlash2のdrafterも試していません。
+- **エンジンの設定。** [設定](configuration.ja.md)が回したと名指すもの以外の全てのエンジンの設定：`TF_ROCE*`・`TF_GLM_PREFILL_REDUCE`（TP=4では `gather`）などは既定のまま回り、`TF_GLM_PROMPT_K=shape` もDFlash2のdrafterも試していません。
 - **TP=3のFP8のlatent cache**、TP=2でも一度の試しの先。これはstreamごとに窓を持つので、3.9.0のKVのpageとは組めません。
 - **#1053の後の全core**。上流1.1.2が入れたもの（[Next Action](../README.ja.md#next-action)）。
 - **他のworldの大きさとhardware**：TP=4と他のGPUは回していません。

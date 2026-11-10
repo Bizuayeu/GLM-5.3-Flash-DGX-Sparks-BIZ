@@ -10,7 +10,7 @@ Every setting a 3.x deployment reads: where it is set, its default, what it does
 
 | Where | Read by | Takes effect |
 |---|---|---|
-| [`config/tp2.env`, `config/tp3.env`](../config/) | `serve.sh`, before the rank file, every variable exported | with a new image |
+| [`config/tp2.env`, `config/tp3.env`, `config/tp4.env`](../config/) | `serve.sh`, before the rank file, every variable exported | with a new image |
 | Rank file, `/work/rank.env` on each host ([examples](../examples/)) | `serve.sh`, which sources it with every variable exported, so any variable in it reaches the engine and its value wins over the release's file | at the rank's next start |
 | `serve.sh` arguments after `TP RANK RANK_ENV`; through `cluster.sh`, the arguments after the label | `tensorfold-native serve`, after `serve.sh`'s own | at the next start, on every rank |
 | Cluster file, `state/cluster.env` on the control machine | `cluster.sh` | at its next command |
@@ -18,7 +18,7 @@ Every setting a 3.x deployment reads: where it is set, its default, what it does
 | The tools' options and environment | `python -m glm53_tf <command>`, from `v3/` | at the run |
 | [`config/`](../config/) | the image build and the tools | at the next build or run |
 
-`cluster.sh` runs the image's `serve.sh` (`/opt/glm53-tf3/serve.sh`), not the checkout's: a change to [`scripts/serve.sh`](../scripts/serve.sh) or to `config/tp2.env` and `config/tp3.env`, which the image holds beside it, reaches the ranks with a new image only.
+`cluster.sh` runs the image's `serve.sh` (`/opt/glm53-tf3/serve.sh`), not the checkout's: a change to [`scripts/serve.sh`](../scripts/serve.sh) or to `config/tp2.env`, `config/tp3.env` and `config/tp4.env`, which the image holds beside it, reaches the ranks with a new image only.
 
 ## Rank file
 
@@ -27,19 +27,19 @@ Every setting a 3.x deployment reads: where it is set, its default, what it does
 | `MASTER` | none, required | rank 0's address on the link between the hosts; `serve.sh` gives the engine `NCCL_COMM_ID=MASTER:NCCL_PORT` | the same on every rank |
 | `NCCL_PORT` | `29583` | rank 0's port in `NCCL_COMM_ID`, where rank 0's NCCL bootstrap listens; the ranks' liveness lines take the port after it | the same |
 | `CONTEXT` | `1048576`; an empty value takes the default | the window (`--context`) | the same; compared at start |
-| `PARALLEL` | `4` at TP=2, `8` at TP=3 | requests decoded at once (`--parallel`); an empty value passes none, and the engine takes up to 8 streams as the memory free at start allows (accepted at both TP sizes); a number that does not fit is refused at start | rank 0, which sizes every rank's streams by the smallest room among them |
-| `TF_KV_SHARE` | `16` at TP=2, `32` at TP=3 | the prompt cache over the KV pool's pages: kept prompts stay as pages, with at most this many states past them. Below four states a stream the engine warns that live streams evict each other's. An empty value or `0` goes back to the prompt cache in copies (`--prompt-cache-gib`). Up to 3.11.x it was `TF_GLM_KV_SHARE`, which upstream 1.2.4's engine refuses at start (#2211) | the same |
+| `PARALLEL` | `4` at TP=2, `8` at TP=3 and TP=4 | requests decoded at once (`--parallel`); an empty value passes none, and the engine takes up to 8 streams as the memory free at start allows (accepted at both TP sizes); a number that does not fit is refused at start | rank 0, which sizes every rank's streams by the smallest room among them |
+| `TF_KV_SHARE` | `16` at TP=2, `32` at TP=3 and TP=4 | the prompt cache over the KV pool's pages: kept prompts stay as pages, with at most this many states past them. Below four states a stream the engine warns that live streams evict each other's. An empty value or `0` goes back to the prompt cache in copies (`--prompt-cache-gib`). Up to 3.11.x it was `TF_GLM_KV_SHARE`, which upstream 1.2.4's engine refuses at start (#2211) | the same |
 | `TENSORFOLD_PREFILL_SHARE` | `0.7` | a long prompt's share of the time while other streams decode ([rank 0's server](#rank-0s-server)); an empty value leaves the engine's `1` | rank 0 |
 | `TF_GLM_CHUNK_SOLO` | empty | `4096` lets a prompt pass take 4,096 rows while no other stream decodes, so a request that arrives in such a pass waits for its end, and every rank holds wider prompt buffers. An empty value or `2048` keeps passes of 2,048 rows. Not beside `--drafter` | the same; compared at start |
-| `MTP_CONFIDENCE` | empty at TP=2, `0.5` at TP=3 | where a chain of MTP drafts stops (`--mtp-confidence`, from 0 to 1): a draft's chance under this ends the chain. An empty value passes none | the same |
-| `TF_GLM_ROCE_MULTI` | `0` at TP=2, `1` at TP=3 | the wire: at three ranks the main stream's small all-gathers go over the engine's multirank RoCE, beside NCCL, and `serve.sh` gives it the next row. `0` keeps them on NCCL; another value, an empty one included, stops `serve.sh` at start | the same; compared at start |
-| `TENSORFOLD_MEMORY_RESERVE_GIB` | `9` at TP=2, `16` at TP=3 | the memory the engine leaves to the system. At TP=2 it makes room for the KV pages of the 1,048,576-token window, which the engine's own reserve ([below](#read-on-each-rank-not-compared)) does not leave. At TP=3 it holds XSFP4's KV pool at two windows of pages: the room is close to what a third takes, and a third leaves rank 0 about 12 GiB less free. Jammed XSFP4's smaller model took a third at 14 GiB in 3.10.0's acceptance ([checkpoints](../README.md#checkpoints)). An empty value takes the engine's own | the same |
+| `MTP_CONFIDENCE` | empty at TP=2, `0.5` at TP=3 and TP=4 | where a chain of MTP drafts stops (`--mtp-confidence`, from 0 to 1): a draft's chance under this ends the chain. An empty value passes none | the same |
+| `TF_GLM_ROCE_MULTI` | `0` at TP=2 and TP=4, `1` at TP=3 | the wire: at three ranks the main stream's small all-gathers go over the engine's multirank RoCE, beside NCCL, and `serve.sh` gives it the next row. A ring of four would take upstream's experimental relay for it (`TF_TP_ROCE_RELAY=1`, #2352), outside the acceptance. `0` keeps them on NCCL; another value, an empty one included, stops `serve.sh` at start | the same; compared at start |
+| `TENSORFOLD_MEMORY_RESERVE_GIB` | `9` at TP=2, `16` at TP=3, `14` at TP=4 | the memory the engine leaves to the system. At TP=2 it makes room for the KV pages of the 1,048,576-token window, which the engine's own reserve ([below](#read-on-each-rank-not-compared)) does not leave. At TP=3 it holds XSFP4's KV pool at two windows of pages: the room is close to what a third takes, and a third leaves rank 0 about 12 GiB less free. Jammed XSFP4's smaller model took a third at 14 GiB in 3.10.0's acceptance ([checkpoints](../README.md#checkpoints)). At TP=4 it is what the reference ring of four was served with, not tuned there. An empty value takes the engine's own | the same |
 | `TF_TP_MASTER`, `TF_TP_PORT`, `TF_TP_PLAN_TIMEOUT`, `TF_TP_KERNEL_IMAGE`, `TF_TP_ROCE_FALLBACK` | `MASTER`, `29640` (and `29647`, seven above), `900` (seconds), the image's `/opt/glm53-tf3/tp_mailbox.fatbin`, `error` | what `serve.sh` gives the wire while `TF_GLM_ROCE_MULTI` is on: rank 0's address, the port the ranks meet at, how long they wait for each other, the mailbox kernels, and what a failed setup or probe does: `error` stops the start, and `nccl` starts without the wire | the same |
 | `VISION` | `1` | image and video input (`--vision`), read by the checkpoint's vision tower on rank 0; `0` serves text alone, and another value, an empty one included, stops `serve.sh` at start | the same; compared at start |
 | `MODEL_NAME`, `HOST`, `PORT` | `glm-tf`, `127.0.0.1`, `8095` | rank 0's model id and listener (`--name`, `--host`, `--port`) | rank 0 |
 | `REASONING_EFFORT` | `high` | the effort for a request that names none (`--reasoning-effort`): `low`, `medium`, `high` or `xhigh`, and another value, `max` among them, stops every rank at start; an empty value passes none and leaves it to the chat template. A request itself may name `none`, `minimal`, `low`, `medium`, `high`, `xhigh` or `max` | rank 0 |
 | `API_KEY_FILE` | none | rank 0's key file for serving beyond loopback (`--api-key-file`, [API keys](#api-keys)) | rank 0 |
-| `CHECKPOINT` | XSFP4's snapshot at its lock's revision under `/hub` | the checkpoint folder inside the container; 3.x accepts XSFP4 and Jammed XSFP4, the latter by this line in every rank file with the revision in `config/jammed.lock.json` ([checkpoints](../README.md#checkpoints)) | the same; compared at start, by its digest |
+| `CHECKPOINT` | from 3.12.0 the release file's: Jammed XSFP4's snapshot at its lock's revision under `/hub` at TP=2, XSFP4's at TP=3 and TP=4; an empty value takes the default | the checkpoint folder inside the container; 3.x accepts XSFP4 and Jammed XSFP4, the other one than the TP size's by this line in every rank file with the revision in its lock ([checkpoints](../README.md#checkpoints)). A folder the host lacks stops `serve.sh` at start, naming `download --tp` | the same; compared at start, by its digest |
 | `TF_HEAT_HIGH`, `TF_HEAT_LOW` | `92`, `88` (°C) | the prefill heat wait's band ([compared across the ranks](#compared-across-the-ranks)); `serve.sh` unsets an empty one, and the engine refuses one without the other, so empty both for no wait | the same; compared at start |
 | any other variable | none | exported to the engine: the [engine environment](#engine-environment) (`TF_GLM_*`, `TF_ROCE*` and the rest) and the [NCCL settings](#nccl) | as each says |
 
@@ -50,7 +50,7 @@ The example files hold the reference hosts' values, with the lines that change a
 - `--max-tokens 32768`: the reply limit, reasoning included, for a request that names no `max_tokens` (the engine's own default is 4,096).
 - `--no-update-check`: this engine takes the flag and does nothing with it.
 - `NCCL_COMM_ID`, `TF_GLM_RANK` and `TF_GLM_WORLD`, from its arguments and the rank file.
-- The window, the effort, the streams, the vision tower, the checkpoint and the wire's settings from the release's file and the rank file, as above. A TP other than 2 or 3, or a rank outside it, stops `serve.sh` before the engine starts.
+- The window, the effort, the streams, the vision tower, the checkpoint and the wire's settings from the release's file and the rank file, as above. A TP other than 2, 3 or 4, a rank outside it, a release file without `CHECKPOINT` or a checkpoint folder the host lacks stops `serve.sh` before the engine starts.
 
 Arguments after `TP RANK RANK_ENV` (after the label, through `cluster.sh`) follow these, so a value flag given again takes the later value (`--context 131072` over `CONTEXT`), and `--api-key` and `--alias` add to their lists. `cluster.sh` passes them through SSH and `bash -c` unquoted: an argument with a space or a quote does not arrive whole.
 
@@ -100,7 +100,7 @@ The engine compares these at start, before the weights load, and every rank stop
 |---|---|---|
 | `TF_HEAT_HIGH`, `TF_HEAT_LOW` | unset: no wait (`serve.sh` sets `92` and `88`) | the prefill heat wait: before each prompt chunk, every rank waits in pauses of 2 s while any rank's hottest zone is above the high mark, until all are at or below the low one; both or neither, low at or under high |
 | `TF_GLM_MM` | `1` | `0` runs the BF16 linears on the engine's glue kernels instead of the tiled ones, which gives other tokens ([validation](validation.md)); accepted at TP=3 in 3.1.0 and 3.2.0 |
-| `TF_GLM_PREFILL_REDUCE` | `split` | how a prompt chunk's rows are exchanged: `split` sends each rank's rows to every other, after a check at start that every pair of ranks can exchange; `ring` passes them along the ring, for a fabric where some ranks reach only their neighbours; `gather` |
+| `TF_GLM_PREFILL_REDUCE` | `split` | how a prompt chunk's rows are exchanged: `split` sends each rank's rows to every other, after a check at start that every pair of ranks can exchange; `ring` passes them along the ring, for a fabric where some ranks reach only their neighbours; `gather` all-gathers every rank's partial sums and every rank glues every row, which the TP=4 examples name, since `split`'s check refuses a ring of four without a switch |
 | `TF_GLM_OVERLAP_PIECES` | `3` | 1 to 8: a prompt chunk's exchanges in this many row pieces |
 | `TF_GLM_PROMPT_PAIR` | `1` | `0` turns off the paired steps: while no stream decodes, a prompt step takes two chunks, each one's exchanges running under the other's work, and solo passes (`TF_GLM_CHUNK_SOLO=4096`) take their place; another value, an empty one included, stops the start (`serve.sh`) |
 | `TF_GLM_KDA_DECODE_WIDE` | `1` | `0` runs decode windows without KDA's three-kernel chain |
@@ -176,13 +176,23 @@ The rank files' NCCL lines. Rank 0's address and port reach NCCL as `NCCL_COMM_I
 | `NCCL_MIN_NCHANNELS`, `NCCL_MAX_NCHANNELS` | `4` | `4` | four channels |
 | `NCCL_DEBUG`, `NCCL_DEBUG_SUBSYS` | `INFO`, `INIT,NET` | `INFO`, `INIT,NET` | each connection's transport logged once at start, which [setup §5](../SETUP.md#5-start) reads |
 
+The TP=4 examples, the reference ring of four's (experimental, from 3.12.0), take TP=3's lines, with rank 0's `/32` on `tp4host0`, and these:
+
+| Variable | TP=4 example | Meaning |
+|---|---|---|
+| `NCCL_ALGO` | `Ring` | the ring alone |
+| `NCCL_GRAPH_FILE` | `/work/graph.xml`, the rank's `examples/tp4-rank*.graph.xml` | the rank's four channels: it receives on the port toward the rank before it and sends on the port toward the next |
+| `NCCL_IB_MERGE_NICS` | `0` | each device of a port stays its own, as the graph names them |
+| `NCCL_RUNTIME_CONNECT` | `1` | connections on first use: at init NCCL 2.30.7 would also connect trees over the diagonals, which have no cable |
+| `NCCL_CUMEM_ENABLE` | `1` | NCCL 2.30.7 connects on first use only with cuMem, which the engine turns off unless the rank file sets it |
+
 The values other than each host's own came from 2.x, where they were measured; what 3.x measured again is in [decisions](decisions.md#fabric), and every 3.x start ran every connection over `NET/IB`. The TP=2 RoCE path of the engine ([above](#read-on-each-rank-not-compared)) reads `NCCL_IB_HCA` too.
 
 ## Cluster file
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `TP` | none, required | 2 or 3; `cluster.sh` starts any other value in TP=2's order, and `serve.sh` refuses it |
+| `TP` | none, required | 2, 3 or 4; `cluster.sh` starts TP=3's ranks together and any other size's highest rank first, and `serve.sh` refuses a size other than these |
 | `HOSTS` | none, required | the hosts' SSH names in rank order, as many as `TP`; rank 0 serves HTTP |
 | `CHECKOUT` | none, required | this repository on every host, expanded there; the memory guard runs from it |
 | `SSH` | `ssh -o ConnectTimeout=20` | the command that reaches a host |
@@ -235,8 +245,8 @@ The commands of `python -m glm53_tf`, run from `v3/`; what each check does is in
 
 | File | Pins | Read by |
 |---|---|---|
-| [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4's repository and revision | `download` and `verify-download`; `serve.sh`'s default folder names the same revision, and a test keeps them equal |
-| [`config/jammed.lock.json`](../config/jammed.lock.json) | Jammed XSFP4's repository and revision | `download --checkpoint jammed` and `verify-download --checkpoint jammed`; the rank files' `CHECKPOINT` line names the same revision ([checkpoints](../README.md#checkpoints)) |
+| [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4's repository and revision | `download` and `verify-download`, by default and with `--tp 3` or `--tp 4`; `config/tp3.env`'s and `config/tp4.env`'s `CHECKPOINT` names the same revision, and a test keeps them equal |
+| [`config/jammed.lock.json`](../config/jammed.lock.json) | Jammed XSFP4's repository and revision | `download` and `verify-download` with `--tp 2` or `--checkpoint jammed`; `config/tp2.env`'s `CHECKPOINT` names the same revision, and a test keeps them equal ([checkpoints](../README.md#checkpoints)) |
 | [`config/engine.lock.json`](../config/engine.lock.json) | the engine's fork, release branch and commit, the upstream release under it, the Zig compiler (its URL and SHA-256), xgrammar, the media libraries' releases (SHA-256) and the build flags | the image build: [`docker/Dockerfile`](../docker/Dockerfile)'s arguments, which a test keeps equal to the lock |
 | [`config/nll_set.json`](../config/nll_set.json) | the NLL set's texts and the tokenizer they were cut with, by its SHA-256 | `score-nll` |
 | [`requirements/huggingface.lock.txt`](../requirements/huggingface.lock.txt) | the Hugging Face client | the tools' virtual environment ([setup §2](../SETUP.md#2-checkout-and-checkpoint)) |
