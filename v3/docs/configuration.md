@@ -231,8 +231,8 @@ The commands of `python -m glm53_tf`, run from `v3/`; what each check does is in
 
 | Command | Options (default) | Environment |
 |---|---|---|
-| `download` | `--background` (Linux; its log and status under `state/<checkpoint>/`; it writes the job's status before it returns, so `verify-download --wait` can follow at once, and it refuses while a download owns the folder), `--checkpoint` (`xsfp4`, the default, or `jammed`) | sets `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` and `HF_HUB_DOWNLOAD_TIMEOUT=120` when unset, and reads Hugging Face's own variables; a cache moved with `HF_HUB_CACHE` needs `create_container.sh`'s `HF_HUB` there too |
-| `verify-download` | `--hf` (the `hf` client) and `--output`, required; `--wait` (polls every 30 s; exits 2 while the download is paused); `--checkpoint` (`xsfp4`, `jammed`) | none |
+| `download` | `--tp` (`2`, `3` or `4`: the checkpoint that TP serves) or `--checkpoint` (`xsfp4` or `jammed`), one of the two required; `--background` (Linux; its log and status under `state/<checkpoint>/`; it writes the job's status before it returns, so `verify-download --wait` can follow at once, and it refuses while a download owns the folder) | sets `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` and `HF_HUB_DOWNLOAD_TIMEOUT=120` when unset, and reads Hugging Face's own variables; a cache moved with `HF_HUB_CACHE` needs `create_container.sh`'s `HF_HUB` there too |
+| `verify-download` | `--hf` (the `hf` client) and `--output`, required; `--tp` or `--checkpoint`, one of the two required, as `download`'s; `--wait` (polls every 30 s; exits 2 while the download is paused) | none |
 | `tool-gate` | `--port` (8896), `--upstream` (`http://127.0.0.1:8095`, an HTTP origin on loopback only), `--log` (stderr), `--timeout` (2400 s a call to the engine), `--parallel-tool-calls` (`one` by default: a request with tools asks the engine for one call a turn and says so in its system message; `client`: as the client sent it) | listens on 127.0.0.1 only, refuses a request body over 64 MiB with 413 and passes a request's key on |
 | `decode-check` | none | `BASE` (`http://127.0.0.1:8095`), `MODEL` (`glm-tf`), `PROMPT_KIND` (`count`, `prose` or `code`), `SAMPLES` (3), `MAX_TOKENS` (512), `PROMPT_TOKENS` (2048), `TOKENS_OUT` (a file for the completions), `TENSORFOLD_API_KEY` |
 | `decode-divergence` | two `TOKENS_OUT` files | none |
@@ -245,7 +245,7 @@ The commands of `python -m glm53_tf`, run from `v3/`; what each check does is in
 
 | File | Pins | Read by |
 |---|---|---|
-| [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4's repository and revision | `download` and `verify-download`, by default and with `--tp 3` or `--tp 4`; `config/tp3.env`'s and `config/tp4.env`'s `CHECKPOINT` names the same revision, and a test keeps them equal |
+| [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4's repository and revision | `download` and `verify-download` with `--tp 3`, `--tp 4` or `--checkpoint xsfp4`; `config/tp3.env`'s and `config/tp4.env`'s `CHECKPOINT` names the same revision, and a test keeps them equal |
 | [`config/jammed.lock.json`](../config/jammed.lock.json) | Jammed XSFP4's repository and revision | `download` and `verify-download` with `--tp 2` or `--checkpoint jammed`; `config/tp2.env`'s `CHECKPOINT` names the same revision, and a test keeps them equal ([checkpoints](../README.md#checkpoints)) |
 | [`config/engine.lock.json`](../config/engine.lock.json) | the engine's fork, release branch and commit, the upstream release under it, the Zig compiler (its URL and SHA-256), xgrammar, the media libraries' releases (SHA-256) and the build flags | the image build: [`docker/Dockerfile`](../docker/Dockerfile)'s arguments, which a test keeps equal to the lock |
 | [`config/nll_set.json`](../config/nll_set.json) | the NLL set's texts and the tokenizer they were cut with, by its SHA-256 | `score-nll` |

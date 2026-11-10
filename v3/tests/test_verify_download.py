@@ -24,16 +24,16 @@ class VerifyDownloadTests(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def download(self, status, **extra):
-        # The default checkpoint's download, which a run without --checkpoint reads.
-        model, revision, folder = config.checkpoint(
-            config.DEFAULT_CHECKPOINT, self.state
-        )
+        # XSFP4's download, which run_main verifies unless it names another.
+        model, revision, folder = config.checkpoint("xsfp4", self.state)
         folder.mkdir(exist_ok=True)
         record = {"model": model, "revision": revision, "status": status, **extra}
         (folder / STATUS_FILE).write_text(json.dumps(record))
 
-    def run_main(self, *extra, returncode=0, sleep=None):
-        argv = ["--hf", "hf", "--output", str(self.output), *extra]
+    def run_main(
+        self, *extra, which=("--checkpoint", "xsfp4"), returncode=0, sleep=None
+    ):
+        argv = ["--hf", "hf", "--output", str(self.output), *which, *extra]
         with (
             patch.object(
                 verify_download.subprocess,
@@ -48,18 +48,17 @@ class VerifyDownloadTests(unittest.TestCase):
         return caught.exception.code, saved, run, slept
 
     def test_no_download_status_exits_one_and_says_to_run_download(self):
-        for extra, hint in (
-            ((), "run download first\n"),
-            (("--checkpoint", "xsfp4"), "run download first\n"),
-        ):
-            with self.subTest(extra=extra):
+        for which in (("--tp", "3"), ("--checkpoint", "xsfp4")):
+            with self.subTest(which=which):
                 err = io.StringIO()
                 with contextlib.redirect_stderr(err):
-                    code, saved, run, _ = self.run_main(*extra, "--wait")
+                    code, saved, run, _ = self.run_main("--wait", which=which)
                 self.assertEqual(code, 1)
                 self.assertEqual(saved["status"], "failed")
                 self.assertEqual(saved["reason"], "no download status")
-                self.assertTrue(err.getvalue().endswith(hint), err.getvalue())
+                self.assertTrue(
+                    err.getvalue().endswith("run download first\n"), err.getvalue()
+                )
                 run.assert_not_called()
 
     def test_a_download_of_another_revision_exits_one(self):
@@ -123,7 +122,7 @@ class VerifyDownloadTests(unittest.TestCase):
         folder.mkdir()
         record = {"model": model, "revision": revision, "status": "complete"}
         (folder / STATUS_FILE).write_text(json.dumps(record))
-        code, saved, run, _ = self.run_main("--checkpoint", "jammed")
+        code, saved, run, _ = self.run_main(which=("--checkpoint", "jammed"))
         self.assertEqual(code, 0)
         self.assertEqual(saved["model"], model)
         self.assertEqual(run.call_args.args[0][3:6], [model, "--revision", revision])
@@ -133,7 +132,7 @@ class VerifyDownloadTests(unittest.TestCase):
         folder.mkdir()
         record = {"model": model, "revision": revision, "status": "complete"}
         (folder / STATUS_FILE).write_text(json.dumps(record))
-        code, saved, run, _ = self.run_main("--tp", "2")
+        code, saved, run, _ = self.run_main(which=("--tp", "2"))
         self.assertEqual(code, 0)
         self.assertEqual(saved["model"], model)
         self.assertEqual(run.call_args.args[0][3:6], [model, "--revision", revision])
@@ -158,12 +157,26 @@ class VerifyDownloadTests(unittest.TestCase):
                     )
                 self.assertEqual(raised.exception.code, 2)
 
+    def test_a_run_that_names_neither_a_tp_nor_a_checkpoint_is_refused(self):
+        # From 3.12.0 one of the two is required; up to 3.11.x such a run verified XSFP4.
+        err = io.StringIO()
+        with (
+            contextlib.redirect_stderr(err),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            verify_download.main(["--hf", "hf", "--output", str(self.output)])
+        self.assertEqual(raised.exception.code, 2)
+        self.assertRegex(
+            err.getvalue().splitlines()[-1], r"error: .*--checkpoint.*--tp.* required"
+        )
+        self.assertFalse(self.output.exists())
+
     def test_output_is_required(self):
         with (
             contextlib.redirect_stderr(io.StringIO()),
             self.assertRaises(SystemExit) as caught,
         ):
-            verify_download.main(["--hf", "hf"])
+            verify_download.main(["--hf", "hf", "--checkpoint", "xsfp4"])
         self.assertEqual(caught.exception.code, 2)
 
 

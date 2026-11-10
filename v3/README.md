@@ -44,8 +44,8 @@ The steps, with what to check after each, are the [setup runbook](SETUP.md); thi
 
 ```sh
 # Once, from v3/ on one host in its virtual environment; then copy the cache to the others and verify each copy (SETUP §2)
-python -m glm53_tf download --background
-python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
+python -m glm53_tf download --tp 2 --background
+python -m glm53_tf verify-download --tp 2 --hf .venv/bin/hf --output ../records/checksum-jammed --wait
 
 # From the checkout root, one host builds the image and the others load it; compare the image IDs (SETUP §3)
 docker build -f v3/docker/Dockerfile -t glm53-tf3:3.10.0 .
@@ -87,7 +87,7 @@ The model thinks before it answers: the reasoning comes back in `reasoning_conte
 | Next token against the BF16 weights on this engine at TP=2 (128 documents, 144,285 positions): top-1 agreement / NLL above BF16 / KL, lower bound | 93.26% / +0.85% / 0.0431 | 92.78% / +1.35% / 0.0482 |
 | The same at TP=3 | 93.30% / +0.85% / 0.0436 | 92.80% / +1.41% / 0.0483 |
 | License | NVIDIA Open Model Agreement (a derivative of FP4-Local; `LICENSE` and `NOTICE` in the repository) | the same |
-| Download (SETUP §2) | `download` and `verify-download` with `--tp 3`, `--tp 4`, `--checkpoint xsfp4` or neither, the tools' default (the download's status under `state/xsfp4`) | `download` and `verify-download` with `--tp 2` or `--checkpoint jammed` (status under `state/jammed`) |
+| Download (SETUP §2) | `download` and `verify-download` with `--tp 3`, `--tp 4` or `--checkpoint xsfp4` (the download's status under `state/xsfp4`) | `download` and `verify-download` with `--tp 2` or `--checkpoint jammed` (status under `state/jammed`) |
 | Rank files | nothing at TP=3 and TP=4, whose release files name the lock's revision; at TP=2 `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<the lock's revision>` in every rank file, and nothing else | nothing at TP=2, whose release file names the lock's revision; at TP=3 and TP=4 `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<the lock's revision>` in every rank file, and nothing else |
 
 Each document went to the engine as token ids with `prompt_logprobs` of 20. The KL bound counts one by one the tokens whose probability both sides report (the engine's best 20, BF16's best 20 and the text's token) and the rest as one bucket, so it is lower than the KL over the whole vocabulary and does not compare with KL measured outside the engine; XSFP4's [model card](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4) gives both. On the same engine and documents NVIDIA's NVFP4 gave 92.68% / +1.37% / 0.0510 at TP=2 and 92.71% / +1.38% / 0.0511 at TP=3, so XSFP4 is the closer to BF16 by all three at both TP sizes, the per-document 95% intervals of the differences holding no zero; FP4-Local itself, loaded as stored by the same engine, gave 92.82% / +1.11% / 0.0510 at TP=2 and 92.75% / +1.07% / 0.0514 at TP=3.

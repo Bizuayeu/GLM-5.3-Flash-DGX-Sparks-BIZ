@@ -231,8 +231,8 @@ TP=4のexample（参照機の4台のリング、3.12.0から試験的）は、TP
 
 | コマンド | option（既定） | 環境 |
 |---|---|---|
-| `download` | `--background`（Linux。logと状態は `state/<checkpoint>/` の下。戻る前にjobの状態を書くので `verify-download --wait` をすぐ続けられ、別のdownloadがフォルダを持つ間は断る）、`--checkpoint`（既定の `xsfp4` か `jammed`） | 無ければ `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` と `HF_HUB_DOWNLOAD_TIMEOUT=120` を設定し、Hugging Face自身の変数を読む。`HF_HUB_CACHE` でcacheを動かしたら、`create_container.sh` の `HF_HUB` もそこへ |
-| `verify-download` | `--hf`（`hf` のclient）と `--output` は必須。`--wait`（30秒ごとに見る。downloadが一時停止の間は2で終わる）、`--checkpoint`（`xsfp4`、`jammed`） | なし |
+| `download` | `--tp`（`2`・`3`・`4`。そのTPが配信するcheckpoint）か `--checkpoint`（`xsfp4` か `jammed`）のどちらかが必須。`--background`（Linux。logと状態は `state/<checkpoint>/` の下。戻る前にjobの状態を書くので `verify-download --wait` をすぐ続けられ、別のdownloadがフォルダを持つ間は断る） | 無ければ `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` と `HF_HUB_DOWNLOAD_TIMEOUT=120` を設定し、Hugging Face自身の変数を読む。`HF_HUB_CACHE` でcacheを動かしたら、`create_container.sh` の `HF_HUB` もそこへ |
+| `verify-download` | `--hf`（`hf` のclient）と `--output` は必須。`--tp` か `--checkpoint` のどちらかも、`download` と同じく必須。`--wait`（30秒ごとに見る。downloadが一時停止の間は2で終わる） | なし |
 | `tool-gate` | `--port`（8896）、`--upstream`（`http://127.0.0.1:8095`、loopbackのHTTPのoriginだけ）、`--log`（stderr）、`--timeout`（エンジンへの1回の呼び出しに2400秒）、`--parallel-tool-calls`（既定は `one`：toolのある要求はエンジンに1手番1つの呼び出しを求め、system messageでそう伝える。`client`：clientが送ったとおり） | 127.0.0.1でだけ待ち受け、64 MiBを越える要求の本文は413で断り、要求のkeyはそのまま渡す |
 | `decode-check` | なし | `BASE`（`http://127.0.0.1:8095`）、`MODEL`（`glm-tf`）、`PROMPT_KIND`（`count`・`prose`・`code`）、`SAMPLES`（3）、`MAX_TOKENS`（512）、`PROMPT_TOKENS`（2048）、`TOKENS_OUT`（completionを書くファイル）、`TENSORFOLD_API_KEY` |
 | `decode-divergence` | 2つの `TOKENS_OUT` のファイル | なし |
@@ -245,7 +245,7 @@ TP=4のexample（参照機の4台のリング、3.12.0から試験的）は、TP
 
 | ファイル | 固定するもの | 読むもの |
 |---|---|---|
-| [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4のrepositoryとrevision | `download` と `verify-download`（既定と、`--tp 3`・`--tp 4`）。`config/tp3.env`・`config/tp4.env` の `CHECKPOINT` が同じrevisionを名指し、試験がそれらを一致させる |
+| [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4のrepositoryとrevision | `download` と `verify-download` に `--tp 3`・`--tp 4`・`--checkpoint xsfp4`。`config/tp3.env`・`config/tp4.env` の `CHECKPOINT` が同じrevisionを名指し、試験がそれらを一致させる |
 | [`config/jammed.lock.json`](../config/jammed.lock.json) | Jammed XSFP4のrepositoryとrevision | `download` と `verify-download` に `--tp 2` か `--checkpoint jammed`。`config/tp2.env` の `CHECKPOINT` が同じrevisionを名指し、試験がそれらを一致させる（[checkpoint](../README.ja.md#checkpoint)） |
 | [`config/engine.lock.json`](../config/engine.lock.json) | エンジンのfork・release branch・commit、その下の上流のrelease、Zigのcompiler（URLとSHA-256）、xgrammar、mediaのlibraryのrelease（SHA-256）、buildのflag | imageのbuild：[`docker/Dockerfile`](../docker/Dockerfile) の引数で、試験がlockと一致させる |
 | [`config/nll_set.json`](../config/nll_set.json) | NLLの集合のtextと、それを切ったtokenizer（SHA-256で） | `score-nll` |

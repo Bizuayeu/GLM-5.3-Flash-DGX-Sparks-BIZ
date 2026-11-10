@@ -44,8 +44,8 @@
 
 ```sh
 # 一度だけ、ある1台の v3/ からその仮想環境で。その後cacheを他のホストへ写し、写しごとに検証する（SETUP §2）
-python -m glm53_tf download --background
-python -m glm53_tf verify-download --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
+python -m glm53_tf download --tp 2 --background
+python -m glm53_tf verify-download --tp 2 --hf .venv/bin/hf --output ../records/checksum-jammed --wait
 
 # checkoutの根で、1台がimageをbuildし、他はそれを読み込む。image IDを比べる（SETUP §3）
 docker build -f v3/docker/Dockerfile -t glm53-tf3:3.10.0 .
@@ -87,7 +87,7 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 | このエンジンのTP=2でBF16の重みと比べた次token（128文書、144,285位置）：top-1の一致 / BF16に対するNLLの上がり / KLの下限 | 93.26% / +0.85% / 0.0431 | 92.78% / +1.35% / 0.0482 |
 | 同じものをTP=3で | 93.30% / +0.85% / 0.0436 | 92.80% / +1.41% / 0.0483 |
 | ライセンス | NVIDIA Open Model Agreement（FP4-Localの派生物。repositoryに `LICENSE` と `NOTICE`） | 同じ |
-| ダウンロード（SETUP §2） | `download`・`verify-download` に `--tp 3`・`--tp 4`・`--checkpoint xsfp4` か、どれも付けない（道具の既定。ダウンロードの状況は `state/xsfp4` に） | `download`・`verify-download` に `--tp 2` か `--checkpoint jammed`（状況は `state/jammed` に） |
+| ダウンロード（SETUP §2） | `download`・`verify-download` に `--tp 3`・`--tp 4`・`--checkpoint xsfp4` のどれか（ダウンロードの状況は `state/xsfp4` に） | `download`・`verify-download` に `--tp 2` か `--checkpoint jammed`（状況は `state/jammed` に） |
 | rankのファイル | TP=3とTP=4では何も要らない（リリースのファイルがlockのrevisionを名指す）。TP=2では全rankのファイルに `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<lockのrevision>` の1行だけ | TP=2では何も要らない（リリースのファイルがlockのrevisionを名指す）。TP=3とTP=4では全rankのファイルに `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<lockのrevision>` の1行だけ |
 
 各文書はtoken idとしてエンジンに送り、`prompt_logprobs` は20。KLの下限は、両方が確率を返したtoken（エンジンの上位20、BF16の上位20、本文のtoken）を1つずつ数え、残りを1つの塊として数えます。全語彙のKLより低く、エンジンの外で測ったKLとは比べられません（XSFP4の[model card](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)に両方があります）。同じエンジンと文書で、NVIDIAのNVFP4はTP=2で 92.68% / +1.37% / 0.0510、TP=3で 92.71% / +1.38% / 0.0511 だったので、XSFP4はどちらのTPでも3つともBF16に近く、差の文書ごとの95%区間は0を含みません。FP4-Local自身を同じエンジンでそのまま読み込むと、TP=2で 92.82% / +1.11% / 0.0510、TP=3で 92.75% / +1.07% / 0.0514 でした。

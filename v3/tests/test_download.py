@@ -62,7 +62,7 @@ class BackgroundTests(unittest.TestCase):
         return popen, logs
 
     def test_the_background_job_runs_this_lines_package_from_v3_for_xsfp4(self):
-        popen, logs = self.background()
+        popen, logs = self.background("--tp", "3")  # as the setup starts it (SETUP §2)
         self.assertEqual(logs, ["xsfp4/download.log"])
         command = popen.call_args.args[0]
         self.assertEqual(
@@ -103,6 +103,16 @@ class BackgroundTests(unittest.TestCase):
                     self.background(*extra)
                 self.assertEqual(raised.exception.code, 2)
 
+    def test_a_start_that_names_neither_a_tp_nor_a_checkpoint_is_refused(self):
+        # From 3.12.0 one of the two is required; up to 3.11.x such a start fetched XSFP4.
+        err = io.StringIO()
+        with redirect_stderr(err), self.assertRaises(SystemExit) as raised:
+            self.background()
+        self.assertEqual(raised.exception.code, 2)
+        self.assertRegex(
+            err.getvalue().splitlines()[-1], r"error: .*--checkpoint.*--tp.* required"
+        )
+
 
 class Waiting(Exception):
     """verify-download went to sleep: it is waiting for the download."""
@@ -114,7 +124,7 @@ class BackgroundStatusTests(unittest.TestCase):
     last job's."""
 
     @contextlib.contextmanager
-    def folder(self, which=config.DEFAULT_CHECKPOINT):
+    def folder(self, which="xsfp4"):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "state"
             model, revision, folder = config.checkpoint(which, root)
@@ -153,13 +163,15 @@ class BackgroundStatusTests(unittest.TestCase):
         # The setup runs the two commands one after the other; before 3.11.1 the second
         # could find no status yet and exit 1 ("run download first").
         with self.folder() as job:
-            download.main(["--background"])
+            download.main(["--tp", "3", "--background"])
             output = str(Path(job.tmp) / "checksum")
             with (
                 patch.object(verify_download.time, "sleep", side_effect=Waiting),
                 self.assertRaises(Waiting),
             ):
-                verify_download.main(["--hf", "hf", "--output", output, "--wait"])
+                verify_download.main(
+                    ["--tp", "3", "--hf", "hf", "--output", output, "--wait"]
+                )
 
     def test_the_last_jobs_status_does_not_answer_for_the_new_one(self):
         with self.folder() as job:
@@ -170,7 +182,7 @@ class BackgroundStatusTests(unittest.TestCase):
                 status="failed",
                 error_type="RuntimeError",
             )
-            download.main(["--background"])
+            download.main(["--background", "--checkpoint", "xsfp4"])
             status = self.status(job.folder)
         self.assertEqual(status["status"], "downloading")
         self.assertNotIn("error_type", status)
@@ -191,7 +203,7 @@ class BackgroundStatusTests(unittest.TestCase):
                 FileLock(job.folder / "download.lock"),
                 self.assertRaisesRegex(SystemExit, "already owns this workspace"),
             ):
-                download.main(["--background"])
+                download.main(["--background", "--checkpoint", "xsfp4"])
             job.popen.assert_not_called()
             self.assertEqual(self.status(job.folder), running)
 
@@ -199,7 +211,7 @@ class BackgroundStatusTests(unittest.TestCase):
         with self.folder() as job:
             job.popen.side_effect = OSError("no interpreter")
             with self.assertRaises(SystemExit) as raised:
-                download.main(["--background"])
+                download.main(["--background", "--checkpoint", "xsfp4"])
             status = self.status(job.folder)
         self.assertEqual(raised.exception.code, 1)
         self.assertEqual(
@@ -302,8 +314,8 @@ class LockTests(unittest.TestCase):
         from filelock import FileLock
 
         with tempfile.TemporaryDirectory() as tmp:
-            # A run without --checkpoint takes the default checkpoint's folder and lock.
-            folder = config.checkpoint(config.DEFAULT_CHECKPOINT, Path(tmp))[2]
+            # A run takes the folder and lock of the checkpoint it names.
+            folder = config.checkpoint("xsfp4", Path(tmp))[2]
             folder.mkdir()
             with (
                 patch.object(download, "STATE", Path(tmp)),
@@ -314,7 +326,7 @@ class LockTests(unittest.TestCase):
                 FileLock(folder / "download.lock"),
                 self.assertRaisesRegex(SystemExit, "already owns this workspace"),
             ):
-                download.main([])
+                download.main(["--checkpoint", "xsfp4"])
 
 
 if __name__ == "__main__":

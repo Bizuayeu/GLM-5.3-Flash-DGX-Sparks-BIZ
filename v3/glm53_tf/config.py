@@ -13,14 +13,14 @@ ROOT = LINE.parent
 STATE = ROOT / "state"
 # The checkpoints 3.x serves, which download and verify-download fetch by --checkpoint, or
 # by --tp as that TP's release file (config/tp*.env) serves it at its lock's revision: from
-# 3.12.0 Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4. Without either they fetch XSFP4.
+# 3.12.0 Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4. One of the two is required (up to
+# 3.11.x a run without either fetched XSFP4).
 # A rank file's CHECKPOINT line serves the other one at its lock's revision.
 LOCK_PATH = LINE / "config/xsfp4.lock.json"
 LOCKS = {"xsfp4": LOCK_PATH, "jammed": LINE / "config/jammed.lock.json"}
 CHECKPOINTS = tuple(LOCKS)
-DEFAULT_CHECKPOINT = "xsfp4"
 TP_CHECKPOINTS = {2: "jammed", 3: "xsfp4", 4: "xsfp4"}
-CHECKPOINT_HELP = "xsfp4 (the default, kept under state/xsfp4) or jammed (Jammed XSFP4, kept under state/jammed)"
+CHECKPOINT_HELP = "xsfp4 (XSFP4, kept under state/xsfp4) or jammed (Jammed XSFP4, kept under state/jammed)"
 TP_HELP = "the checkpoint this TP serves by default: jammed at 2, xsfp4 at 3 and 4"
 
 
@@ -32,18 +32,16 @@ def load_lock(path=None):
 
 
 def add_checkpoint_arguments(parser):
-    """--checkpoint by name, or --tp for the checkpoint that TP serves by default. Neither has a
-    default of its own: argparse lets an option through beside the other when its value is the
-    default, so chosen_checkpoint falls back to DEFAULT_CHECKPOINT."""
-    which = parser.add_mutually_exclusive_group()
+    """--checkpoint by name, or --tp for the checkpoint that TP serves by default; one of the two
+    is required. Neither has a default: argparse does not count an option given at its default's
+    value, which would let it through beside the other or fail it as missing."""
+    which = parser.add_mutually_exclusive_group(required=True)
     which.add_argument("--checkpoint", choices=CHECKPOINTS, help=CHECKPOINT_HELP)
     which.add_argument("--tp", type=int, choices=sorted(TP_CHECKPOINTS), help=TP_HELP)
 
 
 def chosen_checkpoint(args):
-    if args.tp:
-        return TP_CHECKPOINTS[args.tp]
-    return args.checkpoint or DEFAULT_CHECKPOINT
+    return TP_CHECKPOINTS[args.tp] if args.tp else args.checkpoint
 
 
 def checkpoint(name, state):

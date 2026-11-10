@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .config import (
-    DEFAULT_CHECKPOINT,
     LINE,
     STATE,
     add_checkpoint_arguments,
@@ -34,7 +33,7 @@ def started(model, revision):
     }
 
 
-def download(name=DEFAULT_CHECKPOINT):
+def download(name):
     os.environ.setdefault("HF_XET_NUM_CONCURRENT_RANGE_GETS", "4")
     os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "120")
     from huggingface_hub import HfApi, snapshot_download

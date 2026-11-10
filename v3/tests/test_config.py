@@ -48,9 +48,8 @@ class CheckoutLayoutTests(unittest.TestCase):
 
 
 class CheckpointTests(unittest.TestCase):
-    def test_xsfp4_is_the_default_and_jammed_the_other_choice(self):
+    def test_xsfp4_and_jammed_are_the_choices(self):
         self.assertEqual(config.CHECKPOINTS, ("xsfp4", "jammed"))
-        self.assertEqual(config.DEFAULT_CHECKPOINT, "xsfp4")
         for name in ("pinned", "axl"):
             with (
                 self.subTest(checkpoint=name),
@@ -100,7 +99,6 @@ class ServeScriptTests(unittest.TestCase):
         self.assertIn("CHECKPOINT=${CHECKPOINT:-$release_checkpoint}\n", serve)
         self.assertEqual(sorted(config.TP_CHECKPOINTS), [2, 3, 4])
         self.assertEqual(config.TP_CHECKPOINTS[2], "jammed")
-        self.assertEqual(config.DEFAULT_CHECKPOINT, "xsfp4")
         pattern = (
             r"^CHECKPOINT=/hub/models--([\w.-]+)--([\w.-]+)/snapshots/([0-9a-f]{40})$"
         )
