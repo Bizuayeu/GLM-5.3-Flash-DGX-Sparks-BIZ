@@ -60,7 +60,10 @@ class HostwatchTests(unittest.TestCase):
             for name, text in files.items():
                 (bin_dir / name).write_text(text, encoding="utf-8")
             meminfo = Path(tmp) / "meminfo"
-            meminfo.write_text(f"MemTotal: {128 * GIB_KB} kB\nMemAvailable: {gib * GIB_KB} kB\n", encoding="utf-8")
+            meminfo.write_text(
+                f"MemTotal: {128 * GIB_KB} kB\nMemAvailable: {gib * GIB_KB} kB\n",
+                encoding="utf-8",
+            )
             log = Path(tmp) / "hostwatch.log"
             subprocess.run(
                 ["bash", str(SCRIPT), str(log), "glm53-tf3", str(meminfo)],
@@ -71,7 +74,11 @@ class HostwatchTests(unittest.TestCase):
                 timeout=30,
             )
             calls_log = bin_dir / "calls.log"
-            calls = calls_log.read_text(encoding="utf-8").splitlines() if calls_log.exists() else []
+            calls = (
+                calls_log.read_text(encoding="utf-8").splitlines()
+                if calls_log.exists()
+                else []
+            )
             return log.read_text(encoding="utf-8").splitlines(), calls
 
     def test_the_watch_ends_when_the_engine_is_gone(self):
@@ -97,7 +104,14 @@ class HostwatchTests(unittest.TestCase):
         self.assertTrue(lines[-1].endswith(" done"))
 
     def test_a_docker_error_keeps_watching(self):
-        lines, _ = self.watch(["fail", "none"], inspect=("", "Cannot connect to the Docker daemon at unix:///var/run/docker.sock.", 1))
+        lines, _ = self.watch(
+            ["fail", "none"],
+            inspect=(
+                "",
+                "Cannot connect to the Docker daemon at unix:///var/run/docker.sock.",
+                1,
+            ),
+        )
         self.assertEqual(sum(line.endswith(" check-failed") for line in lines), 1)
         self.assertTrue(lines[-1].endswith(" done"))
 
