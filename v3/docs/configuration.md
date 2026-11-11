@@ -108,7 +108,7 @@ The engine compares these at start, before the weights load, and every rank stop
 | `TF_GLM_PROMPT_K` | `one` | `shape`: fixed K slices for prompts, an experiment; needs `TF_GLM_MM=1` |
 | `TF_GLM_DENSE_BITS`, `TF_GLM_HEAD_BITS` | `16` | `4`, `6` or `8`: the dense linears, or the head, packed at load to that many bits |
 | `TF_GLM_LAYERS` | every layer | the first N layers only, a thin model for one-GPU checks |
-| `TF_KV_PAGES` | unset: as `auto` | where the streams' KV cache lives: `auto` puts every stream's cache and the engine's own sequence on pages of one pool at two ranks or more; `off` or `0` keeps the windows at any TP, with an empty `TF_KV_SHARE=` beside it, since the engine refuses kept prompts on pages without the pages; `on`, `all` or another value, an empty one included, pages at any TP. With `--kv-cache fp8`, `auto` and `off` keep the windows and `on` or `all` stops the start |
+| `TF_KV_PAGES` | unset: as `auto` | where the streams' KV cache lives: `auto` puts every stream's cache and the engine's own sequence on pages of one pool at two ranks or more; `off` or `0` keeps the windows at any TP, with an empty `TF_KV_SHARE=` beside it, since the engine refuses kept prompts on pages without the pages; `on`, `all` or another word pages at any TP, and an empty value is `auto`. With `--kv-cache fp8`, `auto` and `off` keep the windows and `on` or `all` stops the start |
 
 The ranks also compare the world and their ranks, `--kv-cache`, the drafts and `--drafter`, `--vision` and its four limits, the window, the checkpoint's `config.json`, the engine binary and the checkpoint's digest: its metadata and every shard byte, kept in a cache in the container, so the first start in a new container reads the whole checkpoint.
 
@@ -124,7 +124,7 @@ A rank may differ from the others in these without a refusal.
 | `TF_ROCE_MAX_KB` | `4096` | the largest gather a rank sends on that path, in KiB; an empty value, `0` or another word stops the start |
 | `TF_GLM_PDL` | on | `0` turns off dependent launches (a matmul's weights stream in while the kernel before it finishes) |
 | `TF_NVFP4_DECODE_WARPS` | `4` | the warps of the NVFP4 experts' decode kernel, `1` or `4`; another value, an empty one included, fails the load |
-| `TF_QMMF_HALF_BELOW` | `96` | decode's MXFP8 and BF16 matmuls take half tiles while their 64-column blocks are fewer than this, with the same sums; `0` never; a value that is not a number takes the default |
+| `TF_QMMF_HALF_BELOW` | `96` | decode's MXFP8 and BF16 matmuls take half tiles while their 64-column blocks are fewer than this, with the same sums; `0` never; an empty value takes the default, and one that is not a whole number fails the load |
 | `TF_GLM_PROMPT_STEPS` | on | rank 0 only: `0` runs each prompt pass whole, with no other stream's round between its chunks |
 | `TF_GLM_SHARED` | on | rank 0 only: `0` gives each stream's draft window a forward of its own instead of one shared with the other streams |
 | `TF_GLM_LINK_WAIT` | off | `1` uploads every step for the other ranks and waits for it, as the engine did before |

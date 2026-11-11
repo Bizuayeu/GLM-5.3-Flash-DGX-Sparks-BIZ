@@ -108,7 +108,7 @@ labelの後に付けられるflagと、エンジンの既定です。「比べ�
 | `TF_GLM_PROMPT_K` | `one` | `shape`：promptに固定のKのslice、試しのもの。`TF_GLM_MM=1` が要る |
 | `TF_GLM_DENSE_BITS`・`TF_GLM_HEAD_BITS` | `16` | `4`・`6`・`8`：denseのlinear、またはheadを、読み込み時にそのbit数へ詰める |
 | `TF_GLM_LAYERS` | 全ての層 | 最初のN層だけ。GPU 1台で確かめるための細いモデル |
-| `TF_KV_PAGES` | unset：`auto` と同じ | streamのKV cacheの置き場：`auto` は2 rank以上で全streamのcacheとエンジン自身のsequenceを1つのpoolのpageに置く。`off` か `0` はどのTPでも窓（空の `TF_KV_SHARE=` と一緒に。pageの上に残すpromptを、エンジンはpageなしでは断る）。`on`・`all`・他の値（空も含む）はどのTPでもpage。`--kv-cache fp8` では `auto` と `off` は窓のままで、`on` か `all` は起動を止める |
+| `TF_KV_PAGES` | unset：`auto` と同じ | streamのKV cacheの置き場：`auto` は2 rank以上で全streamのcacheとエンジン自身のsequenceを1つのpoolのpageに置く。`off` か `0` はどのTPでも窓（空の `TF_KV_SHARE=` と一緒に。pageの上に残すpromptを、エンジンはpageなしでは断る）。`on`・`all`・他の語はどのTPでもpageで、空の値は `auto`。`--kv-cache fp8` では `auto` と `off` は窓のままで、`on` か `all` は起動を止める |
 
 rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vision` とその4つの上限、窓、checkpointの `config.json`、エンジンのbinary、checkpointのdigestも比べます。digestはmetadataと全shardのbyteのもので、containerの中のcacheに残るので、新しいcontainerの最初の起動はcheckpointを全部読みます。
 
@@ -124,7 +124,7 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 | `TF_ROCE_MAX_KB` | `4096` | rankがその経路で送る最も大きいgather、KiB単位。空の値・`0`・数でない語は起動を止める |
 | `TF_GLM_PDL` | 有効 | `0` はdependent launch（前のkernelが終わる間に行列積の重みを流し込む）を止める |
 | `TF_NVFP4_DECODE_WARPS` | `4` | NVFP4のexpertのdecodeのkernelのwarp、`1` か `4`。他の値は空も含めて読み込みを失敗させる |
-| `TF_QMMF_HALF_BELOW` | `96` | decodeのMXFP8とBF16のmatmulは、64列のblockがこの数より少ないとき半分のtileを使う。和は同じ。`0` は使わない。数でない値は既定 |
+| `TF_QMMF_HALF_BELOW` | `96` | decodeのMXFP8とBF16のmatmulは、64列のblockがこの数より少ないとき半分のtileを使う。和は同じ。`0` は使わない。空の値は既定で、整数でない値は読み込みを失敗させる |
 | `TF_GLM_PROMPT_STEPS` | 有効 | rank 0だけ：`0` はpromptの処理を丸ごと回し、chunkの合間に他のstreamのroundを挟まない |
 | `TF_GLM_SHARED` | 有効 | rank 0だけ：`0` は各streamのdraftの窓に、他のstreamと共有するforwardではなく専用のforwardを与える |
 | `TF_GLM_LINK_WAIT` | 無効 | `1` は他のrankへの各stepをuploadして待つ。以前のエンジンの振る舞い |
