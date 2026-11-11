@@ -12,7 +12,7 @@
 - **`FAILED on rank R`**：あるrankのlogに `REFUSE` の行があるか、あるrankのcontainerでエンジンが動いていない。台本は全rankのlogの最後の25行（NCCLの `INFO` の行を除く）を表示して終わり、何も止めません。他のrankとメモリの見張りは動いたままのことがあるので、次の起動の前に `cluster.sh state/cluster.env status`、続いて `stop` を実行します。
 - **`TIMEOUT`**：15分以内にrank 0の `serving` の行が出ない。全rankのlogを読み、上と同じく `stop` します。
 
-各rankのlogは `<WORK>/logs/serve-r<RANK>-<LABEL>.log` で、同じlabelの起動が上書きします。前のlogを残すには、起動ごとに別のlabelを付けます。メモリの見張りは `hostwatch-<LABEL>.log` に追記します：2秒ごとの時刻とGiB単位の `MemAvailable`、エンジンを止めたときの `KILLED`、エンジンがいなくなったときの `done` です。
+各rankのlogは `<WORK>/logs/serve-r<RANK>-<LABEL>.log` で、同じlabelの起動が上書きします。前のlogを残すには、起動ごとに別のlabelを付けます。メモリの見張りは `hostwatch-<LABEL>.log` に追記します：2秒ごとの時刻とGiB単位の `MemAvailable`、確かめが失敗したか間に合わなかった回の `check-failed`、エンジンを止めたときの `KILLED`、止めることが失敗したか間に合わなかったときの `KILL-FAILED`（メモリが足りないままなら、次の回にもう一度止めます）、エンジンかcontainerがいなくなったときの `done` です。
 
 エンジンは起動時に、空きメモリからstreamの大きさを決め、入らない大きさは断って、rankのうち最も余裕の小さいものを名指しします。例えば `--parallel 2 needs 4.55 GiB for its streams at a 245760-token window, and the CUDA memory budget leaves 4.41 GiB on rank 1, the smallest room of the ranks: serve --parallel 1, or lower --context` です（TP=2、3.0.0のエンジンで参照対が出会いました）。GB10の統合メモリでは、エンジンは空きを `/proc/meminfo` の `MemAvailable` から取り、これはページキャッシュを空きに数えるので、前の読み込みでキャッシュに残ったファイルはその余裕を食いません：別のcheckpointのファイル28 GiBをページキャッシュに置いたまま、3.0.0のTP=2の起動は5.2 GiBを残しました（キャッシュを外した起動は4.4 GiB）。受け入れの窓は各起動の前にHugging Faceのcacheのファイルをページキャッシュから外しましたが（各ファイルに `os.posix_fadvise(fd, 0, 0, os.POSIX_FADV_DONTNEED)`）、これは2.x系から残した手順で、エンジンには要りません。
 

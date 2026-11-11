@@ -217,7 +217,7 @@ Fixed in `create_container.sh`: host network and IPC, every GPU, `/dev/infiniban
 
 ## Memory guard
 
-`hostwatch.sh LOG [CONTAINER]`, which `cluster.sh` starts on every host, reads `MemAvailable` every 2 s from 5 s after the start and stops the engine with `pkill -9` in the container when it falls below 5 GiB (whole GiB); it ends when the engine does. The threshold and the interval are fixed in the script.
+`hostwatch.sh LOG [CONTAINER]`, which `cluster.sh` starts on every host, reads `MemAvailable` every 2 s from 5 s after the start and stops the engine with `pkill -9` in the container when it falls below 5 GiB (whole GiB); it ends when the engine is gone or its container no longer runs. A round whose check fails or does not return within the round's 2 s (`docker exec` can fail or stall when memory is short) writes `check-failed`, and the watch goes on. The threshold and the interval are fixed in the script.
 
 ## Fixed in the engine
 

@@ -217,7 +217,7 @@ TP=4のexample（参照機の4台のリング、3.12.0から試験的）は、TP
 
 ## メモリの見張り
 
-`cluster.sh` が各ホストで起動する `hostwatch.sh LOG [CONTAINER]` は、起動の5秒後から2秒ごとに `MemAvailable` を読み、5 GiB（GiBの整数）を切るとcontainerの中の `pkill -9` でエンジンを止めます。エンジンが終わると見張りも終わります。しきい値と間隔は台本に固定です。
+`cluster.sh` が各ホストで起動する `hostwatch.sh LOG [CONTAINER]` は、起動の5秒後から2秒ごとに `MemAvailable` を読み、5 GiB（GiBの整数）を切るとcontainerの中の `pkill -9` でエンジンを止めます。エンジンがいなくなるか、containerが動いていなくなると、見張りも終わります。確かめが失敗したか、1回の2秒の内に返らなかった回（メモリが足りないと `docker exec` が失敗したり遅れたりしえます）は `check-failed` と書き、見張りを続けます。しきい値と間隔は台本に固定です。
 
 ## エンジンに固定のもの
 
