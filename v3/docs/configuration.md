@@ -138,6 +138,8 @@ A rank may differ from the others in these without a refusal.
 | `TENSORFOLD_CUDA_MEMORY_LIMIT_GB` | none | a cap on what the engine allocates |
 | `TENSORFOLD_LIBTURBOJPEG`, `TENSORFOLD_LIBWEBP` | the image's, in `/usr/local/lib` | the JPEG and WebP decoders' files |
 
+`TF_GLM_PDL`, `TF_GLM_PROMPT_STEPS`, `TF_GLM_SHARED`, `TF_GLM_LINK_WAIT` and `TF_GLM_PROF` take `0` or `1` alone, `TF_GLM_DFLASH2_LOG` a whole number and `TF_GLM_DRAFT_CONFIDENCE` a finite number from 0 to 1. Another value stops the start on every rank before the GPU opens, with a line that names the variable and what it takes (from 3.12.0's engine: #2578, upstream's since 1.2.6).
+
 The engine sets `NCCL_RUNTIME_CONNECT=0`, `NCCL_CUMEM_HOST_ENABLE=0` and `NCCL_CUMEM_ENABLE=0` when they are unset: every connection registers at start, while the memory is free, and NCCL's cuMem host buffers, which wore out a GB10's driver pool under load, stay off. A rank file can set them otherwise; no 3.x run did.
 
 ### Rank 0's server

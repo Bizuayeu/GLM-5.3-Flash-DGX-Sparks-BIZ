@@ -138,6 +138,8 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 | `TENSORFOLD_CUDA_MEMORY_LIMIT_GB` | なし | エンジンが確保する量の上限 |
 | `TENSORFOLD_LIBTURBOJPEG`・`TENSORFOLD_LIBWEBP` | imageのもの、`/usr/local/lib` の | JPEGとWebPのdecoderのファイル |
 
+`TF_GLM_PDL`・`TF_GLM_PROMPT_STEPS`・`TF_GLM_SHARED`・`TF_GLM_LINK_WAIT`・`TF_GLM_PROF` は `0` か `1` だけ、`TF_GLM_DFLASH2_LOG` は整数、`TF_GLM_DRAFT_CONFIDENCE` は0から1の有限の数を取ります。他の値は、全rankでGPUを開く前に起動を止め、変数の名と取る値を挙げた行を出します（3.12.0のエンジンから。上流には1.2.6から入った#2578）。
+
 エンジンは `NCCL_RUNTIME_CONNECT`・`NCCL_CUMEM_HOST_ENABLE`・`NCCL_CUMEM_ENABLE` が無ければ `0` を設定します：全ての接続をメモリが空いている起動時に登録し、負荷の下でGB10のdriverのpoolを使い果たしたNCCLのcuMemのhost bufferを止めたままにします。rankのファイルで別の値にもできますが、3.x系のどの起動もしていません。
 
 ### rank 0のserver
