@@ -31,7 +31,7 @@ mkdir -p state && cp v3/examples/cluster.tp4.env state/cluster.env   # HOSTS in 
 v3/scripts/cluster.sh state/cluster.env start ring4
 ```
 
-同じ4台は、2組の対としても配信します。それぞれ1本の線のTP=2で、自分のclusterのファイルを持ちます：`tp2-04-05` と `tp2-06-07`（それぞれTP=2で配信した）、または `tp2-04-06` と `tp2-05-07`（まだ起動していない）。2組を同時に配信したことはまだありません：
+同じ4台は、2組の対としても配信します。それぞれ1本の線のTP=2で、自分のclusterのファイルを持ちます：`tp2-04-05` と `tp2-06-07`、または `tp2-04-06` と `tp2-05-07`（どれが配信したかは[手順書 §4](../SETUP.ja.md#4-各ホストのcontainerとrankのファイル)）：
 
 ```sh
 v3/scripts/cluster.sh state/cluster.tp2-04-05.env start pair-a   # copies of examples/cluster.tp2-*.env

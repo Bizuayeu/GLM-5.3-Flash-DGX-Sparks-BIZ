@@ -31,7 +31,7 @@ mkdir -p state && cp v3/examples/cluster.tp4.env state/cluster.env   # HOSTS in 
 v3/scripts/cluster.sh state/cluster.env start ring4
 ```
 
-The same four hosts serve as two pairs, each at TP=2 on one cable with a cluster file of its own: `tp2-04-05` and `tp2-06-07`, which have each served at TP=2, or `tp2-04-06` and `tp2-05-07`, which have not been started; no two pairs have served at once yet:
+The same four hosts serve as two pairs, each at TP=2 on one cable with a cluster file of its own: `tp2-04-05` and `tp2-06-07`, or `tp2-04-06` and `tp2-05-07` (which have served: [setup §4](../SETUP.md#4-container-and-rank-file-on-each-host)):
 
 ```sh
 v3/scripts/cluster.sh state/cluster.tp2-04-05.env start pair-a   # copies of examples/cluster.tp2-*.env
