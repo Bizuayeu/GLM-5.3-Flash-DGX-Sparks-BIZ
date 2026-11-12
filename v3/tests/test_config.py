@@ -146,7 +146,7 @@ class ServeScriptTests(unittest.TestCase):
                 self.assertNotIn("CHECKPOINT=", text)
                 self.assertNotIn("nvidia", text.lower())
 
-    def test_serve_sh_names_rank_0s_address_once_for_both_tp_sizes(self):
+    def test_serve_sh_names_rank_0s_address_once_for_every_tp_size(self):
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
         self.assertEqual(serve.count("export NCCL_COMM_ID="), 1)
         self.assertLess(
