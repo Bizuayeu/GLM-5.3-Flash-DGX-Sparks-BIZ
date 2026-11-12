@@ -137,10 +137,11 @@ class ToolDefaultsTests(unittest.TestCase):
 
 @unittest.skipIf(os.name == "nt", "runs bash")
 class ServeTests(unittest.TestCase):
-    def run_serve(self, tp, rank_file="", rank="0", release=None):
+    def run_serve(self, tp, rank_file="", rank="0", release=None, extra=()):
         """serve.sh beside the release's files with the engine stubbed: its exit code, output (the temporary
         folder as ROOT) and errors. Both checkpoints' folders are made under ROOT/hub, which the release's files
-        and the rank file name for /hub; release, if given, rewrites tp{tp}.env's text."""
+        and the rank file name for /hub; release, if given, rewrites tp{tp}.env's text, and extra follows the
+        rank file on serve.sh's command line."""
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             shutil.copy(LINE / "scripts/serve.sh", root)
@@ -161,7 +162,7 @@ class ServeTests(unittest.TestCase):
             )
             engine.chmod(0o755)
             run = subprocess.run(
-                ["bash", str(root / "serve.sh"), str(tp), rank, str(rank_env)],
+                ["bash", str(root / "serve.sh"), str(tp), rank, str(rank_env), *extra],
                 env={"PATH": f"{root}:{os.environ['PATH']}"},
                 capture_output=True,
                 text=True,
@@ -169,9 +170,9 @@ class ServeTests(unittest.TestCase):
             )
             return run.returncode, run.stdout.replace(str(root), "ROOT"), run.stderr
 
-    def serve(self, tp, rank_file="", rank="0"):
+    def serve(self, tp, rank_file="", rank="0", extra=()):
         """serve.sh with the engine stubbed: its arguments, environment and start line."""
-        code, out, err = self.run_serve(tp, rank_file, rank)
+        code, out, err = self.run_serve(tp, rank_file, rank, extra=extra)
         self.assertEqual(code, 0, err)
         lines = out.splitlines()
         args = [x[4:] for x in lines if x.startswith("arg ")]
@@ -378,6 +379,36 @@ class ServeTests(unittest.TestCase):
             "reserve 16",
         ):
             self.assertIn(shown, start)
+
+    def test_the_engine_serves_glm_tf_on_the_loopback_unless_the_rank_file_says_otherwise(
+        self,
+    ):
+        args, _, _ = self.serve(3)
+        self.assertEqual(args[0], "serve")
+        for name, value in (
+            ("--name", "glm-tf"),
+            ("--host", "127.0.0.1"),
+            ("--port", "8095"),
+            ("--max-tokens", "32768"),
+        ):
+            self.assertEqual(self.flag(args, name), value, name)
+        self.assertIn("--no-update-check", args)
+        self.assertNotIn("--api-key-file", args)
+        args, _, _ = self.serve(
+            3, "MODEL_NAME=m\nHOST=0.0.0.0\nPORT=9000\nAPI_KEY_FILE=/run/key\n"
+        )
+        for name, value in (
+            ("--name", "m"),
+            ("--host", "0.0.0.0"),
+            ("--port", "9000"),
+            ("--api-key-file", "/run/key"),
+        ):
+            self.assertEqual(self.flag(args, name), value, name)
+
+    def test_more_arguments_go_to_the_engine_last(self):
+        args, _, _ = self.serve(2, extra=("--alias", "x"))
+        self.assertEqual(args[-2:], ["--alias", "x"])
+        self.assertEqual(args.count("--alias"), 1)
 
 
 class ReadmeDefaultsTests(unittest.TestCase):
