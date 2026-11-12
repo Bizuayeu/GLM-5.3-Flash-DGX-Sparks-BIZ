@@ -4,7 +4,7 @@
 
 [日本語](README.ja.md)
 
-**GLM-5.3-Flash BIZ** serves GLM-5.3-Flash on DGX Spark or compatible GB10 systems: in the 1.x and 2.x lines NVIDIA's pinned GLM-5.3-Flash NVFP4 checkpoint as distributed, and in the 3.x line the XSFP4 checkpoint, a derivative of NVIDIA's GLM-5.3-Flash-FP4-Local whose experts this repository's maintainer requantized, or by choice Jammed XSFP4, a lighter derivative. This repository carries one directory per serving line:
+**GLM-5.3-Flash BIZ** serves GLM-5.3-Flash on DGX Spark or compatible GB10 systems: in the 1.x and 2.x lines NVIDIA's pinned GLM-5.3-Flash NVFP4 checkpoint as distributed, and in the 3.x line the XSFP4 checkpoint, a derivative of NVIDIA's GLM-5.3-Flash-FP4-Local whose experts this repository's maintainer requantized, and Jammed XSFP4, a lighter derivative: by default Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4. This repository carries one directory per serving line:
 
 | Line | Engine | Directory | Changelog |
 |---|---|---|---|
@@ -43,7 +43,7 @@ Each artifact keeps its own terms; obligations and the rationale are in the [lic
 | Built container image | Per bundled component (CUDA, Torch, NCCL and others; 2.x's NVIDIA PyTorch container and 3.x's NVIDIA CUDA image under NVIDIA's terms); not treated as one blanket license | Built by the operator from the pinned official base image |
 | ZCode / Claude Code harnesses (1.x) | Each product's own terms | Installed separately; nothing is relicensed here |
 
-Distributing this repository as source, pinned references and build steps requires Apache-2.0 compliance plus retention of the copyright and license notices of the adapted third-party code (MIT and Apache). Redistributing weights or built images adds those artifacts' conditions. The serving paths have no non-commercial or no-derivatives terms in them: 1.x does not require EXL3/TR3 weights, DFlash2 weights or Mia's current AGPL distribution, 2.x does not load the DFlash2 draft weights (CC BY-NC-ND 4.0; `--drafter none`) or use EXL3 or other requantized weights, and 3.x drafts with the checkpoint's own MTP head and loads no other weights; its default XSFP4 checkpoint is under an agreement that permits commercial use and derivatives. See [commercial use, modification and redistribution](docs/licensing.md) for permissions and obligations by artifact.
+Distributing this repository as source, pinned references and build steps requires Apache-2.0 compliance plus retention of the copyright and license notices of the adapted third-party code (MIT and Apache). Redistributing weights or built images adds those artifacts' conditions. The serving paths have no non-commercial or no-derivatives terms in them: 1.x does not require EXL3/TR3 weights, DFlash2 weights or Mia's current AGPL distribution, 2.x does not load the DFlash2 draft weights (CC BY-NC-ND 4.0; `--drafter none`) or use EXL3 or other requantized weights, and 3.x drafts with the checkpoint's own MTP head and loads no other weights; its two checkpoints, XSFP4 and Jammed XSFP4, are under an agreement that permits commercial use and derivatives. See [commercial use, modification and redistribution](docs/licensing.md) for permissions and obligations by artifact.
 
 ## Local data and contribution
 
