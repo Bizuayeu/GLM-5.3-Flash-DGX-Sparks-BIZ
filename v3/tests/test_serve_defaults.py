@@ -211,7 +211,7 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(env["TF_TP_ROCE_FALLBACK"], "error")
         self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "16")
 
-    def test_tp4_serves_tp3s_values_with_the_wire_off(self):
+    def test_tp4_serves_tp3s_values_with_the_wire_off_and_14_gib_reserved(self):
         args, env, _ = self.serve(4)
         self.assertEqual(self.flag(args, "--context"), "1048576")
         self.assertEqual(self.flag(args, "--parallel"), "8")
