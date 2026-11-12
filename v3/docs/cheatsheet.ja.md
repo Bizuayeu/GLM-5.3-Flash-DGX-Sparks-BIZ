@@ -106,7 +106,7 @@ python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log 
 
 ```sh
 PROMPT_KIND=count python -m glm53_tf decode-check
-python -m glm53_tf score-nll --url http://127.0.0.1:8095 --tokenizer <snapshot>/tokenizer.json --out ../records/<run>/nll.json
+python3 -m glm53_tf score-nll --url http://127.0.0.1:8095 --tokenizer /hub/<snapshot>/tokenizer.json --out ../records/<run>/nll.json   # tokenizersのあるcontainerの中で
 python -m glm53_tf long-input --passphrases 3 --tokens 499622
 python -m glm53_tf bench --kinds prefill,decode,edit --out ../records/<run>/bench.jsonl
 python -m glm53_tf mojibake --out ../records/<run>/mojibake.json
