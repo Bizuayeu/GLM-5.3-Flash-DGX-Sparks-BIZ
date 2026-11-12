@@ -6,7 +6,7 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
-## 3.12.0 — ⟨date⟩
+## 3.12.0 — 2026-11-12
 
 エンジンを、この系列のcommitを持たない上流のTensorFold v1.2.7そのもの（`93a2e93e`）へ移します。Jammed XSFP4の `csf0_v1` のcommitは、上流が1.2.3から持っています。既定のcheckpointはTPで決まります：TP=2はJammed XSFP4、TP=3はこれまでどおりXSFP4、新しく試験的なTP=4はXSFP4です。imageは `glm53-tf3:3.12.0`（`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）です。
 

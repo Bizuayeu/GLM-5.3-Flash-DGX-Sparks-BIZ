@@ -4,7 +4,7 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
-## 3.12.0 — ⟨date⟩
+## 3.12.0 — 2026-11-12
 
 The engine moves onto upstream TensorFold v1.2.7 itself (`93a2e93e`), with no commit of this line's: upstream carries Jammed XSFP4's `csf0_v1` commits from 1.2.3. The default checkpoint follows the TP size: Jammed XSFP4 at TP=2, XSFP4 at TP=3 as before, and XSFP4 at TP=4, new and experimental. The image is `glm53-tf3:3.12.0` (`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
 
