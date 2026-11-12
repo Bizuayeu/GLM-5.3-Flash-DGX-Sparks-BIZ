@@ -40,7 +40,7 @@
 | `REASONING_EFFORT` | `high` | effortを指定しない要求のeffort（`--reasoning-effort`）：`low`・`medium`・`high`・`xhigh`。他の値は `max` も含めて起動時に全rankを止める。空の値は何も渡さず、chat templateに任せる。要求そのものは `none`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max` を指定できる | rank 0 |
 | `API_KEY_FILE` | なし | loopbackの外で配信するときのrank 0のkeyのファイル（`--api-key-file`、[APIのkey](#apiのkey)） | rank 0 |
 | `CHECKPOINT` | 3.12.0からリリースのファイルの値：TP=2では `/hub` の下のJammed XSFP4のsnapshot、TP=3とTP=4ではXSFP4のsnapshot（どちらもlockのrevision）。空の値は既定 | container内のcheckpointのfolder。3.x系が受け入れるのはXSFP4とJammed XSFP4で、TPの既定と違う方は、そのlockのrevisionでこの行を全rankのファイルに書く（[checkpoint](../README.ja.md#checkpoint)）。ホストに無いfolderは、`download --tp` を名指して起動時に `serve.sh` を止める | 同じ。起動時にdigestで比べる |
-| `TF_HEAT_HIGH`・`TF_HEAT_LOW` | `92`・`88`（°C） | prefillの熱の待ちの帯（[rankの間で比べるもの](#rankの間で比べるもの)）。`serve.sh` は空のものをunsetし、エンジンは片方だけを断るので、待たないときは両方を空にする | 同じ。起動時に比べる |
+| `TF_HEAT_HIGH`・`TF_HEAT_LOW` | `92`・`88`（°C） | prefillの熱の待ちの帯（[rankの間で比べるもの](#rankの間で比べるもの)）。`serve.sh` は空のものをそのまま渡し、エンジンは片方だけを断るので、待たないときは両方を空にする | 同じ。起動時に比べる |
 | 他の変数 | なし | エンジンにexportされる：[エンジンの環境変数](#エンジンの環境変数)（`TF_GLM_*`・`TF_ROCE*` など）と[NCCLの設定](#nccl) | それぞれによる |
 
 例のファイルは参照機の値を持ち、既定を変える行はcommentにしてあります。ファイルは `bash` が読むので行末のcommentが書け、`docker --env-file` では読めません。`serve.sh` はファイルを読んだ後に引数から `TF_GLM_RANK` と `TF_GLM_WORLD` を設定するので、ファイルではこれらを変えられません。
