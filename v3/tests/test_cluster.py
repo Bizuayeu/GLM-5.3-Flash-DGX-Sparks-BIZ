@@ -19,7 +19,9 @@ SCRIPT = LINE / "scripts" / "cluster.sh"
 # ends every engine not named in stays, on another host its own. `exec C ps` and `inspect` fail as an unanswering
 # daemon does on fails.HOST, and on fails-running.HOST once its engine runs; on stopped.HOST, gone.HOST and
 # gone-lower.HOST every `exec` fails and `inspect` says the container is stopped or gone (gone-lower.HOST in the
-# lower case of docker 29.6.2 on the reference hosts); ssh fails to connect to down.HOST. sleep appends
+# lower case of docker 29.6.2 on the reference hosts); every docker call on fails-socket.HOST fails as a docker
+# that cannot reach its daemon's socket does, with "no such file or directory"; ssh fails to connect to
+# down.HOST. sleep appends
 # its argument to sleeps.log, and the memory guard appends "HOST ARGUMENTS" to hostwatch.log.
 SSH = r"""#!/bin/bash
 while [ "${1:-}" = -o ]; do shift 2; done
@@ -31,6 +33,7 @@ STUB_HOST=$host exec bash -c "$*"
 """
 DOCKER = r"""#!/bin/bash
 d=$STUB_DIR
+[ -e "$d/fails-socket.$STUB_HOST" ] && { echo "failed to connect to the docker API at unix:///var/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /var/run/docker.sock: connect: no such file or directory" >&2; exit 1; }
 if [ "$1" = inspect ]; then
   [ -e "$d/stopped.$STUB_HOST" ] && { echo false; exit 0; }
   [ -e "$d/gone.$STUB_HOST" ] && { echo "Error: No such object: $4" >&2; exit 1; }
@@ -113,6 +116,7 @@ class ClusterTests(unittest.TestCase):
         stopped=(),
         gone=(),
         gone_lower=(),
+        fails_socket=(),
     ):
         """Runs ``cluster.sh CLUSTER_ENV ARGS`` against hosts h0 h1 … (rank order) and returns its exit code,
         output and errors, the ssh calls as (host, command), the sleeps, and the memory guard's starts as
@@ -147,6 +151,7 @@ class ClusterTests(unittest.TestCase):
                 ("stopped", stopped),
                 ("gone", gone),
                 ("gone-lower", gone_lower),
+                ("fails-socket", fails_socket),
             ):
                 for host in named:
                     (root / f"{prefix}.{host}").touch()
@@ -317,7 +322,7 @@ class ClusterTests(unittest.TestCase):
                 self.assertEqual(self.launches(run), [])
 
     def test_a_host_whose_engines_cannot_be_counted_stops_the_start_and_says_so(self):
-        for case in ({"fails": ["h1"]}, {"down": ["h1"]}):
+        for case in ({"fails": ["h1"]}, {"fails_socket": ["h1"]}, {"down": ["h1"]}):
             with self.subTest(**case):
                 run = self.cluster(2, "start", "L", **case)
                 self.assertEqual(run.code, 1)
@@ -333,6 +338,14 @@ class ClusterTests(unittest.TestCase):
         self.assertEqual(run.code, 1)
         self.assertNotIn("FAILED on rank 1", run.out)
         self.assertIn("TIMEOUT: no serving line after 15 minutes", run.out)
+
+    def test_a_docker_that_cannot_reach_its_daemon_is_not_a_missing_container(self):
+        # "no such file or directory" in a failed connection is not docker's "no such object"
+        run = self.cluster(2, "status", engines=["h0"], fails_socket=["h1"])
+        self.assertEqual(
+            run.out.splitlines(),
+            ["rank 0 h0: 1 engine process(es)", "rank 1 h1: ? engine process(es)"],
+        )
 
     def test_stop_and_status_do_not_read_a_failed_count_as_none(self):
         run = self.cluster(2, "status", engines=["h0", "h1"], fails=["h1"])

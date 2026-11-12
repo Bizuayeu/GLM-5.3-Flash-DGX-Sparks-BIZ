@@ -28,10 +28,11 @@ if [ "${#H[@]}" != "$TP" ]; then
 fi
 # A rank's engine count on stdout; a non-zero status when ssh or docker fails, which is not a count of 0. A stopped
 # or missing container runs no engine, so it counts 0 (hostwatch.sh reads its checks the same way). stopped: the
-# count is 0. Docker names a missing container "No such object" or, as 29.6.2 does, "no such object".
+# count is 0. Docker names a missing container "No such object" or "No such container", or in lower case as
+# 29.6.2 does; "no such file or directory" is a docker that cannot reach its daemon, not a missing container.
 count() {
   $SSH "${H[$1]}" "out=\$(docker exec $CONTAINER ps -eo args 2>/dev/null) || { case \$(docker inspect -f \
-'{{.State.Running}}' $CONTAINER 2>&1) in false | *[Nn]'o such'*) echo 0; exit 0 ;; esac; exit 1; }; \
+'{{.State.Running}}' $CONTAINER 2>&1) in false | *[Nn]'o such object'* | *[Nn]'o such container'*) echo 0; exit 0 ;; esac; exit 1; }; \
 printf '%s\n' \"\$out\" | grep -c '[t]ensorfold-native serve' || true" 2>/dev/null
 }
 stopped() { local n; n=$(count "$1") && [ "$n" = 0 ]; }

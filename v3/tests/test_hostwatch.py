@@ -104,16 +104,16 @@ class HostwatchTests(unittest.TestCase):
         self.assertTrue(lines[-1].endswith(" done"))
 
     def test_a_docker_error_keeps_watching(self):
-        lines, _ = self.watch(
-            ["fail", "none"],
-            inspect=(
-                "",
-                "Cannot connect to the Docker daemon at unix:///var/run/docker.sock.",
-                1,
-            ),
-        )
-        self.assertEqual(sum(line.endswith(" check-failed") for line in lines), 1)
-        self.assertTrue(lines[-1].endswith(" done"))
+        for error in (
+            "Cannot connect to the Docker daemon at unix:///var/run/docker.sock.",
+            "failed to connect to the docker API at unix:///var/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /var/run/docker.sock: connect: no such file or directory",
+        ):
+            with self.subTest(error=error):
+                lines, _ = self.watch(["fail", "none"], inspect=("", error, 1))
+                self.assertEqual(
+                    sum(line.endswith(" check-failed") for line in lines), 1
+                )
+                self.assertTrue(lines[-1].endswith(" done"))
 
     def test_a_stopped_or_missing_container_ends_the_watch(self):
         for inspect in (
