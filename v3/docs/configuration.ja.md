@@ -2,7 +2,7 @@
 
 [English](configuration.md) · [3.x系の概要](../README.ja.md) · [配備の手順書](../SETUP.ja.md) · [運用](operations.ja.md)
 
-3.x系の配信が読む全ての設定です：どこで決め、既定は何で、何をし、どのrankが読むか。リリースが配信する値とその理由はREADMEの[配信の既定](../README.ja.md#配信の既定)にあり、この頁はその裏の目録です。エンジンの設定は、imageが固定するcommit（[`config/engine.lock.json`](../config/engine.lock.json)）のsourceから読んだものです。containerの中の `tensorfold-native serve --help` がflagを挙げます。
+3.x系の配信が決める設定と、この系列が名指すか測ったエンジンの設定です：どこで決め、既定は何で、何をし、どのrankが読むか。エンジンはこれより多く（他の `TF_GLM_*` など）を読みますが、この系列は決めても測ってもいません。固定したcommitのsourceにあります。リリースが配信する値とその理由はREADMEの[配信の既定](../README.ja.md#配信の既定)にあり、この頁はその裏の目録です。エンジンの設定は、imageが固定するcommit（[`config/engine.lock.json`](../config/engine.lock.json)）のsourceから読んだものです。containerの中の `tensorfold-native serve --help` がflagを挙げます。
 
 3.x系の受け入れは、ここの設定を全て既定のまま回しました。行が別の値を名指すところは、リリースの受け入れか記録した試しがその値も回しました（[リリースでの測定値](../README.ja.md#リリースでの測定値)、[前の版](measurements.ja.md)、[制限](../README.ja.md#制限)）。それ以外の値は受け入れの範囲の外で、行がsourceから読んだだけと書くことも同じです。
 
