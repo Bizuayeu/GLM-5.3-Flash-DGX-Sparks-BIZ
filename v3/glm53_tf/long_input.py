@@ -30,7 +30,7 @@ import urllib.request
 BASE = os.environ.get("BASE", "http://127.0.0.1:8095")
 MODEL = os.environ.get("MODEL", "glm-tf")
 SYSTEM = "You are a careful archivist. Read the ledger."
-LINE = "Ledger {0}: the river barge delivered sacks of barley to the northern granary at dusk."
+LEDGER_LINE = "Ledger {0}: the river barge delivered sacks of barley to the northern granary at dusk."
 ONE = {"middle": "AMBER-FALCON-4817"}
 THREE = {
     "start": "AMBER-FALCON-4817",
@@ -58,8 +58,8 @@ def post(path, body, timeout):
 def one_messages(lines):
     half = lines // 2
     needle = f"IMPORTANT: the passphrase for the archive is {ONE['middle']}."
-    text = "\n".join(LINE.format(i) for i in range(half)) + "\n" + needle + "\n"
-    text += "\n".join(LINE.format(i) for i in range(half, lines))
+    text = "\n".join(LEDGER_LINE.format(i) for i in range(half)) + "\n" + needle + "\n"
+    text += "\n".join(LEDGER_LINE.format(i) for i in range(half, lines))
     question = "What is the passphrase for the archive? Reply with the passphrase only."
     return [
         {"role": "system", "content": SYSTEM},
@@ -68,7 +68,7 @@ def one_messages(lines):
 
 
 def three_messages(lines):
-    rows = [LINE.format(i) for i in range(lines)]
+    rows = [LEDGER_LINE.format(i) for i in range(lines)]
     at = {"start": lines // 20, "middle": lines // 2, "end": lines - lines // 20}
     # Last position first, so each passphrase goes before the ledger line at its position.
     for where in sorted(THREE, key=lambda w: -at[w]):
