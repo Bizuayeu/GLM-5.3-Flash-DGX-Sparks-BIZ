@@ -308,7 +308,7 @@ def prefill(args):
     return {
         "kind": "prefill",
         "prompt_tokens": usage["prompt_tokens"],
-        "cached": (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0,
+        "cached": client.cached(usage),
         "seconds": round(seconds, 3),
         "tok_per_s": round(usage["prompt_tokens"] / seconds, 1),
         "tensorfold": kept(engine_fields(reply)),
@@ -326,11 +326,7 @@ def streamed(body):
     block = {}
     finish = None
     with post("/v1/chat/completions", body) as r:
-        for raw in r:
-            line = raw.decode().strip()
-            if not line.startswith("data: ") or line == "data: [DONE]":
-                continue
-            chunk = json.loads(line[6:])
+        for chunk in client.chunks(r):
             if chunk.get("usage"):
                 usage = chunk["usage"]
             block.update(
@@ -370,7 +366,7 @@ def edit(_args):
     return {
         "kind": "edit",
         "prompt_tokens": usage["prompt_tokens"],
-        "cached": (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0,
+        "cached": client.cached(usage),
         "completion_tokens": tokens,
         "finish_reason": finish,
         "ttft": round(first - start, 3),

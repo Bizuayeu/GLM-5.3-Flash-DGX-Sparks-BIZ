@@ -78,11 +78,7 @@ def decode(prompt):
     text = hashlib.sha256()
     pieces = []
     with post("/v1/chat/completions", body) as r:
-        for raw in r:
-            line = raw.decode().strip()
-            if not line.startswith("data: ") or line == "data: [DONE]":
-                continue
-            chunk = json.loads(line[6:])
+        for chunk in client.chunks(r):
             if chunk.get("usage"):
                 usage = chunk["usage"]
             # the engine's two blocks ride the chunk that ends the reply, before usage
@@ -105,7 +101,7 @@ def decode(prompt):
     row = {
         "kind": "decode",
         "prompt_tokens": usage["prompt_tokens"],
-        "cached": (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0,
+        "cached": client.cached(usage),
         "completion_tokens": tokens,
         "ttft": round(first - start, 3),
         "seconds_after_first": round(end - first, 3),

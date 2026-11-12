@@ -62,5 +62,32 @@ class SendTests(unittest.TestCase):
                 )
 
 
+class StreamTests(unittest.TestCase):
+    """client.chunks and client.cached: a streamed reply's chunks and a usage's cached tokens."""
+
+    def test_the_chunks_are_the_data_lines_but_done(self):
+        lines = [
+            b'data: {"a": 1}\n',
+            b"\n",
+            b": keep-alive\n",
+            b'data: {"b": 2}\r\n',
+            b"data: [DONE]\n",
+        ]
+        self.assertEqual(list(client.chunks(lines)), [{"a": 1}, {"b": 2}])
+
+    def test_cached_tokens_are_0_unless_the_usage_names_them(self):
+        self.assertEqual(
+            client.cached({"prompt_tokens_details": {"cached_tokens": 2048}}), 2048
+        )
+        for usage in (
+            {},
+            {"prompt_tokens_details": None},
+            {"prompt_tokens_details": {}},
+            {"prompt_tokens_details": {"cached_tokens": None}},
+        ):
+            with self.subTest(usage=usage):
+                self.assertEqual(client.cached(usage), 0)
+
+
 if __name__ == "__main__":
     unittest.main()

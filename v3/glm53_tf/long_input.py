@@ -140,11 +140,7 @@ def streamed(messages):
     finish = None
     block = None
     with post("/v1/chat/completions", body, 5400) as r:
-        for raw in r:
-            line = raw.decode().strip()
-            if not line.startswith("data: ") or line == "data: [DONE]":
-                continue
-            chunk = json.loads(line[6:])
+        for chunk in client.chunks(r):
             if chunk.get("usage"):
                 usage = chunk["usage"]
             if chunk.get("tensorfold"):
@@ -199,7 +195,7 @@ def main(argv=None):
         "lines": lines,
         "tokens": tokens,
         "prompt_tokens": usage.get("prompt_tokens"),
-        "cached": (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0,
+        "cached": client.cached(usage),
         "completion_tokens": usage.get("completion_tokens"),
         "ttft": reply["ttft"],
         "elapsed": reply["elapsed"],
