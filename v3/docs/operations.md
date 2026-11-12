@@ -66,8 +66,9 @@ A new image is a new engine build: accept it again before routine use.
 
 1. Build it on one host ([setup §3](../SETUP.md#3-image)). On every host, keep the image in use under a second tag first, so that going back is a container away.
 2. Load it on the other hosts and compare the image IDs of every host; they must be equal. `/usr/share/doc/tf3/ENGINE` in each container names the engine commit and every binary's SHA-256.
-3. Stop, then recreate the container on every host from the new image ([above](#recreate-the-container)).
-4. Start, and run [validation](validation.md) from the decode check on. An image of the same engine commit must give the reference hashes. A release that moves the engine states in its validation which hashes change and why (3.1.0: TP=2 on upstream's tiled kernels; 3.3.0: TP=3 on them too, upstream 1.1.2); any other difference is a finding to explain, not a value to replace.
+3. If the release moves a TP size's default checkpoint (3.12.0 at TP=2, to Jammed XSFP4), download and verify it on every host first (`download --tp 2`, `verify-download --tp 2`), or add the old one's `CHECKPOINT` line to every rank file ([setup §2](../SETUP.md#2-checkout-and-checkpoint)); a start without either stops in `serve.sh`, naming the download.
+4. Stop, then recreate the container on every host from the new image ([above](#recreate-the-container)).
+5. Start, and run [validation](validation.md) from the decode check on. An image of the same engine commit must give the reference hashes. A release that moves the engine states in its validation which hashes change and why (3.1.0: TP=2 on upstream's tiled kernels; 3.3.0: TP=3 on them too, upstream 1.1.2); any other difference is a finding to explain, not a value to replace.
 
 ## A host that powered off
 
