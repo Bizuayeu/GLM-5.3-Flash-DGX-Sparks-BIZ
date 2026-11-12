@@ -11,7 +11,7 @@
 - **`READY after N s`** とrank 0の最後の8行の `[tensorfold]` と `[serve.sh]`。起動の行と、参照機で起動にかかった時間は[手順書 §5](../SETUP.ja.md#5-起動)にあります。
 - **`FAILED on rank R`**：あるrankのlogに `REFUSE` の行があるか、あるrankのcontainerでエンジンが動いていない。台本は全rankのlogの最後の25行（NCCLの `INFO` の行を除く）を表示して終わり、何も止めません。他のrankとメモリの見張りは動いたままのことがあるので、次の起動の前に `cluster.sh state/cluster.env status`、続いて `stop` を実行します。
 - **`TIMEOUT`**：15分以内にrank 0の `serving` の行が出ない。全rankのlogを読み、上と同じく `stop` します。
-- **どのrankも起動する前**：cluster fileの `HOSTS` がrankごとに1台を名指さないときは `HOSTS names N hosts for TP=T`（exit 2）、あるホストのcontainerでエンジンがもう動いているときは `rank R HOST already runs an engine`（exit 1）。先にそれを止めます。
+- **どのrankも起動する前**：cluster fileの `HOSTS` がrankごとに1台を名指さないときは `HOSTS names N hosts for TP=T`（exit 2）、あるホストのcontainerでエンジンがもう動いているときは `rank R HOST already runs an engine`（exit 1、先にそれを止めます）、そのホストへのSSHかDockerが失敗したときは `rank R HOST: its engines cannot be counted (ssh or docker failed)`（exit 1）。止まったcontainerや無いcontainerは、エンジンが0と数えます。
 
 各rankのlogは `<WORK>/logs/serve-r<RANK>-<LABEL>.log` で、同じlabelの起動が上書きします。前のlogを残すには、起動ごとに別のlabelを付けます。メモリの見張りは `hostwatch-<LABEL>.log` に追記します：2秒ごとの時刻とGiB単位の `MemAvailable`、確かめが失敗したか間に合わなかった回の `check-failed`、エンジンを止めたときの `KILLED`、止めることが失敗したか間に合わなかったときの `KILL-FAILED`（メモリが足りないままなら、次の回にもう一度止めます）、エンジンかcontainerがいなくなったときの `done` です。
 
@@ -36,7 +36,7 @@ TP=3ではload時にwireを準備し、1回のgatherをNCCLとbyteまで比べ�
 
 ## エンジンが残る停止
 
-`cluster.sh state/cluster.env stop` はrank 0のcontainerの中で `pkill -TERM -f 'tensorfold-native serve'` を送り（他のrankはrank 0が終わると抜けます）、rankごとにエンジンが終わるのを最大60秒待ち、まだ動いているrankに同じものを送ってから、各ホストのエンジンのプロセス数と `MemAvailable` を表示します。数が0より大きいrankはまだ動いています：`docker exec glm53-tf3 pkill -9 -f 'tensorfold-native serve'` か、containerの中の全プロセスを終わらせる `docker stop glm53-tf3` の後、もう一度 `status` を実行します。3.0.0・3.1.0・3.8.0の受け入れでは、どの停止も全rankで0で終わりました。
+`cluster.sh state/cluster.env stop` はrank 0のcontainerの中で `pkill -TERM -f 'tensorfold-native serve'` を送り（他のrankはrank 0が終わると抜けます）、rankごとにエンジンが終わるのを最大60秒待ち、まだ動いているrankに同じものを送ってから、各ホストのエンジンのプロセス数（SSHかDockerが失敗したときは `?`、止まったcontainerや無いcontainerは0）と `MemAvailable` を表示します。数が0より大きいrankはまだ動いています：`docker exec glm53-tf3 pkill -9 -f 'tensorfold-native serve'` か、containerの中の全プロセスを終わらせる `docker stop glm53-tf3` の後、もう一度 `status` を実行します。3.0.0・3.1.0・3.8.0の受け入れでは、どの停止も全rankで0で終わりました。
 
 ## NCCLがsocketに落ちる
 

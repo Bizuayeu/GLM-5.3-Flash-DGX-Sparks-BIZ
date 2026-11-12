@@ -11,7 +11,7 @@ What to do when a 3.x launch goes wrong, and the routine changes around it: a ne
 - **`READY after N s`** and rank 0's last eight `[tensorfold]` and `[serve.sh]` lines. Read the startup lines, and how long a start took on the reference hosts, in [setup §5](../SETUP.md#5-start).
 - **`FAILED on rank R`**: a rank's log has a `REFUSE` line, or a rank's container runs no engine. The script prints the last 25 lines of every rank's log (without NCCL's `INFO` lines) and exits; it stops nothing. The other ranks and the memory guards may still be running, so run `cluster.sh state/cluster.env status`, then `stop`, before the next start.
 - **`TIMEOUT`**: no `serving` line from rank 0 within 15 minutes. Read every rank's log, then `stop` as above.
-- **Before any rank starts**: `HOSTS names N hosts for TP=T` (exit 2) when the cluster file's `HOSTS` does not name one host per rank, and `rank R HOST already runs an engine` (exit 1) when a host's container already runs one; stop it first.
+- **Before any rank starts**: `HOSTS names N hosts for TP=T` (exit 2) when the cluster file's `HOSTS` does not name one host per rank, `rank R HOST already runs an engine` (exit 1) when a host's container already runs one, which to stop first, and `rank R HOST: its engines cannot be counted (ssh or docker failed)` (exit 1) when SSH to the host or its Docker failed; a stopped or missing container counts as running no engine.
 
 Each rank logs to `<WORK>/logs/serve-r<RANK>-<LABEL>.log`, which a start with the same label overwrites; give every start its own label to keep the earlier logs. The memory guard appends to `hostwatch-<LABEL>.log`: the time and `MemAvailable` in GiB every 2 s, `check-failed` when a round's check failed or did not return in time, `KILLED` when it stopped the engine, `KILL-FAILED` when the stop failed or did not return in time (the next round stops it again while memory stays short), `done` when the engine or its container is gone.
 
@@ -36,7 +36,7 @@ The host's own users of memory, swap and a peer that stops answering are in [hos
 
 ## A stop that leaves an engine
 
-`cluster.sh state/cluster.env stop` sends `pkill -TERM -f 'tensorfold-native serve'` inside rank 0's container (the other ranks leave when rank 0 does), waits up to 60 s for each rank's engine to end and sends the same to a rank still running, then prints each host's engine-process count and `MemAvailable`. A count above 0 means that rank still runs: `docker exec glm53-tf3 pkill -9 -f 'tensorfold-native serve'`, or `docker stop glm53-tf3`, which ends every process in the container, then `status` again. Every stop in the 3.0.0, 3.1.0 and 3.8.0 acceptances ended with 0 on every rank.
+`cluster.sh state/cluster.env stop` sends `pkill -TERM -f 'tensorfold-native serve'` inside rank 0's container (the other ranks leave when rank 0 does), waits up to 60 s for each rank's engine to end and sends the same to a rank still running, then prints each host's engine-process count (`?` when SSH or Docker failed, 0 for a stopped or missing container) and `MemAvailable`. A count above 0 means that rank still runs: `docker exec glm53-tf3 pkill -9 -f 'tensorfold-native serve'`, or `docker stop glm53-tf3`, which ends every process in the container, then `status` again. Every stop in the 3.0.0, 3.1.0 and 3.8.0 acceptances ended with 0 on every rank.
 
 ## NCCL over sockets
 
