@@ -372,6 +372,11 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(chunks[0]["choices"][0]["delta"]["reasoning_content"], "hmm")
         self.assertEqual(chunks[-1]["usage"], {"completion_tokens": 7})
         self.assertIn(": tool-gate passed", comments)
+        record = json.loads(self.log.getvalue().splitlines()[-1])
+        self.assertEqual(
+            {k: record[k] for k in ("stream", "outcome", "violations")},
+            {"stream": True, "outcome": "passed", "violations": []},
+        )
 
     def test_a_stream_with_a_violating_call_continues_with_the_repair(self):
         self.upstream.push_sse(sse(args={"query": ""}))
@@ -402,6 +407,17 @@ class ProxyTests(unittest.TestCase):
         self.assertEqual(
             json.loads(retry["messages"][2]["tool_calls"][0]["function"]["arguments"]),
             {"query": ""},
+        )
+        record = json.loads(self.log.getvalue().splitlines()[-1])
+        self.assertEqual(
+            {k: record[k] for k in ("stream", "outcome", "violations")},
+            {
+                "stream": True,
+                "outcome": "repaired",
+                "violations": [
+                    {"tool": "web_search", "kind": "empty", "argument": "query"}
+                ],
+            },
         )
 
     def test_a_failed_repair_is_recorded_as_an_error(self):
