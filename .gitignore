@@ -7,6 +7,7 @@ records/
 # A checkout may link these to the host's persistent directories; a link is not a directory.
 /state
 /records
+# Private implementation diary; publish reviewed summaries under docs instead.
 /docs/plans
 upstream
 .venv/
@@ -41,8 +42,6 @@ htmlcov/
 dist/
 build/
 *.egg-info/
-# Private implementation diary; publish reviewed summaries under docs instead.
-/docs/plans/
 # Editor, OS and extra artifact formats
 .vscode/
 .idea/
