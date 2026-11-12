@@ -81,7 +81,6 @@ This map lists the 1.x line's documents and the owner of each 1.x fact. The repo
 | Raw responses, traces, all repetitions, failures, host-specific values | Private `records/<run-id>/`, never distributed; public documents carry reviewed summaries |
 | Other public recipes for this model: links, licenses and what was taken from each | [README](../README.md#other-glm-53-flash-recipes-for-dgx-spark-systems) for the recipes on other engines, [2.x's README](../../v2/README.md#other-recipes-on-tensorfold) for those on TensorFold; other documents cite by name and pull request, without links or licenses (`tools/check_publication.py` enforces this) |
 | What the project does not claim, and upstream-triggered work (trigger → action) | [Repository README](../../README.md#biz) for BIZ, this line's [README disclaimer](../README.md#disclaimer) and [next action](../README.md#next-action) |
-| Private implementation plans and their stage status | `docs/plans/` at the checkout root, untracked and excluded from publication; `docs/plans/README.md` indexes them locally and each plan's own leading status line owns its state |
 | Site configuration and acquisition state | `state/`, untracked |
 
 ## Conventions
