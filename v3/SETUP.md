@@ -20,7 +20,7 @@ python -m glm53_tf download --tp 3 --background
 python -m glm53_tf verify-download --tp 3 --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
 ```
 
-The engine reads the checkpoint from each host's Hugging Face cache, by default `~/.cache/huggingface/hub`, mounted read-only into the container.
+The engine reads the checkpoint from each host's Hugging Face cache, by default `~/.cache/huggingface/hub`, mounted read-only into the container. A host that received a copy of the cache instead runs `download` with the same `--tp` once, without `--background`, so that its `state/` records the snapshot, which reuses the copied files and fetches only a missing one, then `verify-download` as above without `--wait` (how to copy is in [2.x step 2](../v2/SETUP.md#2-checkout-and-checkpoint)).
 
 At TP=2 give both commands `--tp 2` and `verify-download` an output folder of its own (`../records/checksum-jammed`); the status stays under `state/jammed`. To serve the other checkpoint than your TP size's, give both commands `--checkpoint jammed` or `--checkpoint xsfp4` in place of `--tp`, and step 4 adds one line to every rank file. A start whose checkpoint folder the host lacks stops in `serve.sh`, naming the download.
 

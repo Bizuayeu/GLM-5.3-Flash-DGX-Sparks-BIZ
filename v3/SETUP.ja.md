@@ -20,7 +20,7 @@ python -m glm53_tf download --tp 3 --background
 python -m glm53_tf verify-download --tp 3 --hf .venv/bin/hf --output ../records/checksum-xsfp4 --wait
 ```
 
-エンジンは各ホストのHugging Faceのcache（既定は `~/.cache/huggingface/hub`）からcheckpointを読み、containerには読み取り専用でmountします。
+エンジンは各ホストのHugging Faceのcache（既定は `~/.cache/huggingface/hub`）からcheckpointを読み、containerには読み取り専用でmountします。cacheを写してもらったホストでは、代わりに同じ `--tp` の `download` を一度（`--background` なしで）回し、`state/` にsnapshotを記録させます。写したfileはそのまま使い、足りないものだけを取ります。そのあと上の `verify-download` を `--wait` なしで回します（写し方は[2.x系の手順2](../v2/SETUP.ja.md#2-checkoutとcheckpoint)）。
 
 TP=2では両方のコマンドに `--tp 2` を付け、`verify-download` には別の出力先（`../records/checksum-jammed`）を渡します。状況は `state/jammed` に残ります。自分のTPの既定と違う方を配信する時は、`--tp` の代わりに `--checkpoint jammed` か `--checkpoint xsfp4` を付け、手順4で全rankのファイルに1行を足します。ホストに無いcheckpointのfolderで起動すると、`serve.sh` が取得の仕方を名指して止まります。
 
