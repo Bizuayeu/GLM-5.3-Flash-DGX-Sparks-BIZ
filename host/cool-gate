@@ -28,7 +28,7 @@ LOG_DIR = os.environ.get("GB10_TELEMETRY_DIR", "/var/log/gb10-telemetry")
 # The logger writes every 2 s and systemd restarts it after 5 s
 # (gb10-telemetry.service RestartSec=5); 30 s without a line is more than a restart,
 # so the record has stopped.
-# cc-defer: provisional; revisit if a normal restart of the logger ever trips it
+# Provisional: revisit if a normal restart of the logger ever trips it
 STALE_SECONDS = 30
 
 

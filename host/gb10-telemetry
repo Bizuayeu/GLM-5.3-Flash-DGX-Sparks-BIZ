@@ -17,7 +17,7 @@ import subprocess
 import time
 
 OUT = os.environ.get("GB10_TELEMETRY_DIR", "/var/log/gb10-telemetry")
-KEEP_DAYS = 14  # cc-defer: provisional retention; revisit when the disk or the investigations need another length
+KEEP_DAYS = 14  # provisional retention; revisit when the disk or the investigations need another length
 # GB10 reads N/A for the power limit and the memory clock, and an SW power cap that
 # comes and goes between samples shows only in these cumulative counters (us).
 COUNTERS = (
