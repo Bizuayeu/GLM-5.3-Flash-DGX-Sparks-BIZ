@@ -18,14 +18,14 @@
 
 TP=3ではload時にwireを準備し、1回のgatherをNCCLとbyteまで比べて確かめます。`serve.sh` の `TF_TP_ROCE_FALLBACK=error` の下では、失敗すると全rankの起動が止まり、理由はlogに出ます。全rankのファイルの `TF_GLM_ROCE_MULTI=0` はwireなしで配信します。`TF_TP_ROCE_FALLBACK=nccl` はwireなしで起動し、rank 0が警告を出します（[設定](configuration.ja.md#rankのファイル)）。
 
-## 一つのrankが止まり、他は待つ
+## 一つのrankが止まったとき
 
 ホストのエンジンを止める見張りは二つで、どちらも自分のホストだけに働きます：
 
 - **メモリの見張り**（`hostwatch.sh`、`cluster.sh` が起動）は、`MemAvailable` が5 GiBを切るとcontainerの中の `pkill -9` でエンジンを止め、`KILLED` と書きます。
 - **熱の見張り**（[`host/thermal-watch`](../../host/README.ja.md#長い運転の間)、運用者が `--container glm53-tf3 --process 'tensorfold-native serve'` で起動）は、94 °C以上の読みが2回続くとエンジンを止め、`ABORT` と書きます。
 
-[リリースでの測定値](../README.ja.md#リリースでの測定値)と[前の版の測定値](measurements.ja.md)が記録するどの版の受け入れでも、どちらもエンジンを止めませんでした。2.x系では、一つのrankが終わっても他のrankは一緒には終わらず、`cluster.sh stop` が終わらせるまでcollectiveで待ちました。どれかのrankが止まったら、全rankを止め、見張りのlogで原因を探し、全rankを起動し直します。
+[リリースでの測定値](../README.ja.md#リリースでの測定値)と[前の版の測定値](measurements.ja.md)が記録するどの版の受け入れでも、どちらもエンジンを止めませんでした。2.x系では、一つのrankが終わっても他のrankは一緒には終わらず、`cluster.sh stop` が終わらせるまでcollectiveで待ちました。3.x系では他のrankも終わります：rank 0への生存の線が閉じたrankは、すぐに止まります（エンジンのsourceから読んだもの）。どれかのrankが止まったら、全rankを止め、見張りのlogで原因を探し、全rankを起動し直します。
 
 エンジンの熱の待ちは、どれかのrankの最も熱いzoneが92 °Cを超えている間、chunkの合間でpromptの処理を止め、全rankが88 °C以下になるまで待ちます（[配信の既定](../README.ja.md#配信の既定)）。待ちに時間の上限はありません。待つごとの秒数は、rank 0のlogの `heat_wait_s` の行に出ます。
 
@@ -73,7 +73,7 @@ v3/scripts/create_container.sh glm53-tf3:3.12.0 ~/glm53-tf3
 
 GB10のホストは持続する負荷で電源が落ちることがあります（[GPUクロックの上限](../../docs/hosts.ja.md#gpuクロックの上限)）。参照機は3.x系では落ちていないので、この節は記録した復旧ではなく台本からの読みです。予防はクロックの上限、熱の待ち、長い要求の合間の冷却gate、熱の見張りです。
 
-- 他のホストのrankはcollectiveで待つので、止めます。
+- 他のホストのrankは、生存の線がホストの消えたことに気付く約20秒のうちに止まります（[一つのrankが止まったとき](#一つのrankが止まったとき)）。まだ動いているものは `cluster.sh state/cluster.env status` で分かります。
 - `create_container.sh` は再起動の方針を設定しないので、ホストが起動してもcontainerは動いていません。`docker start glm53-tf3` するか、作り直します。
 - 起動の前に、[ホストの準備](../../docs/hosts.ja.md)が不正な再起動の後について書くことと、そのGIDのindexを確かめます。
 - 全rankを一緒に起動し、日常の利用の前にdecode検査を回します。

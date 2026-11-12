@@ -18,14 +18,14 @@ The engine sizes its streams at start from the free memory and refuses a size th
 
 At TP=3 the wire is set up and checked against NCCL at load, one gather byte for byte, and with `serve.sh`'s `TF_TP_ROCE_FALLBACK=error` a failure stops the start on every rank, its reason in the log. `TF_GLM_ROCE_MULTI=0` in every rank file serves without the wire; `TF_TP_ROCE_FALLBACK=nccl` starts without it and logs a warning on rank 0 ([configuration](configuration.md#rank-file)).
 
-## A rank stops and the others wait
+## A rank that stops
 
 Two watchers stop one host's engine, each on its own host only:
 
 - **The memory guard** (`hostwatch.sh`, started by `cluster.sh`) stops the engine with `pkill -9` inside the container when `MemAvailable` falls below 5 GiB, and writes `KILLED`.
 - **The thermal watch** ([`host/thermal-watch`](../../host/README.md#during-long-runs), started by the operator with `--container glm53-tf3 --process 'tensorfold-native serve'`) stops it after two readings in a row at or above 94 °C, and writes `ABORT`.
 
-Neither stopped an engine in the acceptance of any release that [measured on the release](../README.md#measured-on-the-release) or the [measurements of earlier releases](measurements.md) record. Under 2.x the other ranks did not end when one did: they waited in a collective until `cluster.sh stop` ended them. After any rank stops, stop every rank, find the cause in the guard's or the watch's log, and start every rank again.
+Neither stopped an engine in the acceptance of any release that [measured on the release](../README.md#measured-on-the-release) or the [measurements of earlier releases](measurements.md) record. Under 2.x the other ranks did not end when one did: they waited in a collective until `cluster.sh stop` ended them. At 3.x they end too: a rank whose liveness line to rank 0 closes stops at once (read from the engine's source). After any rank stops, stop every rank, find the cause in the guard's or the watch's log, and start every rank again.
 
 The engine's heat wait holds a prompt pass between chunks while any rank's hottest zone is above 92 °C, until every rank is at or below 88 °C ([serving defaults](../README.md#serving-defaults)). A wait has no time limit; rank 0's log gives each wait's seconds in a `heat_wait_s` line.
 
@@ -73,7 +73,7 @@ A new image is a new engine build: accept it again before routine use.
 
 GB10 hosts can power off under sustained load ([GPU clock cap](../../docs/hosts.md#gpu-clock-cap)); the reference hosts did not under 3.x, so this section is the scripts' reading, not a recorded recovery. The clock cap, the heat wait, the cooling gate between long requests and the thermal watch are the prevention.
 
-- The ranks on the other hosts wait in a collective: stop them.
+- The ranks on the other hosts stop within about 20 s, when their liveness lines notice the host gone ([a rank that stops](#a-rank-that-stops)); `cluster.sh state/cluster.env status` shows any still running.
 - `create_container.sh` sets no restart policy, so after the host boots its container is not running: `docker start glm53-tf3`, or recreate it.
 - Before starting, check the host as [host preparation](../../docs/hosts.md) says after an unclean restart, and its GID index.
 - Start every rank together and run the decode check before routine use.
