@@ -27,6 +27,7 @@ import hashlib
 import json
 import os
 import statistics
+import sys
 import time
 
 from . import client
@@ -97,6 +98,10 @@ def decode(prompt):
                 if first is None:
                     first = time.monotonic()
     end = time.monotonic()
+    if first is None or usage is None:
+        why = "streamed no text" if first is None else "carried no usage"
+        print(f"decode-check: the reply {why}", file=sys.stderr)
+        raise SystemExit(1)
     tokens = usage["completion_tokens"]
     row = {
         "kind": "decode",
@@ -129,6 +134,11 @@ def main(argv=None):
     argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     ).parse_args(argv)
+    if KIND not in TASKS:
+        names = list(TASKS)
+        listed = ", ".join(names[:-1]) + " or " + names[-1]
+        print(f"decode-check: PROMPT_KIND is {listed}, not '{KIND}'", file=sys.stderr)
+        raise SystemExit(2)
     prompt = prompt_text()
     rows = []
     fulls = []

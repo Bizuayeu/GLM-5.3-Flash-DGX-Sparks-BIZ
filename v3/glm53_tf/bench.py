@@ -37,6 +37,7 @@ import argparse
 import json
 import os
 import statistics
+import sys
 import time
 import uuid
 
@@ -348,6 +349,10 @@ def stream_row(kind, body, fields, prompt=False):
     """A streamed request's row: its kind, the prompt's tokens and cached tokens when prompt is set, the
     reply's tokens, finish and timings, and the engine fields named in fields."""
     start_epoch, start, first, end, usage, block, finish = streamed(body)
+    if first is None or usage is None:
+        why = "streamed no text" if first is None else "carried no usage"
+        print(f"bench: the reply {why}", file=sys.stderr)
+        raise SystemExit(1)
     tokens = usage["completion_tokens"]
     row = {"kind": kind}
     if prompt:

@@ -245,5 +245,42 @@ class DefaultsTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 2)
 
 
+class FailedReplyTests(unittest.TestCase):
+    """A reply the check cannot read, or a task it does not know, is said in words, not a traceback."""
+
+    def test_a_reply_without_text_or_usage_exits_1_and_says_why(self):
+        empty = stream(ids=())
+        no_usage = stream()[:-2] + [b"data: [DONE]\n"]
+        for reply, words in (
+            (empty, "the reply streamed no text"),
+            (no_usage, "the reply carried no usage"),
+        ):
+            with self.subTest(words=words):
+                err = io.StringIO()
+                with (
+                    self.assertRaises(SystemExit) as stop,
+                    contextlib.redirect_stderr(err),
+                ):
+                    run([reply] * 3)
+                self.assertEqual(stop.exception.code, 1)
+                self.assertIn(f"decode-check: {words}", err.getvalue())
+
+    def test_an_unknown_prompt_kind_is_refused_before_any_request(self):
+        sent = []
+        err = io.StringIO()
+        with (
+            patch.object(decode_check, "KIND", "poem"),
+            self.assertRaises(SystemExit) as stop,
+            contextlib.redirect_stderr(err),
+        ):
+            run([], sent=sent)
+        self.assertEqual(stop.exception.code, 2)
+        self.assertIn(
+            "decode-check: PROMPT_KIND is count, prose or code, not 'poem'",
+            err.getvalue(),
+        )
+        self.assertEqual(sent, [])
+
+
 if __name__ == "__main__":
     unittest.main()

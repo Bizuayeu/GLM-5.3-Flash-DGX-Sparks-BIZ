@@ -355,5 +355,35 @@ class ApiKeyTests(unittest.TestCase):
         self.assertEqual(auth, [None] * 3)
 
 
+class FailedReplyTests(unittest.TestCase):
+    """A streamed reply the bench cannot read is said in words, not a traceback."""
+
+    def test_a_reply_without_text_or_usage_exits_1_and_says_why(self):
+        usage = {"choices": [], "usage": {"prompt_tokens": 17, "completion_tokens": 0}}
+        text = {"choices": [{"delta": {"content": "1\n"}}]}
+        for chunks, words in (
+            ([usage], "the reply streamed no text"),
+            ([text], "the reply carried no usage"),
+        ):
+            with self.subTest(words=words):
+                reply = Reply(
+                    [f"data: {json.dumps(c)}\n\n".encode() for c in chunks]
+                    + [b"data: [DONE]\n"]
+                )
+                err = io.StringIO()
+                with (
+                    patch.object(
+                        client.urllib.request,
+                        "urlopen",
+                        lambda req, timeout=None: reply,
+                    ),
+                    self.assertRaises(SystemExit) as stop,
+                    contextlib.redirect_stderr(err),
+                ):
+                    bench.decode(None)
+                self.assertEqual(stop.exception.code, 1)
+                self.assertIn(f"bench: {words}", err.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()
