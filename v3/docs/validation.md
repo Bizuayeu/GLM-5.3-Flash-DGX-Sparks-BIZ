@@ -149,7 +149,7 @@ python3 tools/bench_concurrent.py http://127.0.0.1:8095 glm-tf --tokens 256 --re
 
 The memory guard's log (`<WORK>/logs/hostwatch-<label>.log`) gives each host's lowest `MemAvailable` during the run; the hosts' telemetry gives the hottest ACPI zone every 2 s. Rank 0's log gives each prefill heat wait's seconds in a `heat_wait_s` line; the reply does not carry them.
 
-Reference: the lowest `MemAvailable` of a launch was 6 and 8 GiB on ranks 0 and 1 at TP=2 and 16, 17 and 22 GiB on ranks 0, 1 and 2 at TP=3; the hottest zone of a whole launch was 89.2 and 88.9 °C at TP=2 and 91.3, 89.1 and 89.2 °C at TP=3, during the 1M-token prompt; no request waited for heat ([long inputs](#long-inputs)).
+Reference: the lowest `MemAvailable` of a launch was 6 and 8 GiB on ranks 0 and 1 at TP=2 and 16, 17 and 22 GiB on ranks 0, 1 and 2 at TP=3; the hottest zone of a whole launch was 89.2 and 88.9 °C at TP=2 and 91.3, 89.1 and 89.2 °C at TP=3, rank 0's during the 1M-token prompt at both TP sizes; no request waited for heat ([long inputs](#long-inputs)).
 
 **Accepted when** no run is stopped by the memory guard or the thermal watch (two readings in a row at or above 94 °C).
 
