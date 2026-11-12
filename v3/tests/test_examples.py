@@ -29,6 +29,15 @@ class ExampleFileTests(unittest.TestCase):
             with self.subTest(example=path.name):
                 self.assertNotIn(b"\r", path.read_bytes())
 
+    def test_the_examples_name_no_other_checkpoint(self):
+        # The TP's checkpoint is config/tp*.env's (from 3.12.0); the other one is a
+        # line the operator adds.
+        for path in sorted(EXAMPLES.glob("tp*-rank*.env")):
+            with self.subTest(example=path.name):
+                text = path.read_text(encoding="utf-8")
+                self.assertNotIn("CHECKPOINT=", text)
+                self.assertNotIn("nvidia", text.lower())
+
 
 class RingOfFourTests(unittest.TestCase):
     """The reference ring of four at TP=4: 04 -> 05 -> 07 -> 06 -> 04, with no cable across."""

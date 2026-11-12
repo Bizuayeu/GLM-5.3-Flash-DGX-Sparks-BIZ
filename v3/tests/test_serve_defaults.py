@@ -135,6 +135,80 @@ class ToolDefaultsTests(unittest.TestCase):
         self.assertEqual(mojibake.MAX_TOKENS, serve_defaults()["max-tokens"])
 
 
+class ServeScriptTextTests(unittest.TestCase):
+    """serve.sh read as text: what ServeTests runs, seen where bash does not run (nt) as well."""
+
+    def test_each_tp_serves_its_checkpoint_at_its_locks_revision(self):
+        # From 3.12.0 config/tp*.env names the TP's checkpoint, Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4,
+        # and serve.sh none of its own; download and verify-download read the same table for --tp.
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertNotIn("/hub/models--", serve)
+        self.assertIn("CHECKPOINT=${CHECKPOINT:-$release_checkpoint}\n", serve)
+        self.assertEqual(sorted(config.TP_CHECKPOINTS), [2, 3, 4])
+        self.assertEqual(config.TP_CHECKPOINTS[2], "jammed")
+        pattern = (
+            r"^CHECKPOINT=/hub/models--([\w.-]+)--([\w.-]+)/snapshots/([0-9a-f]{40})$"
+        )
+        for tp, name in config.TP_CHECKPOINTS.items():
+            with self.subTest(tp=tp):
+                text = (LINE / f"config/tp{tp}.env").read_text(encoding="utf-8")
+                match = re.search(pattern, text, re.MULTILINE)
+                self.assertIsNotNone(match)
+                model, revision, _ = config.checkpoint(name, Path("state"))
+                self.assertEqual(f"{match[1]}/{match[2]}", model)
+                self.assertEqual(match[3], revision)
+
+    def test_serve_sh_reads_images_and_videos_unless_the_rank_file_says_otherwise(self):
+        # Unset: --vision. 0: text alone. Every rank the same (the ranks agree on --vision at start); another value,
+        # an empty one included, stops serve.sh (test_serve_defaults' ServeTests run it).
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn("vision=${VISION-1}\n", serve)
+        self.assertIn('[ "$vision" = 1 ] && args+=(--vision)', serve)
+        self.assertEqual(serve.count("--vision"), 1)
+        self.assertIn("vision $vision", serve)
+
+    def test_serve_sh_leaves_the_streams_to_the_engine_when_they_are_empty(self):
+        # tp*.env names them and the rank file may. Empty: no --parallel, the engine's auto (from the memory free at start).
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn("parallel=${PARALLEL-}\n", serve)
+        self.assertIn('[ -n "$parallel" ] && args+=(--parallel "$parallel")', serve)
+        self.assertEqual(serve.count("--parallel"), 1)
+
+    def test_serve_sh_sets_the_window_by_tp_unless_the_rank_file_says_otherwise(self):
+        # tp*.env: 1,048,576, the model's limit, at every TP size. An empty CONTEXT keeps the file's.
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn("release_context=$CONTEXT\n", serve)
+        self.assertIn("context=${CONTEXT:-$release_context}\n", serve)
+        self.assertEqual(serve.count("${CONTEXT:-"), 1)
+        for tp in sorted(config.TP_CHECKPOINTS):
+            text = (LINE / f"config/tp{tp}.env").read_text(encoding="utf-8")
+            self.assertIn("CONTEXT=1048576 ", text)
+
+    def test_serve_sh_names_rank_0s_address_once_for_every_tp_size(self):
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertEqual(serve.count("export NCCL_COMM_ID="), 1)
+        self.assertLess(
+            serve.index('. "$rank_env"'),
+            serve.index('export NCCL_COMM_ID="$MASTER:${NCCL_PORT:-29583}"'),
+        )
+
+    def test_serve_sh_reads_the_reasoning_effort_once(self):
+        # Unset: high. Empty: no --reasoning-effort, the chat template's own.
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn("effort=${REASONING_EFFORT-high}\n", serve)
+        self.assertIn('[ -n "$effort" ] && args+=(--reasoning-effort "$effort")', serve)
+        self.assertEqual(serve.count("REASONING_EFFORT-"), 1)
+
+    def test_serve_sh_waits_for_heat_by_the_band_alone(self):
+        # 92/88 unless the rank file says otherwise; no ceiling (3.3.0: the engine has no TF_HEAT_CEILING).
+        serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
+        self.assertIn(
+            "TF_HEAT_HIGH=${TF_HEAT_HIGH-92} TF_HEAT_LOW=${TF_HEAT_LOW-88}\n", serve
+        )
+        self.assertNotIn("TF_HEAT_CEILING", serve)
+        self.assertIn('"heat ${TF_HEAT_HIGH:-unset}/${TF_HEAT_LOW:-unset}"', serve)
+
+
 @unittest.skipIf(os.name == "nt", "runs bash")
 class ServeTests(unittest.TestCase):
     def run_serve(self, tp, rank_file="", rank="0", release=None, extra=()):
