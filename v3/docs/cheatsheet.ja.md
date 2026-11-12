@@ -126,7 +126,7 @@ docker image inspect --format '{{.Id}}' glm53-tf3:<new>   # equal on every host
 一つの要求では出会わず、harnessのclientが出会うことが三つあります：
 
 - **画像は履歴をまたいで数える。** 要求が持てる画像は4枚で、送るmessageの全ての画像を数えます。前のturnを画像ごと送り直すclientは、履歴に5枚目が入ると400で断られます。labelの後の `--vision-max-images` で上げられ、64まで、全rankで同じにします。画像は `--vision-image-tokens` も上げない限り4,096の画像のtokenを分け合い、上げた分は窓から取ります（[エンジンのflag](configuration.ja.md#エンジンのflag)）。受け入れの外です。
-- **長いpromptの最初のtokenは遅い。** 1,035,295 tokenのpromptは、3.12.0の受け入れで、TP=2で835.5秒、TP=3で635.3秒、TP=4で626.9秒で最初のtokenを出しました（[リリースでの測定値](../README.ja.md#リリースでの測定値)）。最初のイベントまでをstreamのtimeoutで数えるclientは、その前に諦めます：1.x系のharnessの注意はZCodeのそれを700秒にしており、そのようなpromptはTP=2でそれを越えます（[モデル上限](../../v1/docs/harnesses.ja.md#zcodeの権限モードモデル上限既存ファイルガード)）。配信する最長のprefillより大きくします。このエンジンのstreamのkeepaliveが最初のtokenの前にclientへ届くかは、確かめていません。
+- **長いpromptの最初のtokenは遅い。** 約100万tokenのpromptは、TP=2で約14分、TP=3とTP=4で10〜11分で最初のtokenを出します（[リリースでの測定値](../README.ja.md#リリースでの測定値)）。最初のイベントまでをstreamのtimeoutで数えるclientは、その前に諦めます：1.x系のharnessの注意はZCodeのそれを700秒にしており、そのようなpromptはTP=2でそれを越えます（[モデル上限](../../v1/docs/harnesses.ja.md#zcodeの権限モードモデル上限既存ファイルガード)）。配信する最長のprefillより大きくします。このエンジンのstreamのkeepaliveが最初のtokenの前にclientへ届くかは、確かめていません。
 - **modelの名前は札だけ。** エンジンは要求の `model` で断りません：別の名前にも配信している名前で答えるので、古いmodel idのままのclientも動きます。`MODEL_NAME` が変えるのは、返事と `/v1/models` に出る名前だけです。
 
 ```sh
