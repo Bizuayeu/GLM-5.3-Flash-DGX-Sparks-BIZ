@@ -13,20 +13,21 @@ from .download import STATUS_FILE
 from .io import write_json
 
 
-def main(argv=None):
+def parse(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hf", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--wait", action="store_true")
     add_checkpoint_arguments(parser)
-    args = parser.parse_args(argv)
-    model, revision, state = checkpoint(chosen_checkpoint(args), STATE)
-    args.output.mkdir(parents=True, exist_ok=True)
-    status_file = args.output / "checksum-status.json"
+    return parser.parse_args(argv)
+
+
+def recorder(path, model, revision):
+    """A writer of the check's status file: the status, the checkpoint, the time and any extra fields."""
 
     def save(status, **extra):
         write_json(
-            status_file,
+            path,
             {
                 "status": status,
                 "model": model,
@@ -36,7 +37,13 @@ def main(argv=None):
             },
         )
 
-    save("waiting_for_download")
+    return save
+
+
+def wait_for_download(state, model, revision, wait, save):
+    """Returns once the download of this model and revision is complete. Otherwise it saves why and exits:
+    2 while the download is paused, 1 without a download status, for another model or revision, for a failed
+    download, or for an unfinished one without wait."""
     if not (state / STATUS_FILE).is_file():
         # A host that received a copied cache has no download status until download
         # registers the snapshot (it reuses the copied files).
@@ -49,16 +56,20 @@ def main(argv=None):
             save("failed", reason="revision mismatch")
             raise SystemExit(1)
         if status["status"] == "complete":
-            break
-        if status["status"] in ("failed", "paused") or not args.wait:
+            return
+        if status["status"] in ("failed", "paused") or not wait:
             paused = status["status"] == "paused"
             save("paused" if paused else "failed", reason="download not complete")
             raise SystemExit(2 if paused else 1)
         # Polling cadence only; does not bound or retry downloads.
         time.sleep(30)
-    save("verifying")
+
+
+def verify(hf, model, revision, output):
+    """hf cache verify's exit code for this model and revision, its JSON in checksum.json and its errors
+    in checksum.log."""
     command = [
-        str(args.hf),
+        str(hf),
         "cache",
         "verify",
         model,
@@ -69,14 +80,23 @@ def main(argv=None):
         "--json",
     ]
     with (
-        (args.output / "checksum.json").open("w", encoding="utf-8") as out,
-        (args.output / "checksum.log").open("w", encoding="utf-8") as err,
+        (output / "checksum.json").open("w", encoding="utf-8") as out,
+        (output / "checksum.log").open("w", encoding="utf-8") as err,
     ):
-        result = subprocess.run(command, stdout=out, stderr=err, check=False)
-    save(
-        "complete" if result.returncode == 0 else "failed", exit_code=result.returncode
-    )
-    raise SystemExit(result.returncode)
+        return subprocess.run(command, stdout=out, stderr=err, check=False).returncode
+
+
+def main(argv=None):
+    args = parse(argv)
+    model, revision, state = checkpoint(chosen_checkpoint(args), STATE)
+    args.output.mkdir(parents=True, exist_ok=True)
+    save = recorder(args.output / "checksum-status.json", model, revision)
+    save("waiting_for_download")
+    wait_for_download(state, model, revision, args.wait, save)
+    save("verifying")
+    code = verify(args.hf, model, revision, args.output)
+    save("complete" if code == 0 else "failed", exit_code=code)
+    raise SystemExit(code)
 
 
 if __name__ == "__main__":
