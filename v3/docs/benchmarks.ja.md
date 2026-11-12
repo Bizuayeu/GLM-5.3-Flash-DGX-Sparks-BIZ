@@ -21,7 +21,7 @@
 
 [検証](validation.ja.md#decode検査)のとおりです：各タスク（count、prose、code）を3回、約2,048 tokenの固定promptの後にgreedyで512 token。道具は速さ、MTPの受理長（各応答の `speculative` blockから1＋accepted／rounds）、各completionの文章のhashとエンジンの `token_sha256` を出します。最初の後のサンプルはprompt cacheからpromptを再開することがあり（`cached`）、同じtokenを出します。各TPで2回起動し、それぞれを1回目と比べます。3.10.0のXSFP4は各TPで1回で、3.9.0のものと比べました。
 
-READMEの[Jammed XSFP4の既知の振る舞い](../README.ja.md#リリースでの測定値)にある残り2つのcountは、3.10.0のimageの起動で、両TP・両checkpointについて、検査の写しで取りました（検査にはどちらの切り替えもありません）。1つは `ignore_eos` をfalseにしたもので、応答はclientのものと同じく手番の終わりで終わります。もう1つはさらに、countのタスクを「Write the numbers from 1 to 100, one per line, and nothing else.」にし、思考をなしにしたもの（検査のものの代わりに `chat_template_kwargs` `{"enable_thinking": false}`）です。どちらも `PROMPT_KIND=count`、各3回、検査のprompt、最大512 token、temperature 0で、rank 0のloopbackに送りました。速さと受理長は検査そのものの出力です。
+3.10.0の[Jammed XSFP4の既知の振る舞い](measurements.ja.md#3100)にある残り2つのcountは、3.10.0のimageの起動で、両TP・両checkpointについて、検査の写しで取りました（検査にはどちらの切り替えもありません）。1つは `ignore_eos` をfalseにしたもので、応答はclientのものと同じく手番の終わりで終わります。もう1つはさらに、countのタスクを「Write the numbers from 1 to 100, one per line, and nothing else.」にし、思考をなしにしたもの（検査のものの代わりに `chat_template_kwargs` `{"enable_thinking": false}`）です。どちらも `PROMPT_KIND=count`、各3回、検査のprompt、最大512 token、temperature 0で、rank 0のloopbackに送りました。速さと受理長は検査そのものの出力です。
 
 ## prefillとdecodeの速さ
 
