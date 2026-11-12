@@ -6,7 +6,7 @@ What this line's setup does beyond [upstream TensorFold's own recipe](https://gi
 
 ## XSFP4 and FP4-Local's formats as stored
 
-The engine loads NVIDIA's GLM-5.3-Flash-FP4-Local and XSFP4, its derivative, as stored, with the code of pull request #1050, upstream's own from 1.1.5 (upstream's releases before it took NVIDIA's NVFP4 recipe, `modelopt-nvfp4`, alone for GLM). From 3.12.0 the release files serve Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4, so nothing is set; the other one is one `CHECKPOINT` line in every rank file ([setup §2](../SETUP.md#2-checkout-and-checkpoint)), and its `csf0_v1` form needs this line's engine from 3.10.0. FP4-Local itself, which the tools do not download, or another folder is `CHECKPOINT` in every rank file, outside the acceptance ([checkpoints](../README.md#checkpoints)):
+The engine loads NVIDIA's GLM-5.3-Flash-FP4-Local and XSFP4, its derivative, as stored, with the code of pull request #1050, upstream's own from 1.1.5 (upstream's releases before it took NVIDIA's NVFP4 recipe, `modelopt-nvfp4`, alone for GLM). From 3.12.0 the release files serve Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4, so nothing is set; the other one is one `CHECKPOINT` line in every rank file ([setup §2](../SETUP.md#2-checkout-and-checkpoint)), and its `csf0_v1` form needs an engine with the `csf0_v1` kernels: this line's from 3.10.0, upstream's releases from 1.2.3. FP4-Local itself, which the tools do not download, or another folder is `CHECKPOINT` in every rank file, outside the acceptance ([checkpoints](../README.md#checkpoints)):
 
 ```sh
 CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-FP4-Local/snapshots/<revision>
