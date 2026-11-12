@@ -29,7 +29,7 @@ The engine returns no token ids: each row gives the hash of the completion text 
 | prose | `3b1a0be713e866f7` | `065a835f86734482` | `098fe1f21f591775` | `32a387104a712248` |
 | code | `4a2d744c5cc1fb10` | `c4dfca7b73492c81` | `d2768fdc1e974d89` | `9f6e8043c234c19d` |
 
-The hashes held in a second launch at each TP size and, for the count, in a launch at each TP size with `PARALLEL=` empty. TP=2 and TP=3 differ from each other by design (the ranks split the sums differently). Acceptance length: 3.276 / 1.796 / 2.971 at TP=2 and 3.413 / 2.024 / 3.078 at TP=3. `bench --kinds edit` returns the same reply at both TP sizes, `token_sha256` `c419bce559d86b66`, from 3.12.0's engine in 64 to 65 rounds at TP=2 and 63 at TP=3 (190 and 189 on 3.10.0's image); a different reply stops the acceptance.
+The hashes held in a second launch at each TP size and, for the count, in a launch at each TP size with `PARALLEL=` empty. TP=2 and TP=3 differ from each other by design (the ranks split the sums differently). Acceptance length: 4.080 / 1.826 / 3.399 at TP=2 and 4.197 / 2.040 / 3.650 at TP=3. `bench --kinds edit` returns the same reply at both TP sizes, `token_sha256` `c419bce559d86b66`, from 3.12.0's engine in 64 rounds at TP=2 and 63 at TP=3 (190 and 189 on 3.10.0's image); a different reply stops the acceptance.
 
 ## Drafted equals serial
 
