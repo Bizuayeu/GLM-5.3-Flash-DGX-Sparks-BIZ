@@ -113,7 +113,7 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env)・[`config/tp3.env
 | 要求が指定しないときの応答の上限 | 32,768 token（`--max-tokens`） | 同じ |
 | 要求が指定しないときの推論のeffort | `high`（`--reasoning-effort`） | 同じ |
 | NCCL | 各リンク2本のrail・4 channel・IBのtransportを明示、rankごとのファイルから。rank 0のアドレスとportを `NCCL_COMM_ID` に、rank 0のNCCLのidはrankどうしの生存の線で | 2本のrail・4 channel・IBのtransportを明示・subnet-aware routing。rank 0のアドレスとportを `NCCL_COMM_ID` に、rank 0のNCCLのidはrankどうしの生存の線で、他のrankのNCCLのbootstrapはそれぞれの `/32` のinterfaceで（`NCCL_SOCKET_IFNAME`） |
-| main streamの小さいall-gather | NCCL | エンジンのmultirank RoCE、wireをNCCLの隣で（`TF_GLM_ROCE_MULTI=1`）。準備に失敗すると起動が止まる |
+| main streamの小さいall-gather | エンジンの2 rankのRoCEの経路（rankあたり `TF_ROCE_MAX_KB` の4 MiBまで）、それを超えるものはNCCL（`TF_ROCE`、既定で有効。`TF_ROCE=0` ではNCCLのまま） | エンジンのmultirank RoCE、wireをNCCLの隣で（`TF_GLM_ROCE_MULTI=1`）。準備に失敗すると起動が止まる |
 | BF16のlinear | 上流のtiledのkernel（エンジンの既定） | 同じ：上流1.1.2から（issue #1067）、TP=3のrankのKDAの入力をtileせずに回す。3.1.0と3.2.0はglueのkernel（`TF_GLM_MM=0`）が要った |
 | 熱によるprefillの休止 | prompt chunkの前ごとに全rankそろって、どれかのrankのACPIの最も熱いzoneが92 °Cを超えている間、全rankが88 °C以下になるまで待つ（`TF_HEAT_HIGH`・`TF_HEAT_LOW`。3.0.0〜3.2.0は93 °Cの天井の手前でも待ったが、3.3.0のエンジンは天井を持たない） | 同じ |
 | 画像と動画の入力 | 有効（`VISION=1`、エンジンの `--vision`）：rank 0にcheckpointのvision tower、PNG・JPEG・WebPの画像と動画をdata URLで、エンジンの制限の中で（[制限](#制限)）。`VISION=0` でtextだけ、全rankで同じに | 同じ |
