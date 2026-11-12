@@ -67,7 +67,7 @@ TP=2とTP=4では大きいrankから起動し、rank 0を最後にします。TP
 - 各rankのNCCLの行（`via NET/IB`、rankのファイルの `NCCL_DEBUG` の行で起動時に一度だけ出る）：全接続が `NET/IB` で、socketは無い
 - `serving` の行：modelの名前（rankのファイルで `MODEL_NAME` を設定しなければ `glm-tf`）、`HOST` と `PORT` を設定しなければ `127.0.0.1:8095`、窓
 
-rank 0がloopbackでOpenAI互換のAPIを配信します。参照機では、3.9.0のリリースのimageは、新しいcontainerの最初の起動で、rank 0の `serving` の行にTP=2で `loaded in 102.0s`、TP=3で `91.8s` と出しました。最初の起動はcheckpoint全体を読んでdigestも取ります（165.7 GiBに約45秒、rank 0のlogに `checkpoint digest: … 0/39 cached files`）。同じcontainerの次からの起動はdigestをcacheから読み、TP=2で50.9〜51.7秒、TP=3で45.4〜45.9秒でした。`cluster.sh` はrank 0の `serving` の行の数秒後にREADYを出します。
+rank 0がloopbackでOpenAI互換のAPIを配信します。rank 0の `serving` の行が、起動にかかった秒を出します（`loaded in …`）。新しいcontainerの最初の起動はcheckpoint全体を読んでdigestも取り（rank 0のlogの `checkpoint digest:` の行で、cacheされたfileは0）、同じcontainerの次からの起動はdigestをcacheから読むので短くなります。リリースの起動の秒は[リリースでの測定値](README.ja.md#リリースでの測定値)にあります。`cluster.sh` はrank 0の `serving` の行の数秒後にREADYを出します。
 
 ## 6. tool引数ゲート（任意）
 

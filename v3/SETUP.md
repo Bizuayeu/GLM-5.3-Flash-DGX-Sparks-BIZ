@@ -67,7 +67,7 @@ Read each rank's startup lines:
 - each rank's NCCL lines (`via NET/IB`, logged once at start by the rank file's `NCCL_DEBUG` lines) name `NET/IB` for every connection, none over sockets
 - the `serving` line: the model name (`glm-tf` unless `MODEL_NAME` is set in the rank file), `127.0.0.1:8095` unless `HOST` and `PORT` are, and the window
 
-Rank 0 serves the OpenAI-compatible API on loopback. On the reference hosts 3.9.0's release image logged `loaded in 102.0s` at TP=2 and `91.8s` at TP=3 on rank 0's `serving` line in each new container's first start, which also reads the whole checkpoint for its digest (165.7 GiB in about 45 s, `checkpoint digest: … 0/39 cached files` in rank 0's log); later starts in the same container read the digest from its cache and logged 50.9 to 51.7 s at TP=2 and 45.4 to 45.9 s at TP=3. `cluster.sh` reports READY a few seconds after rank 0's `serving` line.
+Rank 0 serves the OpenAI-compatible API on loopback. Rank 0's `serving` line gives the seconds the start took (`loaded in …`). A new container's first start also reads the whole checkpoint for its digest (rank 0's `checkpoint digest:` line, with none of the files cached yet), and later starts in the same container read the digest from its cache, so they are shorter; the release's start times are in [measured on the release](README.md#measured-on-the-release). `cluster.sh` reports READY a few seconds after rank 0's `serving` line.
 
 ## 6. Tool-argument gate (optional)
 
