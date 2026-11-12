@@ -10,6 +10,4 @@ Releases follow tags, per line: bump the line's version, add its CHANGELOG secti
 
 Credentials (.env), generated state, local records, upstream checkouts and model weights are not tracked. Do not print keys or include raw private logs in commits. Keep hardware checks distinct from real-model inference results.
 
-Implementation plans live in docs/plans/ at the checkout root, untracked and excluded from publication; docs/plans/README.md indexes them and each plan's own leading status line owns its state. Add a line to that index when creating a plan, and update the status line rather than the body when closing one.
-
 This repository can be used independently. Resolve source/data paths relative to this repository or an explicit argument; do not depend on a parent workspace. Changes must preserve existing generation settings unless the task asks to change them.

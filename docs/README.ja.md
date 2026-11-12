@@ -53,4 +53,4 @@
 - 版数（`pyproject.toml`）とChangelogは系ごとに持つ。`vX.Y.Z` のタグをpushするとGitHub Releaseが公開される。`.github/workflows/release.yml` は `vN.*` のタグなら `vN/` を読み、その版の節（`python tools/release_notes.py X.Y.Z --match-project`）を本文にし、`pyproject.toml` と食い違うタグ、節の無い版、節の見出しにリリースの日付が無い版は拒否する。
 - `python tools/check_publication.py` はリポジトリ全体を監査する：リンクとアンカー、非公開のパスと秘匿の候補、系ごとの必須ファイルとlock、日本語の頁が英語の頁と同じ見出し・表の行・コードブロックを持つこと、ここの `docs/*.md` がすべて本書のリンク先であること（日本語の頁は日本語の本書）。
 - GitHubのリポジトリdescriptionとtopicsは、READMEの要約を略称つき・実測値と版数なしで言い直したもの。`tools/check_publication.py` の目が届かないので、要約を変えたら `gh repo edit` で揃える。
-- 非公開の実装計画は `docs/plans/` に置く。Git追跡外・公開対象外で、`docs/plans/README.md` がローカルの索引、状態は各計画の先頭の状態行が正典。生の記録は `records/<run-id>/`、サイト設定は `state/` に置き、どちらもGit追跡外。
+- 生の記録は `records/<run-id>/`、サイト設定は `state/` に置き、どちらもGit追跡外。
