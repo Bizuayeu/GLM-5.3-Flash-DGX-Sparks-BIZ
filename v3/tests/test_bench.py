@@ -201,6 +201,10 @@ class PromptTests(unittest.TestCase):
 
 
 class RowTests(unittest.TestCase):
+    def assertRow(self, row, expected):
+        """The row as printed: its keys, in this order, and their values."""
+        self.assertEqual(list(row.items()), list(expected.items()))
+
     def test_a_prefill_row(self):
         (row, summary) = run(["--kinds", "prefill", "--runs", "1"])
         self.assertEqual(
@@ -220,7 +224,7 @@ class RowTests(unittest.TestCase):
     def test_a_decode_row_times_from_the_first_streamed_token(self):
         # monotonic: 0 at the request, 1 at the first (reasoning) piece, 2 at the end.
         (row, summary) = run(["--kinds", "decode", "--runs", "1"])
-        self.assertEqual(
+        self.assertRow(
             row,
             {
                 "kind": "decode",
@@ -239,7 +243,7 @@ class RowTests(unittest.TestCase):
         sent = []
         (row, summary) = run(["--kinds", "edit", "--runs", "1"], sent=sent)
         self.assertEqual(sent, [bench.edit_body()])
-        self.assertEqual(
+        self.assertRow(
             row,
             {
                 "kind": "edit",
