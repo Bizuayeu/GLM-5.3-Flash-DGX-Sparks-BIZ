@@ -17,8 +17,9 @@ SCRIPT = LINE / "scripts" / "cluster.sh"
 # running) and dies.HOST (no engine); rank 0's log gets the serving line while serves exists. `exec C pkill` on
 # rank 0's host
 # ends every engine not named in stays, on another host its own. `exec C ps` and `inspect` fail as an unanswering
-# daemon does on fails.HOST, and on fails-running.HOST once its engine runs; on stopped.HOST and gone.HOST every
-# `exec` fails and `inspect` says the container is stopped or gone; ssh fails to connect to down.HOST. sleep appends
+# daemon does on fails.HOST, and on fails-running.HOST once its engine runs; on stopped.HOST, gone.HOST and
+# gone-lower.HOST every `exec` fails and `inspect` says the container is stopped or gone (gone-lower.HOST in the
+# lower case of docker 29.6.2 on the reference hosts); ssh fails to connect to down.HOST. sleep appends
 # its argument to sleeps.log, and the memory guard appends "HOST ARGUMENTS" to hostwatch.log.
 SSH = r"""#!/bin/bash
 while [ "${1:-}" = -o ]; do shift 2; done
@@ -33,6 +34,7 @@ d=$STUB_DIR
 if [ "$1" = inspect ]; then
   [ -e "$d/stopped.$STUB_HOST" ] && { echo false; exit 0; }
   [ -e "$d/gone.$STUB_HOST" ] && { echo "Error: No such object: $4" >&2; exit 1; }
+  [ -e "$d/gone-lower.$STUB_HOST" ] && { echo "error: no such object: $4" >&2; exit 1; }
   if [ -e "$d/fails.$STUB_HOST" ] || [ -e "$d/fails-running.$STUB_HOST" ]; then
     echo "Cannot connect to the Docker daemon at unix:///var/run/docker.sock." >&2
     exit 1
@@ -40,7 +42,8 @@ if [ "$1" = inspect ]; then
   echo true
   exit 0
 fi
-if [ "$1" = exec ] && { [ -e "$d/stopped.$STUB_HOST" ] || [ -e "$d/gone.$STUB_HOST" ]; }; then
+if [ "$1" = exec ] && { [ -e "$d/stopped.$STUB_HOST" ] || [ -e "$d/gone.$STUB_HOST" ] \
+  || [ -e "$d/gone-lower.$STUB_HOST" ]; }; then
   echo "Error response from daemon: container is not running" >&2
   exit 1
 fi
@@ -109,6 +112,7 @@ class ClusterTests(unittest.TestCase):
         down=(),
         stopped=(),
         gone=(),
+        gone_lower=(),
     ):
         """Runs ``cluster.sh CLUSTER_ENV ARGS`` against hosts h0 h1 … (rank order) and returns its exit code,
         output and errors, the ssh calls as (host, command), the sleeps, and the memory guard's starts as
@@ -142,6 +146,7 @@ class ClusterTests(unittest.TestCase):
                 ("down", down),
                 ("stopped", stopped),
                 ("gone", gone),
+                ("gone-lower", gone_lower),
             ):
                 for host in named:
                     (root / f"{prefix}.{host}").touch()
@@ -348,7 +353,7 @@ class ClusterTests(unittest.TestCase):
         )
 
     def test_a_stopped_or_gone_container_runs_no_engine(self):
-        for case in ({"stopped": ["h1"]}, {"gone": ["h1"]}):
+        for case in ({"stopped": ["h1"]}, {"gone": ["h1"]}, {"gone_lower": ["h1"]}):
             with self.subTest(**case):
                 run = self.cluster(2, "status", engines=["h0"], **case)
                 self.assertEqual(
