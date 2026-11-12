@@ -21,7 +21,19 @@ LOCKS = {"xsfp4": LOCK_PATH, "jammed": LINE / "config/jammed.lock.json"}
 CHECKPOINTS = tuple(LOCKS)
 TP_CHECKPOINTS = {2: "jammed", 3: "xsfp4", 4: "xsfp4"}
 CHECKPOINT_HELP = "xsfp4 (XSFP4, kept under state/xsfp4) or jammed (Jammed XSFP4, kept under state/jammed)"
-TP_HELP = "the checkpoint this TP serves by default: jammed at 2, xsfp4 at 3 and 4"
+
+
+def checkpoint_sizes(table):
+    """A TP-to-checkpoint table read the other way: each checkpoint at the TP sizes that serve it, in TP order."""
+    sizes = {}
+    for tp, name in sorted(table.items()):
+        sizes.setdefault(name, []).append(str(tp))
+    return ", ".join(f"{name} at {' and '.join(tps)}" for name, tps in sizes.items())
+
+
+TP_HELP = (
+    f"the checkpoint this TP serves by default: {checkpoint_sizes(TP_CHECKPOINTS)}"
+)
 
 
 def load_lock(path):

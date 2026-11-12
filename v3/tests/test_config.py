@@ -82,6 +82,15 @@ class CheckpointTests(unittest.TestCase):
                     " ".join(out.getvalue().split()),
                 )
 
+    def test_the_tp_help_names_each_checkpoint_at_its_tp_sizes(self):
+        self.assertEqual(
+            config.TP_HELP,
+            "the checkpoint this TP serves by default: jammed at 2, xsfp4 at 3 and 4",
+        )
+        self.assertEqual(
+            config.checkpoint_sizes({2: "a", 3: "b", 4: "a"}), "a at 2 and 4, b at 3"
+        )
+
     def test_an_unknown_checkpoint_is_refused(self):
         with self.assertRaisesRegex(ValueError, "unknown checkpoint"):
             config.checkpoint("other", Path("state"))
