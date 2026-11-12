@@ -52,7 +52,7 @@
 - `NCCL_COMM_ID`・`TF_GLM_RANK`・`TF_GLM_WORLD` を、引数とrankのファイルから。
 - 窓・effort・stream・vision tower・checkpoint・wireの設定を、上のとおりリリースのファイルとrankのファイルから。2・3・4以外のTP、その外のrank、`CHECKPOINT` の無いリリースのファイル、ホストに無いcheckpointのfolderは、エンジンが起動する前に `serve.sh` を止めます。
 
-`TP RANK RANK_ENV` の後の引数（`cluster.sh` からはlabelの後）はこれらの後ろに付くので、もう一度与えた値のflagは後の値になり（`CONTEXT` より `--context 131072`）、`--api-key` と `--alias` は一覧に加わります。`cluster.sh` はそれらをSSHと `bash -c` にquoteせずに渡します：空白やquoteを含む引数は、そのままでは届きません。
+`TP RANK RANK_ENV` の後の引数（`cluster.sh` からはlabelの後）はこれらの後ろに付くので、もう一度与えた値のflagは後の値になり（`CONTEXT` より `--context 131072`）、`--api-key` と `--alias` は一覧に加わります。`cluster.sh` はそれらを一つずつSSHと `bash -c` に向けてquoteするので、空白やquoteを含む引数も一つのまま届きます。
 
 ## エンジンのflag
 

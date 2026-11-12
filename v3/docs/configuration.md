@@ -52,7 +52,7 @@ The example files hold the reference hosts' values, with the lines that change a
 - `NCCL_COMM_ID`, `TF_GLM_RANK` and `TF_GLM_WORLD`, from its arguments and the rank file.
 - The window, the effort, the streams, the vision tower, the checkpoint and the wire's settings from the release's file and the rank file, as above. A TP other than 2, 3 or 4, a rank outside it, a release file without `CHECKPOINT` or a checkpoint folder the host lacks stops `serve.sh` before the engine starts.
 
-Arguments after `TP RANK RANK_ENV` (after the label, through `cluster.sh`) follow these, so a value flag given again takes the later value (`--context 131072` over `CONTEXT`), and `--api-key` and `--alias` add to their lists. `cluster.sh` passes them through SSH and `bash -c` unquoted: an argument with a space or a quote does not arrive whole.
+Arguments after `TP RANK RANK_ENV` (after the label, through `cluster.sh`) follow these, so a value flag given again takes the later value (`--context 131072` over `CONTEXT`), and `--api-key` and `--alias` add to their lists. `cluster.sh` quotes each one for SSH and `bash -c`, so an argument with a space or a quote arrives whole.
 
 ## Engine flags
 
