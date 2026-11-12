@@ -47,15 +47,15 @@ hashは各TPの2回目の起動でも保たれ、countは、各TPで `PARALLEL=`
 
 ## teacher-forced NLL
 
-[`config/nll_set.json`](../config/nll_set.json) のNLL採点セット（1.x系・2.x系のもののbyte単位の写し）：4領域（日本語・英語・コード・数学）に各4本、領域ごとに5,851〜6,830 token。`/v1/completions` の `prompt_logprobs` で採点します。tokenizerはcheckpoint自身のもの（下のXSFP4のもの）を使います：
+[`config/nll_set.json`](../config/nll_set.json) のNLL採点セット（1.x系・2.x系のもののbyte単位の写し）：4領域（日本語・英語・コード・数学）に各4本、領域ごとに5,851〜6,830 token。`/v1/completions` の `prompt_logprobs` で採点します。tokenizerは配信しているcheckpointのものです。XSFP4・Jammed XSFP4・NVIDIAのNVFP4の `tokenizer.json` はbyteまで同じで、セットはそれをSHA-256で名指し、`score-nll` は別のものを断ります。`tokenizers` のあるcontainerの中では、cacheは `/hub` にあります：
 
 ```sh
-python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
-  --tokenizer ~/.cache/huggingface/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/88736f916f8939607fde8a4b881dcae749f7551d/tokenizer.json \
+python3 -m glm53_tf score-nll --url http://127.0.0.1:8095 \
+  --tokenizer /hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<config/xsfp4.lock.jsonのrevision>/tokenizer.json \
   --out ../records/<run>/nll.json
 ```
 
-実行する環境に `tokenizers` packageが要ります。各本文を2回採点し、全要求が答えればpassです。各本文の2回の差の最大は `self-agreement` の行に出ます。
+既定のものだけを取ったTP=2のhostでは、Jammed XSFP4のもの（`/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<config/jammed.lock.jsonのrevision>/tokenizer.json`）を使います。実行する環境に `tokenizers` packageが要ります。各本文を2回採点し、全要求が答えればpassです。各本文の2回の差の最大は `self-agreement` の行に出ます。
 
 | 領域（位置数） | TP=2 | TP=3 | 2.x TP=2（参考） | 2.x TP=3（参考） |
 |---|---|---|---|---|

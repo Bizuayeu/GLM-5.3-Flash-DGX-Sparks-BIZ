@@ -47,15 +47,15 @@ Upstream's own served checks of these inputs, `tools/zig/vision_served.py` and `
 
 ## Teacher-forced NLL
 
-The NLL set of [`config/nll_set.json`](../config/nll_set.json), a byte copy of 1.x's and 2.x's: four domains (Japanese, English, code, math) of four texts each, 5,851-6,830 tokens per domain, scored through `prompt_logprobs` on `/v1/completions`. The tokenizer must be the checkpoint's own (XSFP4's, below):
+The NLL set of [`config/nll_set.json`](../config/nll_set.json), a byte copy of 1.x's and 2.x's: four domains (Japanese, English, code, math) of four texts each, 5,851-6,830 tokens per domain, scored through `prompt_logprobs` on `/v1/completions`. The tokenizer is the served checkpoint's: XSFP4's, Jammed XSFP4's and NVIDIA's NVFP4's `tokenizer.json` are the same bytes, which the set names by SHA-256, and `score-nll` refuses another. In the container, which has `tokenizers`, the cache is at `/hub`:
 
 ```sh
-python -m glm53_tf score-nll --url http://127.0.0.1:8095 \
-  --tokenizer ~/.cache/huggingface/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/88736f916f8939607fde8a4b881dcae749f7551d/tokenizer.json \
+python3 -m glm53_tf score-nll --url http://127.0.0.1:8095 \
+  --tokenizer /hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<the revision in config/xsfp4.lock.json>/tokenizer.json \
   --out ../records/<run>/nll.json
 ```
 
-Needs the `tokenizers` package where it runs. Each text is scored twice; the run passes when every request answered, and its `self-agreement` line gives the largest move between the two scores of a text.
+A TP=2 host that fetched only its default takes Jammed XSFP4's, `/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<the revision in config/jammed.lock.json>/tokenizer.json`. Needs the `tokenizers` package where it runs. Each text is scored twice; the run passes when every request answered, and its `self-agreement` line gives the largest move between the two scores of a text.
 
 | Domain (positions) | TP=2 | TP=3 | 2.x TP=2 (information) | 2.x TP=3 (information) |
 |---|---|---|---|---|
