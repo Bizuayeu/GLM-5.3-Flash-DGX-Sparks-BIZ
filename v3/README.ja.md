@@ -119,7 +119,7 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env)・[`config/tp3.env
 | 画像と動画の入力 | 有効（`VISION=1`、エンジンの `--vision`）：rank 0にcheckpointのvision tower、PNG・JPEG・WebPの画像と動画をdata URLで、エンジンの制限の中で（[制限](#制限)）。`VISION=0` でtextだけ、全rankで同じに | 同じ |
 | containerのcore | 最大周波数の最も低いcore：GB10の効率core、0-4と10-14（`create_container.sh`、`CPUSET`） | 同じ |
 
-**TP=4（試験的）。** 3.12.0から、4台がswitchなしのリングでTP=4で配信します。[`config/tp4.env`](config/tp4.env) はTP=3の値でwireを切り、システムに14 GiBを残します。2026-11-07から上流のmainで参照機の4台のリングを配信した設定で、どれも4台では詰めていません。このリングではwireは上流の試験的なrelay（#2352）を通ります。上流でもopt-inで、ここでは既定として測っていません。参照機のリングでは、#2352の最後のheadで、1本のdecodeがNCCLより2〜3%速く、4本とcoldのpromptは同じ速さでした。[example](examples/tp4-rank0.env)はリングのNCCLの行と `TF_GLM_PREFILL_REDUCE=gather` を足します：エンジンの `split` は各rankの行を他の全rankへ送るので、隣にしか届かないrankがあるリングを起動時に断ります。
+**TP=4（試験的）。** 3.12.0から、4台がswitchなしのリングでTP=4で配信します。[`config/tp4.env`](config/tp4.env) はTP=3の値でwireを切り、システムに14 GiBを残します。2026-11-07から上流のmainで参照機の4台のリングを配信した設定で、どれも4台では詰めていません。このリングではwireは上流の試験的なrelay（#2352）を通ります。上流でもopt-inで、ここでは既定として測っていません。参照機のリングでは、#2352の最後のheadで、1本のdecodeがNCCLより2〜3%速く、4本とcoldのpromptは同じ速さでした。[example](examples/tp4-rank0.env)はリングのNCCLの行と `TF_GLM_PREFILL_REDUCE=gather` を足します：エンジンの `split` は各rankの行を他の全rankへ送るので、4台のリングでは起動しません：peer warm-upがNCCLの `ncclGroupEnd: unhandled system error` で止まり、届かない組を名指すsplitの確かめまで進みません。
 
 **TP=2で4本、TP=3で8本にする理由。** 1本のstreamでは要求は前の返答の終わりを待ちます。3.8.xまでのTP=2では2本目のstreamが自分の窓を取り、短い窓にしか余地がありませんでした。KVのpageではstreamは使う分を一つのpoolから取るので、窓は本数によらずどの起動でも同じです。TP=2の4本は、agentが長い会話の横で送る短い要求のためのものです：32K tokenのpromptに6〜8秒で来た要求は1.20秒で最初のtokenを返しました。1本ならpromptと返答の全体を待ちます。TP=3の8本は複数の人のためのもので、4本の1本が終わるのを5本目が待たないようにします：別々の8つのpromptを一緒に送ると全部が1.65秒以内に始まり、合計は94.23 tok/s（4本では75.00）でした。同時の返答は同じ要求の単独の返答と同じです（[同時の要求](docs/validation.ja.md#同時の要求)）。
 

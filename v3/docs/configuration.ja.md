@@ -100,7 +100,7 @@ labelの後に付けられるflagと、エンジンの既定です。「比べ�
 |---|---|---|
 | `TF_HEAT_HIGH`・`TF_HEAT_LOW` | 無し：待たない（`serve.sh` は `92` と `88` を設定） | prefillの熱の待ち：prompt chunkの前ごとに、どれかのrankの最も熱いzoneが高い方の値を超えている間、全rankが2秒ずつ休み、全てが低い方の値以下になるまで待つ。両方か無しか、低い方は高い方以下 |
 | `TF_GLM_MM` | `1` | `0` はBF16のlinearをtiledのkernelではなくエンジンのglueのkernelで回し、別のtokenを返す（[検証](validation.ja.md)）。3.1.0と3.2.0のTP=3で受け入れ済み |
-| `TF_GLM_PREFILL_REDUCE` | `split` | prompt chunkの行の交換の仕方：`split` は各rankの行を他の全rankへ送り、起動時に全てのrankの組が交換できることを確かめる。`ring` はリングに沿って隣へ渡す（隣にしか届かないrankがあるfabric向け）。`gather` は全rankの部分和をall-gatherし、全rankが全ての行をglueする。switchの無い4台のリングは `split` の確かめに断られるので、TP=4のexampleがこれを名指す |
+| `TF_GLM_PREFILL_REDUCE` | `split` | prompt chunkの行の交換の仕方：`split` は各rankの行を他の全rankへ送り、起動時に全てのrankの組が交換できることを確かめる。`ring` はリングに沿って隣へ渡す（隣にしか届かないrankがあるfabric向け）。`gather` は全rankの部分和をall-gatherし、全rankが全ての行をglueする。4台のリングでは、peer warm-upがNCCLで止まり、届かない組を名指す `split` の確かめまで進まないので、TP=4のexampleがこれを名指す |
 | `TF_GLM_OVERLAP_PIECES` | `3` | 1〜8：prompt chunkの交換を、この数の行の片に分ける |
 | `TF_GLM_PROMPT_PAIR` | `1` | `0` は対のstepを切る：decodeするstreamが無い間、promptの1 stepが2つのchunkを取り、それぞれの交換をもう一方の計算の下で回す。soloのpass（`TF_GLM_CHUNK_SOLO=4096`）がこれに代わる。ほかの値は、空も含めて起動を止める（`serve.sh`） |
 | `TF_GLM_KDA_DECODE_WIDE` | `1` | `0` はdecodeの窓をKDAの3つのkernelの鎖なしで回す |
