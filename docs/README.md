@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-Every document has one role; other documents link to it instead of repeating its content. Every user-facing page comes as an English/Japanese pair (`name.md` / `name.ja.md`); only the agent instructions, the license/notice texts and 1.x's overlay manifest (a provenance record whose hashes have one owner) are English-only by design. Each line's changelog is a pair too: the English file is canonical and the GitHub Release is made from it. Update both when user-visible instructions change ([Contributing](../CONTRIBUTING.md)).
+Every document has one role; other documents link to it instead of repeating its content. Every user-facing page comes as an English/Japanese pair (`name.md` / `name.ja.md`); only the agent instructions, the license/notice texts and 1.x's overlay manifest (a provenance record whose hashes have one owner) are English-only by design. Each line's changelog is a pair too: the English file is canonical and the GitHub Release is made from it. Update both when user-visible content changes ([Contributing](../CONTRIBUTING.md)).
 
 This map lists the repository's own pages, the pages every serving line shares and the 2.x and 3.x pages. The 1.x pages are listed by [1.x's document map](../v1/docs/README.md), with the owner of each 1.x fact.
 
