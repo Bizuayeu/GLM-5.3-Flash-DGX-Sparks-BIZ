@@ -344,38 +344,33 @@ def streamed(body):
     return start_epoch, start, first, time.monotonic(), usage, block, finish
 
 
-def decode(_args):
-    start_epoch, start, first, end, usage, block, finish = streamed(decode_body())
+def stream_row(kind, body, fields, prompt=False):
+    """A streamed request's row: its kind, the prompt's tokens and cached tokens when prompt is set, the
+    reply's tokens, finish and timings, and the engine fields named in fields."""
+    start_epoch, start, first, end, usage, block, finish = streamed(body)
     tokens = usage["completion_tokens"]
+    row = {"kind": kind}
+    if prompt:
+        row.update(prompt_tokens=usage["prompt_tokens"], cached=client.cached(usage))
     return {
-        "kind": "decode",
+        **row,
         "completion_tokens": tokens,
         "finish_reason": finish,
         "ttft": round(first - start, 3),
         "seconds_after_first": round(end - first, 3),
         "tok_per_s": round((tokens - 1) / (end - first), 2),
-        "tensorfold": kept(block, DECODE_KEPT),
+        "tensorfold": kept(block, fields),
         "start_epoch": round(start_epoch, 1),
         "end_epoch": round(time.time(), 1),
     }
+
+
+def decode(_args):
+    return stream_row("decode", decode_body(), DECODE_KEPT)
 
 
 def edit(_args):
-    start_epoch, start, first, end, usage, block, finish = streamed(edit_body())
-    tokens = usage["completion_tokens"]
-    return {
-        "kind": "edit",
-        "prompt_tokens": usage["prompt_tokens"],
-        "cached": client.cached(usage),
-        "completion_tokens": tokens,
-        "finish_reason": finish,
-        "ttft": round(first - start, 3),
-        "seconds_after_first": round(end - first, 3),
-        "tok_per_s": round((tokens - 1) / (end - first), 2),
-        "tensorfold": kept(block, EDIT_KEPT),
-        "start_epoch": round(start_epoch, 1),
-        "end_epoch": round(time.time(), 1),
-    }
+    return stream_row("edit", edit_body(), EDIT_KEPT, prompt=True)
 
 
 # Each kind's run takes the parsed arguments; only the prefill reads one (--lines).
