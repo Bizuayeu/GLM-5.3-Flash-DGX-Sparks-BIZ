@@ -57,7 +57,7 @@ TF_KV_SHARE=8
 
 ## textだけ
 
-`VISION=0` はvision towerを読み込まず、rank 0のそのメモリはprompt cacheに回ります。`1`・`0` 以外の値は、空の `VISION=` も含めて起動を止めます（[設定](configuration.ja.md#rankのファイル)）。towerを読み込まないときは、画像や動画のpartのある要求は400で断られます：
+`VISION=0` はvision towerを読み込まず、rank 0のそのメモリは、他のrankの空きが許す分だけKVのpoolに回ります。先に窓が丸ごと、残りがprompt cacheです（[TP=3で16 GiBにする理由](../README.ja.md#配信の既定)）。`1`・`0` 以外の値は、空の `VISION=` も含めて起動を止めます（[設定](configuration.ja.md#rankのファイル)）。towerを読み込まないときは、画像や動画のpartのある要求は400で断られます：
 
 ```sh
 VISION=0

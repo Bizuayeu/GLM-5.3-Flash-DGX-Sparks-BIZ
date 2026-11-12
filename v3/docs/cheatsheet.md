@@ -57,7 +57,7 @@ TF_KV_SHARE=8
 
 ## Text alone
 
-`VISION=0` leaves the vision tower out, and its memory on rank 0 goes to the prompt cache; a value other than `1` and `0`, an empty `VISION=` included, stops the start ([configuration](configuration.md#rank-file)). With the tower out, a request with an image or a video part is refused with 400:
+`VISION=0` leaves the vision tower out, and its memory on rank 0 goes to the KV pool as far as the other ranks' room allows, whole windows first and then the prompt cache ([why 16 GiB at TP=3](../README.md#serving-defaults)); a value other than `1` and `0`, an empty `VISION=` included, stops the start ([configuration](configuration.md#rank-file)). With the tower out, a request with an image or a video part is refused with 400:
 
 ```sh
 VISION=0
