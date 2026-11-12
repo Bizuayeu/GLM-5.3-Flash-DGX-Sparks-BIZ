@@ -168,6 +168,32 @@ class PromptTests(unittest.TestCase):
                         self.assertEqual(n, count(build(lines)))
                         self.assertGreater(n, 0.99 * target)
 
+    def test_a_target_below_the_prompt_without_ledger_lines_is_refused(self):
+        calls = []
+
+        def count(messages):
+            calls.append(messages)
+            if len(calls) > 50:
+                raise AssertionError("fit kept tokenizing")
+            return 500 + len(ledger(messages))
+
+        for build in (long_input.one_messages, long_input.three_messages):
+            with self.subTest(build=build):
+                calls.clear()
+                err = io.StringIO()
+                with (
+                    self.assertRaises(SystemExit) as stop,
+                    contextlib.redirect_stderr(err),
+                ):
+                    long_input.fit(100, build, count)
+                self.assertEqual(stop.exception.code, 2)
+                # the prompt without ledger lines: 500 and one a row (its passphrase lines)
+                bare = 500 + len(ledger(build(0)))
+                self.assertIn(
+                    f"--tokens 100 is below the prompt without ledger lines ({bare} tokens)",
+                    err.getvalue(),
+                )
+
 
 class CorrectnessTests(unittest.TestCase):
     def test_correct_only_when_every_passphrase_is_in_the_reply(self):

@@ -11,7 +11,7 @@ can; a fresh server gives a cold one). Correct when the reply contains every pas
 the time to the first streamed token (`ttft`, streamed only), the request's time at the client, the prompt
 and cached tokens, the reply's `tensorfold` fields prefill_seconds, time_to_first_token and token_sha256,
 and the start and end epochs. The prompt's heat waits are in rank 0's log (`heat_wait_s` lines), not in
-the reply. Exit 0 when correct, 1 when not.
+the reply. Exit 0 when correct, 1 when not, 2 when --tokens is below the prompt without ledger lines.
 
     python -m glm53_tf long-input --passphrases 1 --lines 8806          (199,652 tokens, 1.x's text)
     python -m glm53_tf long-input --passphrases 3 --tokens 500000 --out ../records/<run>/long.jsonl
@@ -24,6 +24,7 @@ release's figures, copied: one passphrase is 1.x's text, three are 1.x's TP=3 wi
 import argparse
 import json
 import os
+import sys
 import time
 
 from . import client
@@ -80,12 +81,19 @@ def tokenize(messages):
 
 def fit(target, build, count):
     """The line count whose prompt is at most `target` tokens, and its tokens: estimated
-    from 2,000 lines, then lowered until the count fits."""
+    from 2,000 lines, then lowered until the count fits. A target that even the prompt
+    without ledger lines exceeds is refused (exit 2)."""
     per = count(build(2000)) / 2000
-    lines = int(target / per)
+    lines = max(0, int(target / per))
     n = count(build(lines))
     while n > target:
-        lines -= max(1, int((n - target) / per) + 1)
+        if lines == 0:
+            print(
+                f"long-input: --tokens {target} is below the prompt without ledger lines ({n} tokens)",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        lines = max(0, lines - max(1, int((n - target) / per) + 1))
         n = count(build(lines))
     return lines, n
 
