@@ -20,7 +20,7 @@ This map lists the repository's own pages, the pages every serving line shares a
 
 | Document | Role | EN | JA |
 |---|---|---|---|
-| Host preparation | The kernel and driver to run, the multi-node RoCE failure and its workaround, the GPU clock cap, swap, host daemons and a lost peer | [EN](hosts.md) | [JA](hosts.ja.md) |
+| Host preparation | The kernel and driver to run, the multi-node RoCE failure and its workaround, updating a host, the GPU clock cap, swap, host daemons and a lost peer | [EN](hosts.md) | [JA](hosts.ja.md) |
 | Host tools | GPU clock cap unit, telemetry logger, cool-gate and thermal-watch | [EN](../host/README.md) | [JA](../host/README.ja.md) |
 | QSFP network | Direct QSFP connection for the pair and the three-host ring, persistent NetworkManager profiles, per-host /32 addresses | [EN](qsfp-network.md) | [JA](qsfp-network.ja.md) |
 | NCCL diagnostics | Two- and three-rank collective diagnostic, a moving GID index, channel count, limits | [EN](nccl-validation.md) | [JA](nccl-validation.ja.md) |
@@ -50,7 +50,7 @@ This map lists the repository's own pages, the pages every serving line shares a
 
 ## Conventions
 
-- Each line owns its version (`pyproject.toml`) and its changelog. Pushing a `vX.Y.Z` tag publishes the GitHub Release: `.github/workflows/release.yml` reads `vN/` for a `vN.*` tag, takes that version's section (`python tools/release_notes.py X.Y.Z`) and refuses a tag that disagrees with `pyproject.toml`, has no section or whose section heading has no release date.
+- Each line owns its version (`pyproject.toml`) and its changelog. Pushing a `vX.Y.Z` tag publishes the GitHub Release: `.github/workflows/release.yml` reads `vN/` for a `vN.*` tag, takes that version's section (`python tools/release_notes.py X.Y.Z --match-project`) and refuses a tag that disagrees with `pyproject.toml`, has no section or whose section heading has no release date.
 - `python tools/check_publication.py` audits the whole repository: links and anchors, private paths and sensitive text, each line's required files and locks, that each Japanese page has its English page's headings, table rows and code blocks, and that every `docs/*.md` here is a link target of this map (Japanese pages of the Japanese map).
 - The GitHub repository description and topics restate the README summary with the short name and without any measured number or version, because `tools/check_publication.py` cannot see them; when the summary changes, edit them with `gh repo edit`.
 - Private implementation plans live in `docs/plans/`, untracked and excluded from publication; `docs/plans/README.md` indexes them locally and each plan's own leading status line owns its state. Raw records stay in `records/<run-id>/` and site configuration in `state/`, both untracked.
