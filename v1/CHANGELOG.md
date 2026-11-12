@@ -2,6 +2,14 @@
 
 [日本語](CHANGELOG.ja.md) (this English file is canonical and the GitHub Release is made from it)
 
+## 1.31.5 — 2026-11-13
+
+### Documentation
+
+- The 1.x [document map](docs/README.md) drops its row on the maintainer's private plans, as the root's document map does in 3.13.0.
+
+No file of the reference image changes; it stays 1.31.0's.
+
 ## 1.31.4 — 2026-11-12
 
 ### Documentation

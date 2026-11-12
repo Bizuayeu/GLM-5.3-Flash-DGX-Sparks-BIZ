@@ -6,6 +6,42 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.13.0 — 2026-11-13
+
+imageの外の道具とその試験と文書の版です。imageのファイルは変わらず、3.12.0のままです（`glm53-tf3:3.12.0`、`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）。
+
+### Fixes
+
+- `cluster.sh` は、数えられなかった数をエンジン無しと読みません。ホストへのSSHかそのDockerが失敗したとき、`start` はどのrankも起動する前に止まり（`rank R HOST: its engines cannot be counted (ssh or docker failed)`、exit 1）、`status` と `stop` はそのホストのエンジンの数を `?` と出します。止まったcontainerは、メモリの見張りと同じくエンジンを動かしていないと数え、無いcontainerも同じです。Dockerは無いcontainerを「No such object」か「No such container」と言い、docker 29.6.2は小文字で言います。daemonに届かないDocker（「… no such file or directory」）は失敗と読みます。3.12.xまでは、Dockerの失敗をエンジン無しと、SSHの失敗をエンジンがもう動いていると読んでいました。
+- メモリの見張り（`hostwatch.sh`）は、参照機のdocker 29.6.2のように、containerが無いと小文字で言われたときも終わり、Dockerがdaemonに届かないときは見張りを続けます。3.12.xまでは、そうしたDockerの上で見張りの間にcontainerを消すと、見張りはkillされるまで続きました。
+- `cluster.sh` は、labelの後のserveの引数を、空白やquoteを含むものも一つずつそのまま `serve.sh` に渡します（[エンジンのflag](docs/configuration.ja.md#エンジンのflag)）。3.12.xまでは、SSHと `bash -c` にquoteせずに渡したので、そうした引数は一つのまま届きませんでした。
+- `long-input` は、`--tokens` が台帳の行の無いpromptより小さいとき、そのpromptの大きさを示してexit 2で止まります。3.12.xまでは、台帳の長さを終わりなく探していました。
+- `decode-check` と `bench` は、streamの返答に文かusageが無いとき、どちらが無いかを示してexit 1で止まります。`decode-check` は、`PROMPT_KIND` が `count`・`prose`・`code` のどれでもないとき、その3つを挙げてexit 2で止まります。3.12.xまでは、どれもPythonのtracebackで終わっていました。
+
+### Documentation
+
+- [手順書](SETUP.ja.md)の最初の段は、1.x系か2.x系のserverと2.x系のcontainerを先に止めます（全ホストで `docker stop glm53-tf`）。そのcontainerが全GPUを取るからです。4台のringのaddressは[TP=4のexamples](examples/tp4-rank0.env)を指します。runtimeのimageの一覧は、`serve.sh` のほかに `tokenizers` 入りの `python3`、TPの大きさごとの既定、wireのkernelを挙げます。前は `serve.sh` だけを挙げていました。
+- 手順書は、Hugging Faceのcacheの写しを受け取ったホストが、同じ `--tp` で `download` を一度回してから `verify-download` することと、`docker stop glm53-tf3` の後は次の `cluster.sh start` の前にcontainerを起こし直すことを書きます。起動の秒数が何を含むかを書き、リリースの起動の時間は[リリースでの測定値](README.ja.md#リリースでの測定値)に任せます。前は3.9.0の数を挙げていました。TC-67とTC-69の既知の振る舞いは[3.10.0の測定値](docs/measurements.ja.md#3100)へつなぎます。4台のホストのTP=2の組は、もう「まだ」と書きません。
+- [README](README.ja.md)の配信の既定は、TP=2で主streamの小さなall-gatherが、rankあたり `TF_ROCE_MAX_KB`（4 MiB）まではengineの2 rankのRoCEの道を、それを超えるとNCCLを通ると書きます。前はNCCLと書いていました。READMEと[設定](docs/configuration.ja.md)は、4台のringでは、split自身の確かめがその組を名指す前にNCCLがpeerのwarm-upで失敗するので、`split` は起動しないと書きます。前は、splitの確かめが断ると書いていました。[2.x系との違い](README.ja.md#2x系との違い)はTP=4を他の大きさと一緒に数え、回り続けるcoreの限りの文は要点を述べて数へつなぎ、上流のrunbookへのlinkはengineの版の1.2.7を名指します。前は1.2.4でした。
+- [運用](docs/operations.ja.md)は、一つのrankが止まると、他のrankもliveness lineがホストの不在に気づいて約20秒のうちに止まると書きます。前は、2.x系と同じく集団通信で待つと書いていました。節は[一つのrankが止まったとき](docs/operations.ja.md#一つのrankが止まったとき)になり、[ホストの道具のREADME](../host/README.ja.md)もそこへつなぎます。TPの大きさの既定のcheckpointを替えるimageへ移るときの段を、独りの段にしました。起動の結果に、どのrankも起動する前の `cluster.sh` の断りを挙げます。数えられない時の断りもその一つで、`stop` の最後の行の `?` と0の意味も書きます。
+- [設定](docs/configuration.ja.md)は、3.xのdeploymentが設定するものと、この系が名指すか測ったengineの設定を挙げると書き、engineはもっと読み、それは固定したcommitのsourceにあると書きます。前は、deploymentが読む全ての設定と書いていました。`cluster.sh` がserveの引数を一つずつquoteすると書きます。前は、quoteせずに渡すと書いていました。
+- [cheatsheet](docs/cheatsheet.ja.md)は、`csf0_v1` を読むengine（3.10.0からのこの系のものと、1.2.3からの上流のリリース）と、3.11.0からのtool引数ゲートが、`--parallel-tool-calls client` でなければ1ターンに1つのtool呼び出しもengineに頼むことを書きます。`VISION=0` で空くrank 0のメモリは、他のrankの余地の許す限りKVのpoolに入り、その後でprompt cacheに入ると書きます。前はprompt cacheと書いていました。100万tokenのpromptの最初のtokenは分で示し、秒はREADMEに任せます。TP=2の組は、どれが配信したかを手順書へつなぎます。`score-nll` の行は、検証の頁と同じくcontainerの中で回します。
+- [判断](docs/decisions.ja.md)は、大きさで分かれる設定を数える代わりに配信の既定の表を指し、[ベンチマークの方法](docs/benchmarks.ja.md)は、ホストと既定にTP=4の4台のringを挙げます。
+- READMEの[免責事項](README.ja.md#免責事項)は、上流が取り込んだpull requestの一覧を[判断](docs/decisions.ja.md#エンジン)に任せます。判断の行は全部を、上流のCHANGELOGがそれを挙げるリリースごとに持ちます。前は2つの一覧が食い違っていました。
+- [検証](docs/validation.ja.md)は、基準値ごとに出所を示します。3.12.0の受け入れの受理長とTP=2でのXSFP4の編集の返答の64回、TP=2は3.9.0のimageから・TP=3は3.9.0の答えを一字一句同じに出した3.12.0のimageからの多バイトの答え、toolsの数ごとのtool-eval-benchの版、3.12.0からのTP=3のtoolsの数（3.11.0のgateの前のgateを通して93、3.9.0では92。gateなしで91）、XSFP4の節のTP=2のdecode検査と `bench` は3.12.0から、balancedなidle poolの行の数は1つのリリースのものだけ、です。TP=4の基準値はこの頁に無いと書き、`score-nll` の例は、`tokenizers` のあるcontainerの中で、cacheを `/hub`、revisionをlockから取って回します。前はhostで固定のsnapshotを使っていました。頁の冒頭は、それぞれがどの受け入れのものかをXSFP4の節へつなぎ、その節が上流の版を挙げます。メモリと温度の基準値は、1M tokenのpromptの間のものはrank 0の最も熱いzoneだと、両TPについて書きます。
+- [文書の地図](../docs/README.ja.md)は、[Contributing](../CONTRIBUTING.ja.md)のとおり、利用者に見える内容を変えるときに英日の対を両方更新すると書きます。前は手順と書いていました。文書の地図と[AGENTS.md](../AGENTS.md)は、保守する人が非公開の計画をどう持つかを、もう書きません。
+
+### Repository
+
+- 道具は、要求の送りと、streamの返答とcacheされたtokenの読みを、1つのmodule `glm53_tf/client.py` で行います。`bench` はdecodeとeditの行を1か所で組み、`verify-download` のmainは段ごとに読め、`download` はstateのfolderのlockを1か所で取り、tool引数ゲートの要求のhandlerはmoduleの階のclassになり、`--tp` のhelpはTPとcheckpointの表から組みます。この組み替えで、出す物と送る物は変わりません。
+- `verify-download` は、downloadの状態を、platformの符号化でなく、`download` が書くとおりUTF-8で読みます。
+- 試験は、`ssh` と `docker` の代役に対して `cluster.sh` を回し、tool引数ゲートの `main()` と、`serve.sh` の名・address・返答の上限・追加の引数を回します。`bench` の行の試験は行のkeyの順を、tool引数ゲートのstreamの試験はstreamごとの記録を確かめます。道具の試験は返答の代役を1つのmoduleで共有し、`serve.sh` の文字の試験は回す試験の隣に置き、TPの大きさは `config.TP_CHECKPOINTS` から取ります。
+- hostの道具の仮の値の注釈は、`cc-defer` の印を外し、言っていることは残します。
+
+### Accepted
+
+2026-11-13に2台の参照機で、TP=2のJammed XSFP4を3.12.0のimage（`glm53-tf3:3x-54ccb94`、`glm53-tf3:3.12.0` と同じimage）とexamplesのrankのファイルで起こし、このリリースの `cluster.sh` の小文字を読む前の形で、`status`、空白入りのserveの引数を1つ付けた `start`（`--alias "GLM e15 check"`）、`stop` を回しました。引数は一つのまま届き、エンジンは `GLM e15 check` を1つのmodelのidとして挙げました。`status` は、containerが動いてエンジンが無いときに0、配信中はrankごとに1、`stop` の後と `docker stop` の後は0と数えました。`stop` は各ホストの `MemAvailable` を出し、両方のメモリの見張りは `done` で終わりました。containerを消すとDockerは「error: no such object」と答え、その `cluster.sh` は `?` と読みました。大文字と小文字の両方を読む写しは0と数え、1つのrankに届かないときはそのrankを名指してstartを断りました。消したcontainerに当てた3.12.0のメモリの見張りは10秒のtimeoutまで終わらず、両方を読む写しはすぐに終わりました。daemonに届かないときのdocker 29.6.2の答えは「no such file or directory」を含み、リリースの形の数えはそれを失敗と読みます（試験で固定）。quoteを含む引数はホストで回しておらず、リリースの形の `cluster.sh` ではホストでエンジンを起動していません。
+
 ## 3.12.1 — 2026-11-12
 
 文書とexamplesの注釈と試験だけの版です。imageのファイルは変わらず、3.12.0のままです（`glm53-tf3:3.12.0`、`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）。
