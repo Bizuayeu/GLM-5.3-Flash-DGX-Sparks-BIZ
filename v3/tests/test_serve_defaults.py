@@ -194,7 +194,7 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(env["TF_KV_SHARE"], "16")
         self.assertEqual(env["TENSORFOLD_PREFILL_SHARE"], "0.7")
         # tp2.env's empty value: off
-        self.assertEqual(env.get("TF_GLM_CHUNK_SOLO", ""), "")
+        self.assertEqual(env["TF_GLM_CHUNK_SOLO"], "")
         self.assertEqual(env["TF_GLM_ROCE_MULTI"], "0")
         self.assertNotIn("TF_TP_MASTER", env)
         self.assertEqual(env["TENSORFOLD_MEMORY_RESERVE_GIB"], "9")
@@ -298,7 +298,7 @@ class ServeTests(unittest.TestCase):
         )
         # From upstream 1.2.6 the engine reads an empty value as unset, so serve.sh passes it on as it is.
         for key in off + ("TENSORFOLD_MEMORY_RESERVE_GIB",):
-            self.assertEqual(env.get(key, ""), "", key)
+            self.assertEqual(env[key], "", key)
         for key in WIRE:
             self.assertNotIn(key, env)
 
