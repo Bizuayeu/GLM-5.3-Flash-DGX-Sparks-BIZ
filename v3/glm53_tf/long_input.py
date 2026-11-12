@@ -25,7 +25,8 @@ import argparse
 import json
 import os
 import time
-import urllib.request
+
+from . import client
 
 BASE = os.environ.get("BASE", "http://127.0.0.1:8095")
 MODEL = os.environ.get("MODEL", "glm-tf")
@@ -40,19 +41,8 @@ THREE = {
 KEPT = ("prefill_seconds", "time_to_first_token", "token_sha256")
 
 
-def auth():
-    """The server's API key, when TENSORFOLD_API_KEY is set where the check runs."""
-    key = os.environ.get("TENSORFOLD_API_KEY")
-    return {"Authorization": f"Bearer {key}"} if key else {}
-
-
 def post(path, body, timeout):
-    req = urllib.request.Request(
-        BASE + path,
-        json.dumps(body).encode(),
-        {"Content-Type": "application/json", **auth()},
-    )
-    return urllib.request.urlopen(req, timeout=timeout)
+    return client.send(BASE + path, body, timeout)
 
 
 def one_messages(lines):

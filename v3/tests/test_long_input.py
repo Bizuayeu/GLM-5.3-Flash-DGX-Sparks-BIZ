@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from glm53_tf import long_input
+from glm53_tf import client, long_input
 
 # The native server's block (10-17's probe): the prompt pass, the first token and the ids' SHA-256 are kept.
 SHA = "6cfce86a7e1b71d88b66e40ac527671dae0d9bf02bc9db06d46d9b03cf5c7a53"
@@ -97,7 +97,7 @@ def run(argv, content, sent=None, auth=None):
     out = io.StringIO()
     clock = iter(range(1000))
     with (
-        patch.object(long_input.urllib.request, "urlopen", urlopen),
+        patch.object(client.urllib.request, "urlopen", urlopen),
         patch.object(long_input.time, "monotonic", lambda: next(clock)),
         patch.object(long_input.time, "time", lambda: 1759700000.04),
         contextlib.redirect_stdout(out),

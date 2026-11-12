@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from glm53_tf import bench
+from glm53_tf import bench, client
 
 # The native server's two blocks (10-17's probe): `tensorfold` with the prompt pass and the ids'
 # hash, `speculative` with the draft counts. Prefill keeps the times, decode adds the rounds and the
@@ -94,7 +94,7 @@ def run(argv, sent=None, auth=None, edit_finish="stop"):
     out = io.StringIO()
     clock = iter(range(1000))
     with (
-        patch.object(bench.urllib.request, "urlopen", urlopen),
+        patch.object(client.urllib.request, "urlopen", urlopen),
         patch.object(bench.time, "monotonic", lambda: next(clock)),
         patch.object(bench.time, "time", lambda: 1759700000.04),
         contextlib.redirect_stdout(out),

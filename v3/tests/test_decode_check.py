@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from glm53_tf import decode_check, decode_divergence
+from glm53_tf import client, decode_check, decode_divergence
 
 # The native server's two blocks on the chunk that ends a streamed reply (10-17's probe).
 SHA = "6cfce86a7e1b71d88b66e40ac527671dae0d9bf02bc9db06d46d9b03cf5c7a53"
@@ -79,7 +79,7 @@ def run(replies, sent=None, tokens_out=None, env=None, auth=None):
     clock = iter(range(1000))
     env = dict(env or {}, **({"TOKENS_OUT": tokens_out} if tokens_out else {}))
     with (
-        patch.object(decode_check.urllib.request, "urlopen", urlopen),
+        patch.object(client.urllib.request, "urlopen", urlopen),
         patch.object(decode_check.time, "monotonic", lambda: next(clock)),
         patch.object(decode_check, "SAMPLES", 3),
         patch.dict(os.environ, env),

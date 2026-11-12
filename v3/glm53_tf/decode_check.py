@@ -28,7 +28,8 @@ import json
 import os
 import statistics
 import time
-import urllib.request
+
+from . import client
 
 BASE = os.environ.get("BASE", "http://127.0.0.1:8095")
 MODEL = os.environ.get("MODEL", "glm-tf")
@@ -46,20 +47,8 @@ TASKS = {
 TEMPLATE = {"reasoning_effort": "low", "clear_thinking": True}
 
 
-def auth():
-    """The server's API key, when TENSORFOLD_API_KEY is set where the check runs (a server
-    started with one refuses requests without it)."""
-    key = os.environ.get("TENSORFOLD_API_KEY")
-    return {"Authorization": f"Bearer {key}"} if key else {}
-
-
 def post(path, body, timeout=900):
-    req = urllib.request.Request(
-        BASE + path,
-        json.dumps(body).encode(),
-        {"Content-Type": "application/json", **auth()},
-    )
-    return urllib.request.urlopen(req, timeout=timeout)
+    return client.send(BASE + path, body, timeout)
 
 
 def prompt_text():

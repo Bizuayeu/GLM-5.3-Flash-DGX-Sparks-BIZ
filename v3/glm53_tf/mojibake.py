@@ -28,7 +28,8 @@ import json
 import os
 import time
 import unicodedata
-import urllib.request
+
+from . import client
 
 BASE = os.environ.get("BASE", "http://127.0.0.1:8095")
 MODEL = os.environ.get("MODEL", "glm-tf")
@@ -162,16 +163,9 @@ def run(ask, repeats=3, sampling=None, max_tokens=MAX_TOKENS):
 
 def ask(request):
     """One chat request to the engine, the reply parsed."""
-    key = os.environ.get("TENSORFOLD_API_KEY")
-    headers = {"Content-Type": "application/json"}
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
-    req = urllib.request.Request(
-        BASE + "/v1/chat/completions",
-        json.dumps({"model": MODEL, **request}).encode(),
-        headers,
-    )
-    with urllib.request.urlopen(req, timeout=TIMEOUT) as reply:
+    with client.send(
+        BASE + "/v1/chat/completions", {"model": MODEL, **request}, TIMEOUT
+    ) as reply:
         return json.loads(reply.read())
 
 

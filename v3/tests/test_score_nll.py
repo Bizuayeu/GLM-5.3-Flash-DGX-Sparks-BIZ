@@ -11,7 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from glm53_tf import score_nll
+from glm53_tf import client, score_nll
 
 SET = Path(__file__).resolve().parents[1] / "config/nll_set.json"
 
@@ -218,7 +218,7 @@ class ApiKeyTests(unittest.TestCase):
 
         with (
             patch.dict("os.environ", env),
-            patch.object(score_nll.urllib.request, "urlopen", urlopen),
+            patch.object(client.urllib.request, "urlopen", urlopen),
         ):
             if "TENSORFOLD_API_KEY" not in env:
                 os.environ.pop("TENSORFOLD_API_KEY", None)

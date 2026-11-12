@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from glm53_tf import mojibake
+from glm53_tf import client, mojibake
 
 JAPANESE = "日本の春は桜が咲き、夏は祭りでにぎわう。" * 30
 KOREAN = "한국의 봄에는 벚꽃이 피고 여름에는 축제가 열립니다. " * 20
@@ -231,7 +231,7 @@ class CommandTests(unittest.TestCase):
             k: v for k, v in mojibake.os.environ.items() if k != "TENSORFOLD_API_KEY"
         }
         with (
-            patch.object(mojibake.urllib.request, "urlopen", urlopen),
+            patch.object(client.urllib.request, "urlopen", urlopen),
             patch.dict(mojibake.os.environ, {**environ, **(env or {})}, clear=True),
             contextlib.redirect_stdout(out),
         ):

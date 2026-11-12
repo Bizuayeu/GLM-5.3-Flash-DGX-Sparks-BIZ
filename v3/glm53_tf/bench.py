@@ -38,8 +38,9 @@ import json
 import os
 import statistics
 import time
-import urllib.request
 import uuid
+
+from . import client
 
 BASE = os.environ.get("BASE", "http://127.0.0.1:8095")
 MODEL = os.environ.get("MODEL", "glm-tf")
@@ -239,19 +240,8 @@ EDITS = (
 )
 
 
-def auth():
-    """The server's API key, when TENSORFOLD_API_KEY is set where the bench runs."""
-    key = os.environ.get("TENSORFOLD_API_KEY")
-    return {"Authorization": f"Bearer {key}"} if key else {}
-
-
 def post(path, body, timeout=900):
-    req = urllib.request.Request(
-        BASE + path,
-        json.dumps(body).encode(),
-        {"Content-Type": "application/json", **auth()},
-    )
-    return urllib.request.urlopen(req, timeout=timeout)
+    return client.send(BASE + path, body, timeout)
 
 
 def prefill_body(nonce, lines=LINES):

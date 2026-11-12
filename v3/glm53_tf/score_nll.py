@@ -17,13 +17,11 @@ of 1.x's, so the two lines' figures compare.
 import argparse
 import hashlib
 import json
-import os
 import sys
 import urllib.error
-import urllib.request
 from pathlib import Path
 
-from . import agreement
+from . import agreement, client
 from .config import LINE
 
 SET = LINE / "config/nll_set.json"
@@ -78,14 +76,7 @@ def summarize(data, result):
 
 
 def post(url, path, body=None, timeout=900.0):
-    data = None if body is None else json.dumps(body).encode()
-    # The server's API key, when TENSORFOLD_API_KEY is set where this runs.
-    key = os.environ.get("TENSORFOLD_API_KEY")
-    headers = {"Content-Type": "application/json"}
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
-    request = urllib.request.Request(url.rstrip("/") + path, data=data, headers=headers)
-    with urllib.request.urlopen(request, timeout=timeout) as response:
+    with client.send(url.rstrip("/") + path, body, timeout) as response:
         return json.loads(response.read())
 
 
