@@ -262,7 +262,7 @@ v3/
 - **BIZは意図であり、約束ではありません**（[リポジトリのREADME](../README.ja.md#biz)）。
 - **受け入れは参照機のものです。** 他のホストや別のimage IDでの起動は、そこで[検証](docs/validation.ja.md)を回して受け入れます。
 - **XSFP4とJammed XSFP4は本リポジトリの管理者のcheckpointです。** NVIDIA Open Model Agreementの下のFP4-Localの派生物で、NVIDIAやZ.aiのリリースではありません。
-- **エンジンはこの系列による上流のforkのリリースのbranchです。** 他の利用者にも役立つものは上流のTensorFoldへpull requestとして出し（#1016・#1017・#1018は1.1.1で、#1050・#1163・#1178・#1211は1.1.5で、#1352・#1404・#1424は1.1.9で、#1516・#1524・#1616・#1636は1.2.0で、#1823は1.2.1で上流自身のものになりました）、残りはリリースのbranchが持ちます。3.10.0のbranchは上流v1.2.1の上に `csf0_v1` の6つのcommitを持ちます。上流は2026-11-04にこれらをmainに取り込み（#2041）、1.2.3からのリリースが持っています。3.12.0のbranchはこの系列のcommitを持たず、上流v1.2.7そのものです。
+- **エンジンはこの系列による上流のforkのリリースのbranchです。** 他の利用者にも役立つものは上流のTensorFoldへpull requestとして出し、残りはリリースのbranchが持ちます。3.12.0のbranchはこの系列のcommitを持たず、上流v1.2.7そのものです。上流がどのpull requestをどのリリースで取り込んだかは[決定](docs/decisions.ja.md)にあります。
 
 ## Next Action
 
