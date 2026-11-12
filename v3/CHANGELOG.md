@@ -4,6 +4,44 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.12.0 — ⟨date⟩
+
+The engine moves onto upstream TensorFold v1.2.7 itself (`93a2e93e`), with no commit of this line's: upstream carries Jammed XSFP4's `csf0_v1` commits from 1.2.3. The default checkpoint follows the TP size: Jammed XSFP4 at TP=2, XSFP4 at TP=3 as before, and XSFP4 at TP=4, new and experimental. The image is `glm53-tf3:3.12.0` (`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
+
+### Engine
+
+- The fork's branch `release/3.12.0` is upstream v1.2.7 (`93a2e93e`) itself; `config/engine.lock.json` and the Dockerfile's `ENGINE_REF` pin that commit. 3.10.0's branch (upstream 1.2.1 with six commits of this line's) is retired: upstream's releases carry the six from 1.2.3 ([TensorFold #2041](https://github.com/ashhart/TensorFold/pull/2041)).
+- An empty value in a rank file (`NAME=`) reads as unset for nearly every setting from upstream 1.2.6, and `serve.sh` passes empty values on as they are, where 3.11.x's unset six of them itself. Two still refuse an empty value, `TF_ROCE_MAX_KB` and `TF_NVFP4_DECODE_WARPS`, and empty `TF_HEAT_HIGH` and `TF_HEAT_LOW` together turn the heat wait off ([configuration](docs/configuration.md#rank-0s-server)).
+- `TF_GLM_PDL`, `TF_GLM_PROMPT_STEPS`, `TF_GLM_SHARED`, `TF_GLM_LINK_WAIT` and `TF_GLM_PROF` take `0` or `1` alone, and `TF_GLM_DRAFT_CONFIDENCE` a number from 0 to 1 ([TensorFold #2578](https://github.com/ashhart/TensorFold/pull/2578), upstream 1.2.6). **A rank file that sets one of them to a word** (`off`, `yes`) stops the start by name; write `0` or `1`.
+- Each kept prompt state takes a slot of the startup plan, and the prompt cache's rest becomes the pool's pages (upstream 1.2.5, #2358): at TP=3 the pool takes two windows and that rest at 16 GiB left to the system ([why 16 GiB at TP=3](README.md#serving-defaults)). On Jammed XSFP4 at TP=3 the room holds a third window, which the plan sets aside before the slots, so 8 of `TF_KV_SHARE=32`'s states are kept and the engine warns; `--prompt-cache-gib 6` after `cluster.sh`'s label keeps all 32 and two windows ([engine flags](docs/configuration.md#engine-flags)). `TF_KV_SHARE` over 64 stops the start ([configuration](docs/configuration.md#rank-file)).
+- At TP=3 decode with drafts is slower than 3.10.0's, with the same tokens: the decode check's `count` gave 57.94 tok/s against 65.67, and `bench --kinds decode` 63.23 against 68.52. Under `--mtp-confidence` a temperature-0 stream drafts to the chain's end every round, and the window verifies only the head above the confidence floor. Upstream's fix ([TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864)) comes with the first release that carries it.
+
+### Serving defaults
+
+- TP=4, experimental: four hosts in a switchless ring serve at TP=4. `serve.sh` takes TP 4 and ranks 0 to 3, with [`config/tp4.env`](config/tp4.env) beside the other two in the image: TP=3's values with the wire off and 14 GiB left to the system, the settings the reference ring of four was served with on upstream's main from 2026-11-07, none tuned at four hosts. The examples hold that ring's rank files, a NCCL graph for each rank and `cluster.tp4.env`; each rank file adds the ring's NCCL lines and `TF_GLM_PREFILL_REDUCE=gather`, since the engine's `split` sends to every rank and does not start on a ring of four: NCCL fails its peer warm-up with `ncclGroupEnd: unhandled system error`, before split's own check can name the pair ([serving defaults](README.md#serving-defaults), [cheatsheet](docs/cheatsheet.md)). Other examples serve the same four hosts as two pairs at TP=2: 04-05 and 06-07, each served at TP=2, or 04-06 and 05-07, not started yet; no two pairs have served at once yet.
+- The default checkpoint follows the TP size: Jammed XSFP4 at TP=2, and XSFP4 at TP=3 and TP=4 as before. Each release file names its folder at its lock's revision, a rank file's `CHECKPOINT` line serves the other one, and an empty line keeps the TP's. `serve.sh`'s start line ends with the folder it serves, and a folder the host lacks stops the start by name. **A pair that holds only XSFP4** downloads Jammed XSFP4 (`download --tp 2`, `verify-download --tp 2`) or adds XSFP4's `CHECKPOINT` line to every rank file ([setup §2](SETUP.md#2-checkout-and-checkpoint)).
+
+### Image and launch
+
+- The memory guard (`hostwatch.sh`, which `cluster.sh` starts on every host) keeps watching when a check fails or does not return. Every docker call is bounded by the round's 2 s; a check that fails or stalls writes `check-failed` and the watch goes on, and the watch ends only when the engine is gone or `docker inspect` says the container is stopped or gone. A stop that fails writes `KILL-FAILED`, and the next round stops the engine again while memory stays short; `KILLED` comes only after a stop that worked ([configuration](docs/configuration.md#memory-guard)). Up to 3.11.x a `docker exec` that failed read as no engine and ended the watch.
+
+### Tools
+
+- `download` and `verify-download` need `--tp 2`, `3` or `4`, for the checkpoint that TP serves, or `--checkpoint`, and stop with their usage when given neither; up to 3.11.x they fetched and verified XSFP4 without either. **A script that runs them with neither** adds `--tp` or `--checkpoint xsfp4` ([setup §2](SETUP.md#2-checkout-and-checkpoint)).
+
+### Documentation
+
+- The README's [status](README.md#summary), [checkpoints](README.md#checkpoints), [serving defaults](README.md#serving-defaults) and [measured on the release](README.md#measured-on-the-release), [validation](docs/validation.md), [configuration](docs/configuration.md) (empty values, the strict GLM flags, `TF_KV_PAGES`, `TF_QMMF_HALF_BELOW` and the kept states' slots), [decisions](docs/decisions.md) and the [cheatsheet](docs/cheatsheet.md) name 3.12.0's engine and defaults. A non-number `TF_QMMF_HALF_BELOW` stops the load, and an empty `TF_KV_PAGES` is `auto`, where configuration said otherwise. 3.10.0's table moves to [measurements](docs/measurements.md#3100), where XSFP4's repeated numbers read as the replies wrote them: 37 four times at TP=2, and 37 and 86 twice each at TP=3.
+- The commands in the README, setup and operations build and name `glm53-tf3:3.12.0`.
+
+### Accepted
+
+On the reference hosts on 2026-11-12, with the release image (`glm53-tf3:3x-54ccb94`, the same image as `glm53-tf3:3.12.0`) started by its own `serve.sh` and `cluster.sh` and every container on the efficiency cores. TP=3 on XSFP4 and TP=2 on Jammed XSFP4, the defaults, with no `CHECKPOINT` or `CONTEXT` in the rank files: two launches at each size gave 3.9.0's decode-check hashes, `bench --kinds edit` reply and NLL at TP=3 and 3.10.0's at TP=2, the first found every passphrase of the 199,307, 499,254 and 1,035,295-token prompts, and `mojibake` found no broken character. On XSFP4 at TP=2, with its `CHECKPOINT` line in the rank files, one launch gave 3.9.0's decode-check hashes and `bench --kinds edit` reply. Through 3.11.0's tool-argument gate tool-eval-bench gave 93 at TP=2 on Jammed XSFP4 and at TP=3 on XSFP4, the Safety Gate passed. At TP=3 on Jammed XSFP4, with its `CHECKPOINT` line, a launch gave 3.10.0's decode-check hashes and `bench --kinds edit` reply, and one with `--prompt-cache-gib 6` the same hashes. In these launches and XSFP4's at TP=2 the memory guard, this release's `hostwatch.sh`, logged a line every 2 to 3 s and ended with `done`. At TP=4, on four other hosts, two launches gave their decode-check hashes and edit reply again and found every passphrase. A rank file with `TF_KV_SHARE`, `TENSORFOLD_PREFILL_SHARE`, `TF_HEAT_HIGH` and `TF_HEAT_LOW` empty started with the prompt cache in copies and no heat wait, and one with `TENSORFOLD_MEMORY_RESERVE_GIB` empty with the engine's own 12.3 GiB reserve. No watcher stopped a launch ([measured on the release](README.md#measured-on-the-release)).
+
+### Not in 3.12.0
+
+Upstream's fix for TP=3's drafted decode (#2864), with the first release that carries it. A prompt chunk's indexer on its own kernels by default (`TF_GLM_INDEX_CUDA=1`, upstream's #1449): measured beside the engine's own path at every TP size, with the same tokens and a sooner first token on long prompts, it goes with the next release after its memory is measured again.
+
 ## 3.11.7 — 2026-11-07
 
 Documents only. No file of the image changes; it stays 3.10.0's (`glm53-tf3:3.10.0`, `sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`).

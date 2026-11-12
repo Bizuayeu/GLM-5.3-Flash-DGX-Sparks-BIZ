@@ -6,6 +6,44 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.12.0 — ⟨date⟩
+
+エンジンを、この系列のcommitを持たない上流のTensorFold v1.2.7そのもの（`93a2e93e`）へ移します。Jammed XSFP4の `csf0_v1` のcommitは、上流が1.2.3から持っています。既定のcheckpointはTPで決まります：TP=2はJammed XSFP4、TP=3はこれまでどおりXSFP4、新しく試験的なTP=4はXSFP4です。imageは `glm53-tf3:3.12.0`（`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）です。
+
+### Engine
+
+- forkのbranch `release/3.12.0` は上流のv1.2.7（`93a2e93e`）そのものです。`config/engine.lock.json` とDockerfileの `ENGINE_REF` がそのcommitに固定します。3.10.0のbranch（上流1.2.1にこの系列の6つのcommit）は退きます：上流のリリースが1.2.3からその6つを持っています（[TensorFold #2041](https://github.com/ashhart/TensorFold/pull/2041)）。
+- rankのファイルの空の値（`NAME=`）は、上流1.2.6からほとんどの設定でunsetと読まれ、`serve.sh` は空の値をそのまま渡します（3.11.xはそのうち6つを自分でunsetしていました）。空の値を今も断るのは `TF_ROCE_MAX_KB` と `TF_NVFP4_DECODE_WARPS` の2つで、空の `TF_HEAT_HIGH` と `TF_HEAT_LOW` を両方そろえると熱の待ちは無くなります（[設定](docs/configuration.ja.md#rank-0のserver)）。
+- `TF_GLM_PDL`・`TF_GLM_PROMPT_STEPS`・`TF_GLM_SHARED`・`TF_GLM_LINK_WAIT`・`TF_GLM_PROF` は `0` か `1` だけ、`TF_GLM_DRAFT_CONFIDENCE` は0から1の数を取ります（[TensorFold #2578](https://github.com/ashhart/TensorFold/pull/2578)、上流1.2.6）。**どれかを語（`off`・`yes`）にしたrankのファイル**は、名を挙げて起動を止めます。`0` か `1` を書きます。
+- 保持するpromptの状態は起動の計画のslotに1つずつ入り、prompt cacheの残りはpoolのpageになります（上流1.2.5、#2358）：TP=3でsystemに16 GiBを残すと、poolは窓2本とその残りを取ります（[TP=3で16 GiBにする理由](README.ja.md#配信の既定)）。TP=3のJammed XSFP4では余地に窓3本目が入り、計画はそれをslotより先に置くので、`TF_KV_SHARE=32` のうち保持されるstateは8で、エンジンが警告します。`cluster.sh` のlabelの後に `--prompt-cache-gib 6` を足すと、32全部と窓2本が入ります（[エンジンのflag](docs/configuration.ja.md#エンジンのflag)）。64を越える `TF_KV_SHARE` は起動を止めます（[設定](docs/configuration.ja.md#rankのファイル)）。
+- TP=3のdraftありのdecodeは、tokenは同じまま3.10.0より遅くなります：decode検査の `count` は57.94 tok/s（3.10.0の表は65.67）、`bench --kinds decode` は63.23（68.52）です。`--mtp-confidence` の下では、temperature 0のstreamが毎roundで鎖の上限までdraftを作り、窓は確率がconfidenceの床より上の頭だけを検証します。上流の直し（[TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864)）は、それを持つ最初のリリースで入ります。
+
+### Serving defaults
+
+- TP=4（試験的）：switchの無いリングの4台がTP=4で配信します。`serve.sh` はTP 4とrank 0〜3を受け、imageは他の2つの隣に [`config/tp4.env`](config/tp4.env) を持ちます：TP=3の値でwireを切り、システムに14 GiBを残すもので、2026-11-07から上流のmainで参照機の4台のリングを配信した設定です。どれも4台では詰めていません。exampleはそのリングのrankのファイル、rankごとのNCCLのgraph、`cluster.tp4.env` を持ちます。各rankのファイルはリングのNCCLの行と `TF_GLM_PREFILL_REDUCE=gather` を足します。エンジンの `split` は全rankへ送るので、4台のリングでは起動しないからです：peer warm-upがNCCLの `ncclGroupEnd: unhandled system error` で止まり、届かない組を名指すsplitの確かめまで進みません（[配信の既定](README.ja.md#配信の既定)、[cheatsheet](docs/cheatsheet.ja.md)）。他のexampleは同じ4台を、2組の対としてTP=2で配信します：04-05と06-07（それぞれTP=2で配信した）、または04-06と05-07（まだ起動していない）。2組を同時に配信したことはまだありません。
+- 既定のcheckpointはTPで決まります：TP=2はJammed XSFP4、TP=3とTP=4はこれまでどおりXSFP4です。各リリースのファイルがlockのrevisionでそのfolderを名指し、rankのファイルの `CHECKPOINT` の行でもう一方を配信し、空の行はTPの既定のままです。`serve.sh` の起動の行は、配信するfolderで終わります。ホストに無いfolderは、名を挙げて起動を止めます。**XSFP4だけを持つ対**は、Jammed XSFP4を取得するか（`download --tp 2`、`verify-download --tp 2`）、全rankのファイルにXSFP4の `CHECKPOINT` の行を足します（[手順2](SETUP.ja.md#2-checkoutとcheckpoint)）。
+
+### Image and launch
+
+- メモリの見張り（`cluster.sh` が各ホストで起こす `hostwatch.sh`）は、確かめが失敗しても返らなくても見張りを続けます。dockerの呼びはどれも1回の間隔の2秒で切り、失敗するか止まった確かめは `check-failed` と書いて続け、見張りが終わるのは、エンジンが居なくなった時か、`docker inspect` でcontainerが止まった・無いと分かった時だけです。止めに失敗すると `KILL-FAILED` と書き、メモリが足りないままなら次の回にもう一度止めます。`KILLED` は止めが効いた後にだけ書きます（[設定](docs/configuration.ja.md#メモリの見張り)）。3.11.xまでは、失敗した `docker exec` をエンジンが居ないと読み、見張りを終えていました。
+
+### Tools
+
+- `download` と `verify-download` は、そのTPが配信するcheckpointを選ぶ `--tp 2`・`3`・`4` か `--checkpoint` を要し、どちらも無ければ使い方を示して止まります。3.11.xまでは、どちらも無ければXSFP4を取得・検証しました。**どちらも付けずに回す台本**は `--tp` か `--checkpoint xsfp4` を足します（[手順2](SETUP.ja.md#2-checkoutとcheckpoint)）。
+
+### Documentation
+
+- READMEの[状況](README.ja.md#要約)・[checkpoint](README.ja.md#checkpoint)・[配信の既定](README.ja.md#配信の既定)・[リリースでの測定値](README.ja.md#リリースでの測定値)、[検証](docs/validation.ja.md)、[設定](docs/configuration.ja.md)（空の値、厳しくなったGLMのflag、`TF_KV_PAGES`、`TF_QMMF_HALF_BELOW`、保持する状態のslot）、[決定](docs/decisions.ja.md)、[cheatsheet](docs/cheatsheet.ja.md)は、3.12.0のエンジンと既定を名指します。数でない `TF_QMMF_HALF_BELOW` は読み込みを止め、空の `TF_KV_PAGES` は `auto` です（設定は別のことを書いていました）。3.10.0の表は[前の版の測定値](docs/measurements.ja.md#3100)へ移り、XSFP4が繰り返した数は返答のとおりに直しました：TP=2で37を4回、TP=3で37と86を2回ずつです。
+- README・手順書・運用のコマンドは `glm53-tf3:3.12.0` をbuildして名指します。
+
+### Accepted
+
+2026-11-12に参照機で、リリースのimage（`glm53-tf3:3x-54ccb94`、`glm53-tf3:3.12.0` と同じimage）をそれ自身の `serve.sh` と `cluster.sh` で、全containerを効率coreに置いて起動しました。既定のTP=3のXSFP4とTP=2のJammed XSFP4では、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かない各TPの2回の起動が、TP=3で3.9.0の、TP=2で3.10.0の、decode検査のhash・`bench --kinds edit` の返答・NLLを返し、1回目は199,307・499,254・1,035,295 tokenのpromptの合言葉をすべて見つけ、`mojibake` は化けた文字を見つけませんでした。rankのファイルに `CHECKPOINT` の行を書いたTP=2のXSFP4では、1回の起動が3.9.0のdecode検査のhashと `bench --kinds edit` の返答を返しました。3.11.0のtool引数ゲート越しのtool-eval-benchは、TP=2のJammed XSFP4とTP=3のXSFP4で93、Safety Gateは合格でした。TP=3のJammed XSFP4では、`CHECKPOINT` の行を足した起動が3.10.0のdecode検査のhashと `bench --kinds edit` の返答を返し、`--prompt-cache-gib 6` を足した起動も同じhashを返しました。これらとTP=2のXSFP4の起動では、memory guard（このリリースの `hostwatch.sh`）が2〜3秒ごとに行を書き、最後に `done` で終わりました。TP=4では別の4台で、2回の起動がdecode検査のhashと編集の返答を同じく返し、合言葉をすべて見つけました。`TF_KV_SHARE`・`TENSORFOLD_PREFILL_SHARE`・`TF_HEAT_HIGH`・`TF_HEAT_LOW` を空にしたrankのファイルは、prompt cacheを写しで持ち熱の待ちの無い形で、`TENSORFOLD_MEMORY_RESERVE_GIB` を空にしたものはエンジン自身の12.3 GiBのreserveで起動しました。見張りが止めた起動はありません（[リリースでの測定値](README.ja.md#リリースでの測定値)）。
+
+### Not in 3.12.0
+
+TP=3のdraftありのdecodeの上流の直し（#2864）は、それを持つ最初のリリースで入ります。prompt chunkの索引器を既定で自前のkernelに載せること（`TF_GLM_INDEX_CUDA=1`、上流の#1449）：各TPでエンジン自身の道と並べて測り、tokenは同じで長いpromptの最初のtokenは早まりましたが、メモリを測り直してから次の版で入れます。
+
 ## 3.11.7 — 2026-11-07
 
 文書だけの版です。imageのファイルは変わらず、3.10.0のままです（`glm53-tf3:3.10.0`、`sha256:948af28e09e6c539f0cc5671d0fc34bbd850bc7ff8b29c86287df98cdc297995`）。
