@@ -51,7 +51,7 @@ def wait_for_download(state, model, revision, wait, save):
         print(f"no {STATUS_FILE} in {state}: run download first", file=sys.stderr)
         raise SystemExit(1)
     while True:
-        status = json.loads((state / STATUS_FILE).read_text())
+        status = json.loads((state / STATUS_FILE).read_text(encoding="utf-8"))
         if status["model"] != model or status["revision"] != revision:
             save("failed", reason="revision mismatch")
             raise SystemExit(1)

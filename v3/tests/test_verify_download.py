@@ -137,6 +137,19 @@ class VerifyDownloadTests(unittest.TestCase):
         self.assertEqual(saved["model"], model)
         self.assertEqual(run.call_args.args[0][3:6], [model, "--revision", revision])
 
+    def test_the_download_status_is_read_as_the_utf_8_it_is_written_in(self):
+        # io.write_json writes UTF-8; a value outside ASCII must not lean on the platform's encoding.
+        folder = self.state / "utf-8"
+        folder.mkdir()
+        record = {"model": "Bizuayeu/GLM-é", "revision": "r", "status": "complete"}
+        raw = json.dumps(record, ensure_ascii=False).encode("utf-8")
+        (folder / STATUS_FILE).write_bytes(raw)
+        saves = []
+        verify_download.wait_for_download(
+            folder, "Bizuayeu/GLM-é", "r", False, lambda *args, **kw: saves.append(args)
+        )
+        self.assertEqual(saves, [])
+
     def test_nvidias_nvfp4_and_the_axl_weights_are_no_longer_a_choice(self):
         # 3.6.0 took both off 3.x; 1.x and 2.x keep them.
         for name in ("pinned", "axl"):
