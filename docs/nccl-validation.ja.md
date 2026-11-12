@@ -26,7 +26,21 @@ image を registry からでなく、リンク越しの `docker save … | docke
 rank 0の29653番ポートが未使用か確認します。rank 1、続けてrank 0を速やかに起動します（待ち合わせのタイムアウトは90秒）。試験全体には外部から5分の期限を設け、超えたら今回の試験コンテナだけを両機で停止し、ログを保存します。
 
 ```sh
-docker run --name "glm53-nccl-$RUN_ID-rank$RANK"   --gpus all --network host --memory 16g --memory-swap 16g --shm-size 1g   --cap-add IPC_LOCK --ulimit memlock=-1:-1   --device /dev/infiniband:/dev/infiniband   -e NCCL_NET=IB -e NCCL_IB_DISABLE=0   -e "NCCL_IB_HCA==$HCA" -e "NCCL_IB_GID_INDEX=$GID"   -e NCCL_IB_ROCE_VERSION_NUM=2 -e NCCL_IB_ADDR_FAMILY=AF_INET   -e NCCL_SOCKET_FAMILY=AF_INET -e "NCCL_SOCKET_IFNAME==$FABRIC_IF"   -e "GLOO_SOCKET_IFNAME=$FABRIC_IF"   -e NCCL_DEBUG=INFO -e NCCL_DEBUG_SUBSYS=INIT,NET,GRAPH   -v "$PWD/host/nccl_probe.py:/probe.py:ro"   -v "$PWD/records/$RUN_ID:/out"   --entrypoint python3 "$IMAGE" /probe.py   --rank "$RANK" --head "$HEAD_IP" --port 29653   --output "/out/rank$RANK.json" >"records/$RUN_ID/nccl.log" 2>&1
+docker run --name "glm53-nccl-$RUN_ID-rank$RANK" \
+  --gpus all --network host --memory 16g --memory-swap 16g --shm-size 1g \
+  --cap-add IPC_LOCK --ulimit memlock=-1:-1 \
+  --device /dev/infiniband:/dev/infiniband \
+  -e NCCL_NET=IB -e NCCL_IB_DISABLE=0 \
+  -e "NCCL_IB_HCA==$HCA" -e "NCCL_IB_GID_INDEX=$GID" \
+  -e NCCL_IB_ROCE_VERSION_NUM=2 -e NCCL_IB_ADDR_FAMILY=AF_INET \
+  -e NCCL_SOCKET_FAMILY=AF_INET -e "NCCL_SOCKET_IFNAME==$FABRIC_IF" \
+  -e "GLOO_SOCKET_IFNAME=$FABRIC_IF" \
+  -e NCCL_DEBUG=INFO -e NCCL_DEBUG_SUBSYS=INIT,NET,GRAPH \
+  -v "$PWD/host/nccl_probe.py:/probe.py:ro" \
+  -v "$PWD/records/$RUN_ID:/out" \
+  --entrypoint python3 "$IMAGE" /probe.py \
+  --rank "$RANK" --head "$HEAD_IP" --port 29653 \
+  --output "/out/rank$RANK.json" >"records/$RUN_ID/nccl.log" 2>&1
 ```
 
 Docker引数の`NCCL_IB_HCA==...`と`NCCL_SOCKET_IFNAME==...`は誤記ではありません。環境変数の値を`=名前`として渡し、前方一致ではなく対象deviceへ完全一致させます。[NCCL公式仕様](https://docs.nvidia.com/deeplearning/nccl/user-guide/docs/env.html)を参照してください。分散用ポートは信頼できるfabric内に閉じます。
