@@ -149,7 +149,7 @@ python3 tools/bench_concurrent.py http://127.0.0.1:8095 glm-tf --tokens 256 --re
 
 メモリの見張りのlog（`<WORK>/logs/hostwatch-<label>.log`）に、実行中の各ホストの最低の `MemAvailable` が残ります。ホストの記録は2秒ごとにACPIの最も熱いzoneを示します。rank 0のlogは、prefillの熱の待ちごとの秒数を `heat_wait_s` の行に出します。応答はそれを運びません。
 
-基準値：起動の中の最低の `MemAvailable` は、TP=2でrank 0・1が8・9 GiB、TP=3でrank 0・1・2が16・17・22 GiBでした。起動全体の最も熱いzoneは、TP=2で89.3・85.5 °C、TP=3で91.3・89.1・89.2 °Cでした。TP=3の値は1M tokenのpromptの間のもので、熱で待った要求はありません（[長い入力](#長い入力)）。
+基準値：起動の中の最低の `MemAvailable` は、TP=2でrank 0・1が6・8 GiB、TP=3でrank 0・1・2が16・17・22 GiBでした。起動全体の最も熱いzoneは、TP=2で89.2・88.9 °C、TP=3で91.3・89.1・89.2 °Cでした。TP=3の値は1M tokenのpromptの間のもので、熱で待った要求はありません（[長い入力](#長い入力)）。
 
 **合格の条件**：どの実行もメモリの見張りにも熱の見張り（94 °C以上の読みが2回続く）にも止められないこと。
 
