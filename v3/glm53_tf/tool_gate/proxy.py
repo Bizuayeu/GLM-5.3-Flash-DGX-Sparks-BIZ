@@ -148,6 +148,179 @@ def _calls_chunk(held, calls):
     return chunk
 
 
+class Handler(BaseHTTPRequestHandler):
+    """One request to the gate, relayed to the upstream make_server names; a request with tools is checked on
+    the way back. The server carries the upstream, its timeout, the parallel choice and the record."""
+
+    protocol_version = "HTTP/1.0"  # the connection closes after each answer, so a stream needs no length
+
+    def log_message(self, *args):
+        pass
+
+    def setup(self):
+        super().setup()
+        self._conns = []
+
+    def finish(self):
+        for conn in self._conns:
+            conn.close()
+        super().finish()
+
+    def _upstream(self, method, body):
+        headers = {k: v for k, v in self.headers.items() if k.lower() not in HOP}
+        if body is not None:
+            headers["Content-Length"] = str(len(body))
+        conn = http.client.HTTPConnection(
+            self.server.upstream_host,
+            self.server.upstream_port,
+            timeout=self.server.upstream_timeout,
+        )
+        self._conns.append(conn)
+        conn.request(method, self.path, body=body, headers=headers)
+        return conn.getresponse()
+
+    def _start(self, status, headers, extra=()):
+        self.send_response(status)
+        for key, value in headers:
+            if key.lower() not in HOP:
+                self.send_header(key, value)
+        for key, value in extra:
+            self.send_header(key, value)
+        self.end_headers()
+
+    def _relay_raw(self, response):
+        self._start(response.status, response.getheaders())
+        while chunk := response.read(65536):
+            self.wfile.write(chunk)
+            self.wfile.flush()
+
+    def _body(self):
+        """The request body, or None after answering 400 or 413 itself."""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            length = -1
+        if length < 0:
+            self.send_error(400, "Bad Content-Length")
+            return None
+        if length > MAX_BODY:
+            self.send_error(413)
+            return None
+        return self.rfile.read(length) if length else b""
+
+    def _send_json(self, request):
+        response = self._upstream("POST", json.dumps(request).encode())
+        raw = response.read()
+        if response.status != 200:
+            raise Passthrough(response.status, response.getheaders(), raw)
+        return json.loads(raw)
+
+    def _chat(self, raw):
+        try:
+            request = json.loads(raw)
+        except ValueError:
+            request = None
+        if not isinstance(request, dict) or not applies(request):
+            self._relay_raw(self._upstream("POST", raw))
+            return
+        if self.server.parallel == "one":
+            request = one_call(request)
+        if request.get("stream"):
+            self._stream(request)
+            return
+        sent, checked = [], []
+
+        def send(body):
+            sent.append(body)
+            return self._send_json(body)
+
+        def check(tools, calls):
+            checked.append(violations(tools, calls))
+            return checked[-1]
+
+        try:
+            answer, outcome, found = gate(request, send, check)
+        except Passthrough as held:
+            if len(sent) > 1:
+                # The repair request failed; the violating turn is not returned.
+                self.server.record(False, "error", checked[0])
+            self._start(held.status, held.headers)
+            self.wfile.write(held.body)
+            return
+        self.server.record(False, outcome, found)
+        data = json.dumps(answer).encode()
+        self._start(
+            200,
+            [("Content-Type", "application/json")],
+            [("x-glm53-tool-gate", outcome)],
+        )
+        self.wfile.write(data)
+
+    def _stream(self, request):
+        first = self._upstream("POST", json.dumps(request).encode())
+        if first.status != 200:
+            self._relay_raw(first)
+            return
+        self._start(200, first.getheaders(), [("x-glm53-tool-gate", "stream")])
+
+        def emit(chunk):
+            self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
+            self.wfile.flush()
+
+        content, calls, held = _relay(first, emit)
+        found = violations(request["tools"], calls)
+        outcome = "passed"
+        if found:
+            message = {"content": content, "tool_calls": calls}
+            second = self._upstream(
+                "POST", json.dumps(retry_request(request, message, found)).encode()
+            )
+            if second.status != 200:
+                # The client already has the stream's first chunks; it gets the error inside it.
+                text = second.read().decode("utf-8", "replace")
+                emit(
+                    {
+                        "error": {
+                            "message": "tool-gate repair request failed",
+                            "status": second.status,
+                            "upstream": text[:2000],
+                        }
+                    }
+                )
+                self.server.record(True, "error", found)
+                self.wfile.write(b": tool-gate error\n\ndata: [DONE]\n\n")
+                self.wfile.flush()
+                return
+            content, calls, held = _relay(second, emit)
+            outcome = (
+                "unrepaired" if violations(request["tools"], calls) else "repaired"
+            )
+        if calls:
+            emit(_calls_chunk(held, calls))
+        for chunk in held:
+            emit(chunk)
+        self.server.record(True, outcome, found)
+        self.wfile.write(f": tool-gate {outcome}\n\ndata: [DONE]\n\n".encode())
+        self.wfile.flush()
+
+    def do_POST(self):
+        raw = self._body()
+        if raw is None:
+            return
+        if urllib.parse.urlsplit(self.path).path == CHAT_PATH:
+            self._chat(raw)
+        else:
+            self._relay_raw(self._upstream("POST", raw))
+
+    def do_GET(self):
+        self._relay_raw(self._upstream("GET", None))
+
+    def do_DELETE(self):
+        raw = self._body()
+        if raw is not None:
+            self._relay_raw(self._upstream("DELETE", raw))
+
+
 def make_server(
     port, upstream, log=sys.stderr, timeout=DEFAULT_TIMEOUT, parallel="one"
 ):
@@ -169,172 +342,12 @@ def make_server(
             log.write(json.dumps(line) + "\n")
             log.flush()
 
-    class Handler(BaseHTTPRequestHandler):
-        protocol_version = "HTTP/1.0"  # the connection closes after each answer, so a stream needs no length
-
-        def log_message(self, *args):
-            pass
-
-        def setup(self):
-            super().setup()
-            self._conns = []
-
-        def finish(self):
-            for conn in self._conns:
-                conn.close()
-            super().finish()
-
-        def _upstream(self, method, body):
-            headers = {k: v for k, v in self.headers.items() if k.lower() not in HOP}
-            if body is not None:
-                headers["Content-Length"] = str(len(body))
-            conn = http.client.HTTPConnection(host, upstream_port, timeout=timeout)
-            self._conns.append(conn)
-            conn.request(method, self.path, body=body, headers=headers)
-            return conn.getresponse()
-
-        def _start(self, status, headers, extra=()):
-            self.send_response(status)
-            for key, value in headers:
-                if key.lower() not in HOP:
-                    self.send_header(key, value)
-            for key, value in extra:
-                self.send_header(key, value)
-            self.end_headers()
-
-        def _relay_raw(self, response):
-            self._start(response.status, response.getheaders())
-            while chunk := response.read(65536):
-                self.wfile.write(chunk)
-                self.wfile.flush()
-
-        def _body(self):
-            """The request body, or None after answering 400 or 413 itself."""
-            try:
-                length = int(self.headers.get("Content-Length") or 0)
-            except ValueError:
-                length = -1
-            if length < 0:
-                self.send_error(400, "Bad Content-Length")
-                return None
-            if length > MAX_BODY:
-                self.send_error(413)
-                return None
-            return self.rfile.read(length) if length else b""
-
-        def _send_json(self, request):
-            response = self._upstream("POST", json.dumps(request).encode())
-            raw = response.read()
-            if response.status != 200:
-                raise Passthrough(response.status, response.getheaders(), raw)
-            return json.loads(raw)
-
-        def _chat(self, raw):
-            try:
-                request = json.loads(raw)
-            except ValueError:
-                request = None
-            if not isinstance(request, dict) or not applies(request):
-                self._relay_raw(self._upstream("POST", raw))
-                return
-            if parallel == "one":
-                request = one_call(request)
-            if request.get("stream"):
-                self._stream(request)
-                return
-            sent, checked = [], []
-
-            def send(body):
-                sent.append(body)
-                return self._send_json(body)
-
-            def check(tools, calls):
-                checked.append(violations(tools, calls))
-                return checked[-1]
-
-            try:
-                answer, outcome, found = gate(request, send, check)
-            except Passthrough as held:
-                if len(sent) > 1:
-                    # The repair request failed; the violating turn is not returned.
-                    record(False, "error", checked[0])
-                self._start(held.status, held.headers)
-                self.wfile.write(held.body)
-                return
-            record(False, outcome, found)
-            data = json.dumps(answer).encode()
-            self._start(
-                200,
-                [("Content-Type", "application/json")],
-                [("x-glm53-tool-gate", outcome)],
-            )
-            self.wfile.write(data)
-
-        def _stream(self, request):
-            first = self._upstream("POST", json.dumps(request).encode())
-            if first.status != 200:
-                self._relay_raw(first)
-                return
-            self._start(200, first.getheaders(), [("x-glm53-tool-gate", "stream")])
-
-            def emit(chunk):
-                self.wfile.write(f"data: {json.dumps(chunk)}\n\n".encode())
-                self.wfile.flush()
-
-            content, calls, held = _relay(first, emit)
-            found = violations(request["tools"], calls)
-            outcome = "passed"
-            if found:
-                message = {"content": content, "tool_calls": calls}
-                second = self._upstream(
-                    "POST", json.dumps(retry_request(request, message, found)).encode()
-                )
-                if second.status != 200:
-                    # The client already has the stream's first chunks; it gets the error inside it.
-                    text = second.read().decode("utf-8", "replace")
-                    emit(
-                        {
-                            "error": {
-                                "message": "tool-gate repair request failed",
-                                "status": second.status,
-                                "upstream": text[:2000],
-                            }
-                        }
-                    )
-                    record(True, "error", found)
-                    self.wfile.write(b": tool-gate error\n\ndata: [DONE]\n\n")
-                    self.wfile.flush()
-                    return
-                content, calls, held = _relay(second, emit)
-                outcome = (
-                    "unrepaired" if violations(request["tools"], calls) else "repaired"
-                )
-            if calls:
-                emit(_calls_chunk(held, calls))
-            for chunk in held:
-                emit(chunk)
-            record(True, outcome, found)
-            self.wfile.write(f": tool-gate {outcome}\n\ndata: [DONE]\n\n".encode())
-            self.wfile.flush()
-
-        def do_POST(self):
-            raw = self._body()
-            if raw is None:
-                return
-            if urllib.parse.urlsplit(self.path).path == CHAT_PATH:
-                self._chat(raw)
-            else:
-                self._relay_raw(self._upstream("POST", raw))
-
-        def do_GET(self):
-            self._relay_raw(self._upstream("GET", None))
-
-        def do_DELETE(self):
-            raw = self._body()
-            if raw is not None:
-                self._relay_raw(self._upstream("DELETE", raw))
-
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    server.upstream_host, server.upstream_port = host, upstream_port
+    server.upstream_timeout = timeout
+    server.parallel = parallel
+    server.record = record
+    return server
 
 
 def main(argv=None):
