@@ -1,9 +1,12 @@
+import contextlib
 import http.client
 import io
 import json
+import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from unittest.mock import patch
 
 from glm53_tf.tool_gate import proxy
@@ -423,3 +426,90 @@ class ProxyTests(unittest.TestCase):
         last = json.loads(self.log.getvalue().splitlines()[-1])
         self.assertEqual(last["outcome"], "error")
         self.assertEqual(last["violations"], first["violations"])
+
+
+class MainTests(unittest.TestCase):
+    """``python -m glm53_tf tool-gate``: what main() hands make_server, what it says, and how Ctrl-C ends it."""
+
+    def main(self, *argv):
+        """main(argv) with make_server stood in for, whose server's serve_forever raises KeyboardInterrupt as
+        Ctrl-C does: the arguments make_server got and the stderr stand-in. main returns quietly."""
+        got = {}
+
+        class Server:
+            def serve_forever(self):
+                raise KeyboardInterrupt
+
+        def make_server(port, upstream, **options):
+            got.update(port=port, upstream=upstream, **options)
+            return Server()
+
+        err = io.StringIO()
+        with (
+            patch.object(proxy, "make_server", make_server),
+            contextlib.redirect_stderr(err),
+        ):
+            self.assertIsNone(proxy.main(list(argv)))
+        return got, err
+
+    def test_the_defaults_relay_to_serve_sh_s_address_one_call_a_turn(self):
+        got, err = self.main()
+        self.assertIs(got.pop("log"), err)
+        self.assertEqual(
+            got,
+            {
+                "port": 8896,
+                "upstream": "http://127.0.0.1:8095",
+                "timeout": proxy.DEFAULT_TIMEOUT,
+                "parallel": "one",
+            },
+        )
+        self.assertEqual(
+            err.getvalue(), "tool-gate on 127.0.0.1:8896 -> http://127.0.0.1:8095\n"
+        )
+
+    def test_the_options_reach_the_server(self):
+        got, err = self.main(
+            "--port",
+            "9000",
+            "--upstream",
+            "http://127.0.0.1:9001",
+            "--timeout",
+            "30",
+            "--parallel-tool-calls",
+            "client",
+        )
+        got.pop("log")
+        self.assertEqual(
+            got,
+            {
+                "port": 9000,
+                "upstream": "http://127.0.0.1:9001",
+                "timeout": 30.0,
+                "parallel": "client",
+            },
+        )
+        self.assertEqual(
+            err.getvalue(), "tool-gate on 127.0.0.1:9000 -> http://127.0.0.1:9001\n"
+        )
+
+    def test_a_log_file_is_appended_to(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "gate.jsonl"
+            path.write_text("earlier\n", encoding="utf-8")
+            got, _ = self.main("--log", str(path))
+            log = got["log"]
+            log.write("later\n")
+            log.close()
+            self.assertEqual((log.mode, log.encoding), ("a", "utf-8"))
+            self.assertEqual(path.read_text(encoding="utf-8"), "earlier\nlater\n")
+
+    def test_an_unknown_choice_is_refused_before_anything_is_served(self):
+        with (
+            patch.object(proxy, "make_server") as make,
+            contextlib.redirect_stderr(io.StringIO()),
+        ):
+            with self.assertRaises(SystemExit) as stop:
+                proxy.main(["--parallel-tool-calls", "many"])
+        self.assertEqual(stop.exception.code, 2)
+        make.assert_not_called()
