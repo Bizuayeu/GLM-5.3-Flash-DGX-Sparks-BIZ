@@ -162,9 +162,9 @@ The engine also routes `/v1/responses` and Anthropic's `/v1/messages`, through t
 |---|---|---|
 | Engine | the BIZ release of TensorFold 0.6.5, Python with Triton kernels compiled at run time | the BIZ release of TensorFold 1.2.7 (3.0.0: 1.0.12; 3.1.0 and 3.2.0: 1.1.1; 3.3.0 to 3.5.x: 1.1.2; 3.6.0 and 3.7.0: 1.1.3; 3.8.x: 1.1.5; 3.9.0 to 3.11.x: 1.2.1), Zig and CUDA, the kernels in the binary |
 | Repeatable output | drafted equals serial, resume equals fresh, chunking does not matter, as the engine's contract | drafted equals serial and launches repeat their token ids; the tokens differ from 2.x's (other kernels, BF16 KV), so the lines compare by NLL |
-| KV and window | FP8 latent and index keys; 300,000 tokens at TP=2, 1,048,576 at TP=3 | BF16 on KV pages; 1,048,576 tokens at both TP sizes (524,288 at TP=2 up to 3.8.x) |
-| Requests at once | one | four at TP=2 and eight at TP=3, sharing the decode rounds and the KV pool (one by default up to 3.8.x) |
-| Prompt cache | 8 entries, 3 GiB (`TF_GLM_CACHE_*`) | states on the KV pool's pages, at most 16 at TP=2 and 32 at TP=3 (up to 3.8.x a store beside them, at most 16 GiB) |
+| KV and window | FP8 latent and index keys; 300,000 tokens at TP=2, 1,048,576 at TP=3 | BF16 on KV pages; 1,048,576 tokens at every TP size (524,288 at TP=2 up to 3.8.x) |
+| Requests at once | one | four at TP=2 and eight at TP=3 and TP=4, sharing the decode rounds and the KV pool (one by default up to 3.8.x) |
+| Prompt cache | 8 entries, 3 GiB (`TF_GLM_CACHE_*`) | states on the KV pool's pages, at most 16 at TP=2 and 32 at TP=3 and TP=4 (up to 3.8.x a store beside them, at most 16 GiB) |
 | Image input | accepted (`VISION=1`) | accepted, and videos (`VISION=1`, the default) |
 | Published AXL weights | optional | not served (from 3.6.0) |
 | Structured output, required tool calls | accepted, with xgrammar in the image | accepted, with xgrammar's `libtfgrammar` in the image; required tool calls in GLM's markup |
