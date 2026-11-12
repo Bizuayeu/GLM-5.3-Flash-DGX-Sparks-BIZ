@@ -8,9 +8,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from glm53_tf import client, long_input
+from tests.fakes import SHA, Reply
 
 # The native server's block (10-17's probe): the prompt pass, the first token and the ids' SHA-256 are kept.
-SHA = "6cfce86a7e1b71d88b66e40ac527671dae0d9bf02bc9db06d46d9b03cf5c7a53"
 BLOCK = {
     "prefill_seconds": 140.5,
     "time_to_first_token": 140.6,
@@ -61,17 +61,6 @@ def streamed(content):
         {"choices": [], "usage": USAGE},
     ]
     return [f"data: {json.dumps(c)}\n\n".encode() for c in chunks] + [b"data: [DONE]\n"]
-
-
-class Reply(list):
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-    def read(self):
-        return b"".join(self)
 
 
 def run(argv, content, sent=None, auth=None):

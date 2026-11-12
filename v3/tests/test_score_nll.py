@@ -12,6 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from glm53_tf import client, score_nll
+from tests.fakes import BytesReply
 
 SET = Path(__file__).resolve().parents[1] / "config/nll_set.json"
 
@@ -205,16 +206,9 @@ class ApiKeyTests(unittest.TestCase):
     def seen(self, env):
         got = []
 
-        class Reply(io.BytesIO):
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *exc):
-                return False
-
         def urlopen(req, timeout=None):
             got.append(req.get_header("Authorization"))
-            return Reply(b"{}")
+            return BytesReply(b"{}")
 
         with (
             patch.dict("os.environ", env),

@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from glm53_tf import client, mojibake
+from tests.fakes import BytesReply
 
 JAPANESE = "日本の春は桜が咲き、夏は祭りでにぎわう。" * 30
 KOREAN = "한국의 봄에는 벚꽃이 피고 여름에는 축제가 열립니다. " * 20
@@ -207,14 +208,6 @@ class SampledMojibakeTests(unittest.TestCase):
                     mojibake.run(ask, sampling=bad)
 
 
-class Reply(io.BytesIO):
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-
 class CommandTests(unittest.TestCase):
     def main(self, argv, reply=clean, env=None):
         """main() against canned replies: (exit status, printed lines, the urlopen calls)."""
@@ -223,7 +216,7 @@ class CommandTests(unittest.TestCase):
         def urlopen(req, timeout=None):
             body = json.loads(req.data)
             calls.append((req.full_url, req.get_header("Authorization"), body, timeout))
-            return Reply(json.dumps(reply(body)).encode())
+            return BytesReply(json.dumps(reply(body)).encode())
 
         out = io.StringIO()
         # A key in the runner's environment would reach every request; only env's does.

@@ -8,11 +8,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from glm53_tf import bench, client
+from tests.fakes import SHA, Reply
 
 # The native server's two blocks (10-17's probe): `tensorfold` with the prompt pass and the ids'
 # hash, `speculative` with the draft counts. Prefill keeps the times, decode adds the rounds and the
 # hash, edit the draft counts and the hash.
-SHA = "6cfce86a7e1b71d88b66e40ac527671dae0d9bf02bc9db06d46d9b03cf5c7a53"
 BLOCK = {
     "prefill_seconds": 30.25,
     "time_to_first_token": 30.3,
@@ -60,17 +60,6 @@ def decode_reply(n=4, finish="length"):
         {"choices": [], "usage": {"prompt_tokens": 17, "completion_tokens": n}},
     ]
     return [f"data: {json.dumps(c)}\n\n".encode() for c in chunks] + [b"data: [DONE]\n"]
-
-
-class Reply(list):
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-    def read(self):
-        return b"".join(self)
 
 
 def run(argv, sent=None, auth=None, edit_finish="stop"):
