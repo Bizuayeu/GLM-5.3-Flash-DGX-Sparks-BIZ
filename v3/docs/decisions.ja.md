@@ -87,5 +87,5 @@
 - **エンジンの設定。** [設定](configuration.ja.md)が回したと名指すもの以外の全てのエンジンの設定：`TF_ROCE*`・`TF_GLM_PREFILL_REDUCE`（TP=4では `gather`）などは既定のまま回り、`TF_GLM_PROMPT_K=shape` もDFlash2のdrafterも試していません。
 - **TP=3のFP8のlatent cache**、TP=2でも一度の試しの先。これはstreamごとに窓を持つので、3.9.0のKVのpageとは組めません。
 - **#1053の後の全core**。上流1.1.2が入れたもの（[Next Action](../README.ja.md#next-action)）。
-- **他のworldの大きさとhardware**：TP=4と他のGPUは回していません。
+- **他のworldの大きさとhardware**：試験的な4台の輪（3.12.0から）の外のTP=4と、他のGPUは回していません。
 - **2.x系の開いた項目**、MTUとLPA（[2.x系の決定](../../v2/docs/decisions.ja.md#1x系の施策で2x系では未評価のもの)）、そしてloop guard。ネイティブエンジンでは `--loop-guard` として持ちます。

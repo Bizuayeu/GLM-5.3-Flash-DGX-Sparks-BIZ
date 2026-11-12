@@ -140,7 +140,7 @@ A rank may differ from the others in these without a refusal.
 
 `TF_GLM_PDL`, `TF_GLM_PROMPT_STEPS`, `TF_GLM_SHARED`, `TF_GLM_LINK_WAIT` and `TF_GLM_PROF` take `0` or `1` alone, `TF_GLM_DFLASH2_LOG` a whole number and `TF_GLM_DRAFT_CONFIDENCE` a finite number from 0 to 1. Another value stops the start on every rank before the load reads the ranks, NCCL or the weights, with a line that names the variable and what it takes (from 3.12.0's engine: #2578, upstream's since 1.2.6).
 
-The engine sets `NCCL_RUNTIME_CONNECT=0`, `NCCL_CUMEM_HOST_ENABLE=0` and `NCCL_CUMEM_ENABLE=0` when they are unset: every connection registers at start, while the memory is free, and NCCL's cuMem host buffers, which wore out a GB10's driver pool under load, stay off. A rank file can set them otherwise; no 3.x run did.
+The engine sets `NCCL_RUNTIME_CONNECT=0`, `NCCL_CUMEM_HOST_ENABLE=0` and `NCCL_CUMEM_ENABLE=0` when they are unset: every connection registers at start, while the memory is free, and NCCL's cuMem host buffers, which wore out a GB10's driver pool under load, stay off. A rank file can set them otherwise, as the TP=4 examples do for `NCCL_RUNTIME_CONNECT` and `NCCL_CUMEM_ENABLE`.
 
 ### Rank 0's server
 
@@ -201,7 +201,7 @@ The values other than each host's own came from 2.x, where they were measured; w
 | `CONTAINER` | `glm53-tf3` | the container on every host |
 | `WORK` | `$HOME/glm53-tf3`, expanded on the host | the host directory at `/work` |
 
-`cluster.sh` fixes its timings: at TP=2 the ranks start 3 s apart, the highest first, and at TP=3 together, rank 0 last; `start` waits 15 minutes for rank 0's `serving` line; `stop` waits up to 60 s for each rank, sends `TERM` again to a rank left and waits 30 s more.
+`cluster.sh` fixes its timings: at TP=2 and TP=4 the ranks start 3 s apart, the highest first, and at TP=3 together, rank 0 last; `start` waits 15 minutes for rank 0's `serving` line; `stop` waits up to 60 s for each rank, sends `TERM` again to a rank left and waits 30 s more.
 
 ## Container
 

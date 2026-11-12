@@ -140,7 +140,7 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 
 `TF_GLM_PDL`・`TF_GLM_PROMPT_STEPS`・`TF_GLM_SHARED`・`TF_GLM_LINK_WAIT`・`TF_GLM_PROF` は `0` か `1` だけ、`TF_GLM_DFLASH2_LOG` は整数、`TF_GLM_DRAFT_CONFIDENCE` は0から1の有限の数を取ります。他の値は、全rankで、読み込みがrank・NCCL・重みを読む前に起動を止め、変数の名と取る値を挙げた行を出します（3.12.0のエンジンから。上流には1.2.6から入った#2578）。
 
-エンジンは `NCCL_RUNTIME_CONNECT`・`NCCL_CUMEM_HOST_ENABLE`・`NCCL_CUMEM_ENABLE` が無ければ `0` を設定します：全ての接続をメモリが空いている起動時に登録し、負荷の下でGB10のdriverのpoolを使い果たしたNCCLのcuMemのhost bufferを止めたままにします。rankのファイルで別の値にもできますが、3.x系のどの起動もしていません。
+エンジンは `NCCL_RUNTIME_CONNECT`・`NCCL_CUMEM_HOST_ENABLE`・`NCCL_CUMEM_ENABLE` が無ければ `0` を設定します：全ての接続をメモリが空いている起動時に登録し、負荷の下でGB10のdriverのpoolを使い果たしたNCCLのcuMemのhost bufferを止めたままにします。rankのファイルで別の値にもでき、TP=4のexamplesは `NCCL_RUNTIME_CONNECT` と `NCCL_CUMEM_ENABLE` をそうしています。
 
 ### rank 0のserver
 
@@ -201,7 +201,7 @@ TP=4のexample（参照機の4台のリング、3.12.0から試験的）は、TP
 | `CONTAINER` | `glm53-tf3` | 各ホストのcontainer |
 | `WORK` | `$HOME/glm53-tf3`、ホストで展開される | `/work` に見せるホストのdirectory |
 
-`cluster.sh` は時間を固定しています：TP=2ではrankを3秒おきに大きい番号から起動し、TP=3では一緒に起動してrank 0を最後にします。`start` はrank 0の `serving` の行を15分待ちます。`stop` は各rankを60秒まで待ち、残ったrankにもう一度 `TERM` を送って、さらに30秒待ちます。
+`cluster.sh` は時間を固定しています：TP=2とTP=4ではrankを3秒おきに大きい番号から起動し、TP=3では一緒に起動してrank 0を最後にします。`start` はrank 0の `serving` の行を15分待ちます。`stop` は各rankを60秒まで待ち、残ったrankにもう一度 `TERM` を送って、さらに30秒待ちます。
 
 ## container
 

@@ -87,5 +87,5 @@ Open items: no 3.x result either way.
 - **Engine settings.** Every engine setting but those [configuration](configuration.md) names as run: `TF_ROCE*`, `TF_GLM_PREFILL_REDUCE` (but `gather` at TP=4) and the other knobs ran at their defaults, `TF_GLM_PROMPT_K=shape` was not tried, and neither was DFlash2's drafter.
 - **The FP8 latent cache at TP=3**, and at TP=2 beyond its one trial. It keeps a window per stream, so it does not share 3.9.0's KV pages.
 - **Every core since #1053**, which upstream 1.1.2 brought ([Next Action](../README.md#next-action)).
-- **Other world sizes and hardware**: TP=4 and other GPUs were never run.
+- **Other world sizes and hardware**: TP=4 beyond the experimental ring of four (from 3.12.0) and other GPUs were never run.
 - **2.x's open items**, MTU and LPA ([2.x decisions](../../v2/docs/decisions.md#measures-from-1x-not-yet-evaluated-on-2x)), and its loop guard, which the native engine has as `--loop-guard`.
