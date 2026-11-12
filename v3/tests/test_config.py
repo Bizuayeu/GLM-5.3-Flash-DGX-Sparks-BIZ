@@ -133,7 +133,7 @@ class ServeScriptTests(unittest.TestCase):
         self.assertIn("release_context=$CONTEXT\n", serve)
         self.assertIn("context=${CONTEXT:-$release_context}\n", serve)
         self.assertEqual(serve.count("${CONTEXT:-"), 1)
-        for tp in (2, 3, 4):
+        for tp in sorted(config.TP_CHECKPOINTS):
             text = (LINE / f"config/tp{tp}.env").read_text(encoding="utf-8")
             self.assertIn("CONTEXT=1048576 ", text)
 

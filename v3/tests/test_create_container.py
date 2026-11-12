@@ -5,6 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from glm53_tf import config
+
 LINE = Path(__file__).resolve().parents[1]
 SCRIPTS = LINE / "scripts"
 GB10 = {n: 2808000 if n % 10 < 5 else 3900000 for n in range(20)}
@@ -68,7 +70,8 @@ class ContainerNameTests(unittest.TestCase):
         self.assertIn(f"container=${{2:-{name}}}\n", watch)
         paths = sorted((LINE / "examples").glob("cluster.*.env"))
         self.assertLessEqual(
-            {f"cluster.tp{tp}.env" for tp in (2, 3, 4)}, {p.name for p in paths}
+            {f"cluster.tp{tp}.env" for tp in config.TP_CHECKPOINTS},
+            {p.name for p in paths},
         )
         for path in paths:
             with self.subTest(example=path.name):

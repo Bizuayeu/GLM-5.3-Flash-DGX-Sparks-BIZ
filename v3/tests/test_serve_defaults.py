@@ -10,8 +10,8 @@ from pathlib import Path
 from glm53_tf import config, mojibake
 
 LINE = Path(__file__).resolve().parents[1]
-# The TP sizes serve.sh takes, each with its release file config/tp*.env.
-SIZES = (2, 3, 4)
+# The TP sizes serve.sh takes, each with its release file config/tp*.env: config.py's.
+SIZES = tuple(sorted(config.TP_CHECKPOINTS))
 SETTING = re.compile(r"^(\w+)=(\S*)", re.MULTILINE)
 WIRE = (
     "TF_TP_MASTER",
