@@ -26,7 +26,15 @@ if [ "${#H[@]}" != "$TP" ]; then
   echo "HOSTS names ${#H[@]} hosts for TP=$TP" >&2
   exit 2
 fi
-count() { $SSH "${H[$1]}" "docker exec $CONTAINER ps -eo args | grep -c '[t]ensorfold-native serve'" 2>/dev/null; }
+# A rank's engine count on stdout; a non-zero status when ssh or docker fails, which is not a count of 0. A stopped
+# or missing container runs no engine, so it counts 0 (hostwatch.sh reads its checks the same way). stopped: the
+# count is 0.
+count() {
+  $SSH "${H[$1]}" "out=\$(docker exec $CONTAINER ps -eo args 2>/dev/null) || { case \$(docker inspect -f \
+'{{.State.Running}}' $CONTAINER 2>&1) in false | *'No such'*) echo 0; exit 0 ;; esac; exit 1; }; \
+printf '%s\n' \"\$out\" | grep -c '[t]ensorfold-native serve' || true" 2>/dev/null
+}
+stopped() { local n; n=$(count "$1") && [ "$n" = 0 ]; }
 launch() {   # $1 rank, $2 label, $3 more serve arguments
   $SSH "${H[$1]}" "docker exec -d $CONTAINER bash -c 'bash /opt/glm53-tf3/serve.sh $TP $1 /work/rank.env $3 \
     > /work/logs/serve-r$1-$2.log 2>&1'"
@@ -41,12 +49,16 @@ dump() {
 
 case $cmd in
 status)
-  for r in "${!H[@]}"; do echo "rank $r ${H[$r]}: $(count "$r") engine process(es)"; done ;;
+  for r in "${!H[@]}"; do
+    n=$(count "$r") || n="?"
+    echo "rank $r ${H[$r]}: $n engine process(es)"
+  done ;;
 start)
   label=${1:?start needs a LABEL for the logs}
   shift
   for r in "${!H[@]}"; do
-    [ "$(count "$r")" = 0 ] || { echo "rank $r ${H[$r]} already runs an engine"; exit 1; }
+    n=$(count "$r") || { echo "rank $r ${H[$r]}: its engines cannot be counted (ssh or docker failed)"; exit 1; }
+    [ "$n" = 0 ] || { echo "rank $r ${H[$r]} already runs an engine"; exit 1; }
     $SSH "${H[$r]}" "mkdir -p $WORK/logs" || exit 1
   done
   if [ "$TP" = 3 ]; then
@@ -70,7 +82,7 @@ start)
       exit 0
     fi
     for r in "${!H[@]}"; do
-      if $SSH "${H[$r]}" "grep -aq REFUSE $WORK/logs/serve-r$r-$label.log" || [ "$(count "$r")" = 0 ]; then
+      if $SSH "${H[$r]}" "grep -aq REFUSE $WORK/logs/serve-r$r-$label.log" || stopped "$r"; then
         echo "FAILED on rank $r"
         dump "$label"
         exit 1
@@ -82,13 +94,14 @@ start)
 stop)
   $SSH "${H[0]}" "docker exec $CONTAINER pkill -TERM -f 'tensorfold-native serve'"
   for r in "${!H[@]}"; do
-    for _ in $(seq 1 30); do [ "$(count "$r")" = 0 ] && break; sleep 2; done
-    [ "$(count "$r")" = 0 ] || $SSH "${H[$r]}" "docker exec $CONTAINER pkill -TERM -f 'tensorfold-native serve'"
+    for _ in $(seq 1 30); do stopped "$r" && break; sleep 2; done
+    stopped "$r" || $SSH "${H[$r]}" "docker exec $CONTAINER pkill -TERM -f 'tensorfold-native serve'"
   done
   for r in "${!H[@]}"; do
-    for _ in $(seq 1 15); do [ "$(count "$r")" = 0 ] && break; sleep 2; done
+    for _ in $(seq 1 15); do stopped "$r" && break; sleep 2; done
     m=$($SSH "${H[$r]}" "awk '/MemAvailable/{print int(\$2/1048576)}' /proc/meminfo")
-    echo "rank $r ${H[$r]}: $(count "$r") engine process(es), MemAvailable $m GiB"
+    n=$(count "$r") || n="?"
+    echo "rank $r ${H[$r]}: $n engine process(es), MemAvailable $m GiB"
   done ;;
 *)
   echo "unknown command '$cmd': start, stop or status" >&2

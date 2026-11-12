@@ -15,17 +15,34 @@ SCRIPT = LINE / "scripts" / "cluster.sh"
 # `exec C ps` with an engine line while engine.HOST exists. `exec -d` is a rank's start: it appends to the rank's
 # log under STUB_WORK/logs and makes engine.HOST, but for refuse.HOST (a REFUSE line, the engine left running) and
 # dies.HOST (no engine); rank 0's log gets the serving line while serves exists. `exec C pkill` on rank 0's host
-# ends every engine not named in stays, on another host its own. sleep appends its argument to sleeps.log, and the
-# memory guard appends "HOST ARGUMENTS" to hostwatch.log.
+# ends every engine not named in stays, on another host its own. `exec C ps` and `inspect` fail as an unanswering
+# daemon does on fails.HOST, and on fails-running.HOST once its engine runs; on stopped.HOST and gone.HOST every
+# `exec` fails and `inspect` says the container is stopped or gone; ssh fails to connect to down.HOST. sleep appends
+# its argument to sleeps.log, and the memory guard appends "HOST ARGUMENTS" to hostwatch.log.
 SSH = r"""#!/bin/bash
 while [ "${1:-}" = -o ]; do shift 2; done
 host=$1
 shift
 printf '%s\t%s\n' "$host" "$*" >>"$STUB_DIR/calls.log"
+[ -e "$STUB_DIR/down.$host" ] && { echo "ssh: connect to host $host port 22: Connection refused" >&2; exit 255; }
 STUB_HOST=$host exec bash -c "$*"
 """
 DOCKER = r"""#!/bin/bash
 d=$STUB_DIR
+if [ "$1" = inspect ]; then
+  [ -e "$d/stopped.$STUB_HOST" ] && { echo false; exit 0; }
+  [ -e "$d/gone.$STUB_HOST" ] && { echo "Error: No such object: $4" >&2; exit 1; }
+  if [ -e "$d/fails.$STUB_HOST" ] || [ -e "$d/fails-running.$STUB_HOST" ]; then
+    echo "Cannot connect to the Docker daemon at unix:///var/run/docker.sock." >&2
+    exit 1
+  fi
+  echo true
+  exit 0
+fi
+if [ "$1" = exec ] && { [ -e "$d/stopped.$STUB_HOST" ] || [ -e "$d/gone.$STUB_HOST" ]; }; then
+  echo "Error response from daemon: container is not running" >&2
+  exit 1
+fi
 if [ "$1" = exec ] && [ "$2" = -d ]; then
   re='serve\.sh ([0-9]+) ([0-9]+) .*serve-r[0-9]+-([^ ]+)\.log'
   [[ "$*" =~ $re ]] || exit 1
@@ -43,6 +60,10 @@ if [ "$1" = exec ] && [ "$2" = -d ]; then
 fi
 case "$3" in
   ps)
+    if [ -e "$d/fails.$STUB_HOST" ] || { [ -e "$d/fails-running.$STUB_HOST" ] && [ -e "$d/engine.$STUB_HOST" ]; }; then
+      echo "Error response from daemon: context deadline exceeded" >&2
+      exit 1
+    fi
     echo COMMAND
     [ -e "$d/engine.$STUB_HOST" ] && echo "tensorfold-native serve /hub/x --name glm-tf"
     exit 0 ;;
@@ -77,6 +98,11 @@ class ClusterTests(unittest.TestCase):
         dies=(),
         serves=True,
         stays=(),
+        fails=(),
+        fails_running=(),
+        down=(),
+        stopped=(),
+        gone=(),
     ):
         """Runs ``cluster.sh CLUSTER_ENV ARGS`` against hosts h0 h1 … (rank order) and returns its exit code,
         output and errors, the ssh calls as (host, command), the sleeps, and the memory guard's starts as
@@ -104,6 +130,11 @@ class ClusterTests(unittest.TestCase):
                 ("engine", engines),
                 ("refuse", refuse),
                 ("dies", dies),
+                ("fails", fails),
+                ("fails-running", fails_running),
+                ("down", down),
+                ("stopped", stopped),
+                ("gone", gone),
             ):
                 for host in named:
                     (root / f"{prefix}.{host}").touch()
@@ -275,6 +306,64 @@ class ClusterTests(unittest.TestCase):
                 self.assertEqual(run.code, code)
                 self.assertIn(words, run.err)
                 self.assertEqual(self.launches(run), [])
+
+    def test_a_host_whose_engines_cannot_be_counted_stops_the_start_and_says_so(self):
+        for case in ({"fails": ["h1"]}, {"down": ["h1"]}):
+            with self.subTest(**case):
+                run = self.cluster(2, "start", "L", **case)
+                self.assertEqual(run.code, 1)
+                self.assertIn(
+                    "rank 1 h1: its engines cannot be counted (ssh or docker failed)",
+                    run.out,
+                )
+                self.assertNotIn("already runs an engine", run.out)
+                self.assertEqual(self.launches(run), [])
+
+    def test_a_failed_count_while_waiting_is_not_a_gone_engine(self):
+        run = self.cluster(2, "start", "L", serves=False, fails_running=["h1"])
+        self.assertEqual(run.code, 1)
+        self.assertNotIn("FAILED on rank 1", run.out)
+        self.assertIn("TIMEOUT: no serving line after 15 minutes", run.out)
+
+    def test_stop_and_status_do_not_read_a_failed_count_as_none(self):
+        run = self.cluster(2, "status", engines=["h0", "h1"], fails=["h1"])
+        self.assertEqual(
+            run.out.splitlines(),
+            ["rank 0 h0: 1 engine process(es)", "rank 1 h1: ? engine process(es)"],
+        )
+        run = self.cluster(2, "stop", engines=["h0", "h1"], fails=["h1"])
+        self.assertEqual(run.code, 0, run.out + run.err)
+        self.assertEqual(
+            [host for host, command in run.calls if "pkill" in command], ["h0", "h1"]
+        )
+        self.assertRegex(
+            run.out, r"rank 0 h0: 0 engine process\(es\), MemAvailable \d+ GiB"
+        )
+        self.assertRegex(
+            run.out, r"rank 1 h1: \? engine process\(es\), MemAvailable \d+ GiB"
+        )
+
+    def test_a_stopped_or_gone_container_runs_no_engine(self):
+        for case in ({"stopped": ["h1"]}, {"gone": ["h1"]}):
+            with self.subTest(**case):
+                run = self.cluster(2, "status", engines=["h0"], **case)
+                self.assertEqual(
+                    run.out.splitlines(),
+                    [
+                        "rank 0 h0: 1 engine process(es)",
+                        "rank 1 h1: 0 engine process(es)",
+                    ],
+                )
+                run = self.cluster(2, "stop", engines=["h0"], **case)
+                self.assertEqual(run.code, 0, run.out + run.err)
+                self.assertNotIn("2", run.sleeps)
+                self.assertRegex(
+                    run.out, r"rank 1 h1: 0 engine process\(es\), MemAvailable \d+ GiB"
+                )
+                run = self.cluster(2, "start", "L", serves=False, **case)
+                self.assertEqual(run.code, 1)
+                self.assertIn("FAILED on rank 1", run.out)
+                self.assertNotIn("cannot be counted", run.out)
 
 
 if __name__ == "__main__":
