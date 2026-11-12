@@ -35,9 +35,13 @@ count() {
 printf '%s\n' \"\$out\" | grep -c '[t]ensorfold-native serve' || true" 2>/dev/null
 }
 stopped() { local n; n=$(count "$1") && [ "$n" = 0 ]; }
-launch() {   # $1 rank, $2 label, $3 more serve arguments
-  $SSH "${H[$1]}" "docker exec -d $CONTAINER bash -c 'bash /opt/glm53-tf3/serve.sh $TP $1 /work/rank.env $3 \
-    > /work/logs/serve-r$1-$2.log 2>&1'"
+launch() {   # $1 rank, $2 label, then the more serve arguments
+  local more= run
+  [ $# -gt 2 ] && more=$(printf ' %q' "${@:3}")
+  # The rank's command for the container's bash, each argument quoted; ssh hands the whole command to the
+  # host's shell, so it is quoted once more
+  run="bash /opt/glm53-tf3/serve.sh $TP $1 /work/rank.env$more > /work/logs/serve-r$1-$2.log 2>&1"
+  $SSH "${H[$1]}" "docker exec -d $CONTAINER bash -c $(printf '%q' "$run")"
 }
 dump() {
   local q
@@ -62,10 +66,10 @@ start)
     $SSH "${H[$r]}" "mkdir -p $WORK/logs" || exit 1
   done
   if [ "$TP" = 3 ]; then
-    for r in 2 1 0; do launch "$r" "$label" "$*"; done
+    for r in 2 1 0; do launch "$r" "$label" "$@"; done
   else
     for ((r = TP - 1; r >= 0; r--)); do
-      launch "$r" "$label" "$*"
+      launch "$r" "$label" "$@"
       sleep 3
     done
   fi

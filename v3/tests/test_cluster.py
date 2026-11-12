@@ -1,5 +1,4 @@
 import os
-import re
 import subprocess
 import tempfile
 import time
@@ -12,9 +11,11 @@ SCRIPT = LINE / "scripts" / "cluster.sh"
 
 # Stand-ins for the control machine's ssh and every host's docker, all run on this machine. ssh drops its -o
 # options, appends "HOST<TAB>COMMAND" to calls.log and runs the command with STUB_HOST=HOST. docker answers
-# `exec C ps` with an engine line while engine.HOST exists. `exec -d` is a rank's start: it appends to the rank's
-# log under STUB_WORK/logs and makes engine.HOST, but for refuse.HOST (a REFUSE line, the engine left running) and
-# dies.HOST (no engine); rank 0's log gets the serving line while serves exists. `exec C pkill` on rank 0's host
+# `exec C ps` with an engine line while engine.HOST exists. `exec -d` is a rank's start: it runs the rank's
+# command, with a serve.sh and a log folder (STUB_WORK/logs) standing in for the image's. That serve.sh appends
+# "HOST<TAB>ARG<TAB>…" to launches.log and makes engine.HOST, but for refuse.HOST (a REFUSE line, the engine left
+# running) and dies.HOST (no engine); rank 0's log gets the serving line while serves exists. `exec C pkill` on
+# rank 0's host
 # ends every engine not named in stays, on another host its own. `exec C ps` and `inspect` fail as an unanswering
 # daemon does on fails.HOST, and on fails-running.HOST once its engine runs; on stopped.HOST and gone.HOST every
 # `exec` fails and `inspect` says the container is stopped or gone; ssh fails to connect to down.HOST. sleep appends
@@ -44,18 +45,10 @@ if [ "$1" = exec ] && { [ -e "$d/stopped.$STUB_HOST" ] || [ -e "$d/gone.$STUB_HO
   exit 1
 fi
 if [ "$1" = exec ] && [ "$2" = -d ]; then
-  re='serve\.sh ([0-9]+) ([0-9]+) .*serve-r[0-9]+-([^ ]+)\.log'
-  [[ "$*" =~ $re ]] || exit 1
-  rank=${BASH_REMATCH[2]}
-  log=$STUB_WORK/logs/serve-r$rank-${BASH_REMATCH[3]}.log
-  [ -e "$d/dies.$STUB_HOST" ] && { echo "[serve.sh] rank $rank" >>"$log"; exit 0; }
-  touch "$d/engine.$STUB_HOST"
-  [ -e "$d/refuse.$STUB_HOST" ] && { echo "[serve.sh] REFUSE: stub" >>"$log"; exit 0; }
-  if [ "$rank" = 0 ] && [ -e "$d/serves" ]; then
-    echo "[tensorfold] serving glm-tf at 127.0.0.1:8095" >>"$log"
-  else
-    echo "[tensorfold] rank $rank waiting" >>"$log"
-  fi
+  # $6 is the rank's command for the container's bash
+  cmd=${6//\/opt\/glm53-tf3\/serve.sh/$d/serve.sh}
+  cmd=${cmd//> \/work\/logs\//> $STUB_WORK/logs/}
+  bash -c "$cmd"
   exit 0
 fi
 case "$3" in
@@ -79,6 +72,19 @@ case "$3" in
     exit 0 ;;
 esac
 exit 0
+"""
+SERVE = r"""#!/bin/bash
+d=$STUB_DIR
+{ printf '%s' "$STUB_HOST"; printf '\t%s' "$@"; printf '\n'; } >>"$d/launches.log"
+rank=$2
+[ -e "$d/dies.$STUB_HOST" ] && { echo "[serve.sh] rank $rank"; exit 0; }
+touch "$d/engine.$STUB_HOST"
+[ -e "$d/refuse.$STUB_HOST" ] && { echo "[serve.sh] REFUSE: stub"; exit 0; }
+if [ "$rank" = 0 ] && [ -e "$d/serves" ]; then
+  echo "[tensorfold] serving glm-tf at 127.0.0.1:8095"
+else
+  echo "[tensorfold] rank $rank waiting"
+fi
 """
 SLEEP = '#!/bin/bash\necho "$1" >>"$STUB_DIR/sleeps.log"\n'
 HOSTWATCH = 'printf "%s %s\\n" "$STUB_HOST" "$*" >>"$STUB_DIR/hostwatch.log"\n'
@@ -119,6 +125,7 @@ class ClusterTests(unittest.TestCase):
             watch = root / "checkout/v3/scripts/hostwatch.sh"
             watch.parent.mkdir(parents=True)
             watch.write_text(HOSTWATCH, encoding="utf-8")
+            (root / "serve.sh").write_text(SERVE, encoding="utf-8")
             (root / "work").mkdir()
             (root / "rank0").write_text(
                 f"{hosts[0] if hosts else ''}\n", encoding="utf-8"
@@ -177,20 +184,17 @@ class ClusterTests(unittest.TestCase):
                 err=run.stderr,
                 calls=[tuple(x.split("\t", 1)) for x in lines("calls.log")],
                 sleeps=lines("sleeps.log"),
+                launched=[tuple(x.split("\t")) for x in lines("launches.log")],
                 watches=sorted(tuple(x.split(" ", 1)) for x in lines("hostwatch.log")),
             )
 
     def launches(self, run):
-        """The ranks' starts in order, as (host, serve.sh's arguments)."""
-        found = []
-        for host, command in run.calls:
-            m = re.search(
-                r"exec -d glm53-tf3 bash -c 'bash /opt/glm53-tf3/serve\.sh (.*?) +> /work/logs/",
-                command,
-            )
-            if m:
-                found.append((host, m[1]))
-        return found
+        """The ranks' starts in order, as (host, serve.sh's arguments joined by spaces)."""
+        return [(x[0], " ".join(x[1:])) for x in run.launched]
+
+    def launch_args(self, run):
+        """The ranks' starts in order, as (host, serve.sh's arguments one by one)."""
+        return [(x[0], x[1:]) for x in run.launched]
 
     def test_tp2_and_tp4_start_the_highest_rank_first_three_seconds_apart(self):
         for tp in (2, 4):
@@ -364,6 +368,20 @@ class ClusterTests(unittest.TestCase):
                 self.assertEqual(run.code, 1)
                 self.assertIn("FAILED on rank 1", run.out)
                 self.assertNotIn("cannot be counted", run.out)
+
+    def test_an_argument_with_a_space_or_a_quote_reaches_serve_sh_whole(self):
+        run = self.cluster(2, "start", "L", "--alias", "a b", "--note", "it's")
+        self.assertEqual(run.code, 0, run.out + run.err)
+        self.assertEqual(
+            self.launch_args(run),
+            [
+                (
+                    f"h{r}",
+                    ("2", str(r), "/work/rank.env", "--alias", "a b", "--note", "it's"),
+                )
+                for r in (1, 0)
+            ],
+        )
 
 
 if __name__ == "__main__":
