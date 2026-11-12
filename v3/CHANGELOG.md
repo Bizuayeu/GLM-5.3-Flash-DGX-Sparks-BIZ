@@ -4,6 +4,24 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.12.1 — 2026-11-12
+
+Documents, example comments and tests only. No file of the image changes; it stays 3.12.0's (`glm53-tf3:3.12.0`, `sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
+
+### Documentation
+
+- The default checkpoint follows the TP size, as 3.12.0 set it: the [repository README](../README.md), the [licensing guide](../docs/licensing.md) and this README's [what it is](README.md#what-it-is) and [differences from 2.x](README.md#differences-from-2x) say Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4, where they still called XSFP4 the default and Jammed XSFP4 a choice. `THIRD_PARTY_NOTICES.md`, which the image carries, keeps the old words until the next image.
+- [Host preparation](../docs/hosts.md) and the README's requirements say 3.12.0 is the first release measured on the reference hosts' state from 2026-11-07 (kernel `7.0.0-1025-nvidia`, display memory at Auto), and that figures carried from earlier releases were measured on the state before it, where they said nothing had been measured on it yet.
+- The README's [disclaimer](README.md#disclaimer) and the [decisions](docs/decisions.md#engine) say 3.12.0's engine is upstream 1.2.7 itself, where the README said 1.2.4 and the decisions' versions stopped at 1.2.1.
+- TP=4 has run: the decisions no longer say it never did, and the [configuration](docs/configuration.md) says the TP=4 examples set two of the engine's NCCL connection settings to 1 and that `cluster.sh` starts TP=4's ranks 3 s apart, as it does TP=2's.
+- An empty value in a rank file reads as unset for nearly every setting: the README's [configuration](README.md#configuration) and the configuration's heat row no longer say it turns a setting off or that `serve.sh` unsets it. The image's `serve.sh` and `config/tp*.env` comments keep the old words until the next image.
+- The [setup](SETUP.md#5-start) and the [cheatsheet](docs/cheatsheet.md) make `state/` before copying a cluster file into it, as the README's Quick Start does, and the cheatsheet runs the tool-argument gate from `v3/`.
+- The [document map](../docs/README.md) gives the release check as `release_notes.py X.Y.Z --match-project`, as `release.yml` runs it, and lists host preparation's section on updating a host; [AGENTS.md](../AGENTS.md) says the root's document map and CI file are at the checkout root. The Japanese [NCCL diagnostics](../docs/nccl-validation.ja.md) keep the container command's line breaks, the Japanese decisions say 2.x serves images without "by default", and the example rank files' `CONTEXT` comment names `config/tpN.env`.
+
+### Repository
+
+- `serve.sh`'s tests pin that an empty value reaches the engine empty: they read the key itself, where an unset key passed as well. A test's name says every TP size, and `.gitignore` names `docs/plans` once.
+
 ## 3.12.0 — 2026-11-12
 
 The engine moves onto upstream TensorFold v1.2.7 itself (`93a2e93e`), with no commit of this line's: upstream carries Jammed XSFP4's `csf0_v1` commits from 1.2.3. The default checkpoint follows the TP size: Jammed XSFP4 at TP=2, XSFP4 at TP=3 as before, and XSFP4 at TP=4, new and experimental. The image is `glm53-tf3:3.12.0` (`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).

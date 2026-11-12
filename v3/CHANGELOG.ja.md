@@ -6,6 +6,24 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.12.1 — 2026-11-12
+
+文書とexamplesの注釈と試験だけの版です。imageのファイルは変わらず、3.12.0のままです（`glm53-tf3:3.12.0`、`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）。
+
+### Documentation
+
+- 既定のcheckpointは、3.12.0が決めたとおりTPの大きさで決まります。[リポジトリのREADME](../README.ja.md)、[ライセンスの整理](../docs/licensing.ja.md)、このREADMEの[何であるか](README.ja.md#何であるか)と[2.x系との違い](README.ja.md#2x系との違い)は、TP=2でJammed XSFP4、TP=3とTP=4でXSFP4と書きます。前は、XSFP4を既定、Jammed XSFP4を選べるものと書いていました。imageに入る `THIRD_PARTY_NOTICES.md` は、次のimageまで前の言い方のままです。
+- [ホストの準備](../docs/hosts.ja.md)とREADMEの必要な環境は、2026-11-07からの参照機の状態（kernel `7.0.0-1025-nvidia`、displayのmemoryはAuto）で測ったのは3.12.0が最初のリリースで、前の版から引き継いだ数はその前の状態で測ったと書きます。前は、この状態ではまだ何も測っていないと書いていました。
+- READMEの[免責事項](README.ja.md#免責事項)と[判断](docs/decisions.ja.md#エンジン)は、3.12.0のengineが上流1.2.7そのものだと書きます。前は、READMEが1.2.4と書き、判断の版は1.2.1で止まっていました。
+- TP=4は回りました。判断はもう、回していないとは書きません。[設定](docs/configuration.ja.md)は、TP=4のexamplesがengineのNCCLの接続の設定2つを1にすることと、`cluster.sh` がTP=4のrankもTP=2と同じく3秒おきに起動することを書きます。
+- rankのファイルの空の値は、ほとんどの設定でunsetと読まれます。READMEの[設定](README.ja.md#設定)と、設定の頁のheatの行は、空の値が設定を切る、`serve.sh` がunsetする、とはもう書きません。imageに入る `serve.sh` と `config/tp*.env` の注釈は、次のimageまで前の言い方のままです。
+- [手順書](SETUP.ja.md#5-起動)と[cheatsheet](docs/cheatsheet.ja.md)は、cluster fileを写す前に `state/` を作ります（READMEのはじめ方と同じ）。cheatsheetは、tool引数ゲートを `v3/` で回します。
+- [文書の地図](../docs/README.ja.md)は、releaseの確かめを `release.yml` と同じ `release_notes.py X.Y.Z --match-project` と書き、ホストの準備の「ホストの更新」の節を挙げます。[AGENTS.md](../AGENTS.md)は、根の文書の地図とCIのfileがcheckoutのルートにあると書きます。日本語の[NCCLの診断](../docs/nccl-validation.ja.md)はcontainerの命令の行継ぎを保ち、日本語の判断は2.x系が画像を受けると「既定で」なしに書き、examplesのrankのファイルの `CONTEXT` の注釈は `config/tpN.env` を挙げます。
+
+### Repository
+
+- `serve.sh` の試験は、空の値が空のままengineに届くことを固定します。keyそのものを読むようにし、前はkeyが無くても通っていました。試験の名の1つはどのTPの大きさとも言い、`.gitignore` は `docs/plans` を一度だけ挙げます。
+
 ## 3.12.0 — 2026-11-12
 
 エンジンを、この系列のcommitを持たない上流のTensorFold v1.2.7そのもの（`93a2e93e`）へ移します。Jammed XSFP4の `csf0_v1` のcommitは、上流が1.2.3から持っています。既定のcheckpointはTPで決まります：TP=2はJammed XSFP4、TP=3はこれまでどおりXSFP4、新しく試験的なTP=4はXSFP4です。imageは `glm53-tf3:3.12.0`（`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）です。

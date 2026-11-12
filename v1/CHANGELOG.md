@@ -2,6 +2,14 @@
 
 [日本語](CHANGELOG.ja.md) (this English file is canonical and the GitHub Release is made from it)
 
+## 1.31.4 — 2026-11-12
+
+### Documentation
+
+- The [README](README.md)'s note on the host CPU's frequency gives the reference hosts' third kernel: `7.0.0-1019-nvidia` until 2026-11-07 and `7.0.0-1025-nvidia` since ([host preparation](../docs/hosts.md)).
+
+No file of the reference image changes; it stays 1.31.0's.
+
 ## 1.31.3 — 2026-10-24
 
 ### Documentation
