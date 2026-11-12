@@ -3,7 +3,6 @@ import re
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from glm53_tf import config
 
@@ -16,8 +15,7 @@ class LoadLockTests(unittest.TestCase):
             path = Path(tmp) / "xsfp4.lock.json"
             values = {"model": "m", "revision": "0" * 40, **lock}
             path.write_text(json.dumps(values), encoding="utf-8")
-            with patch.object(config, "LOCK_PATH", path):
-                return config.load_lock()
+            return config.load_lock(path)
 
     def test_a_full_revision_is_read(self):
         self.assertEqual(self.load()["revision"], "0" * 40)

@@ -24,8 +24,8 @@ CHECKPOINT_HELP = "xsfp4 (XSFP4, kept under state/xsfp4) or jammed (Jammed XSFP4
 TP_HELP = "the checkpoint this TP serves by default: jammed at 2, xsfp4 at 3 and 4"
 
 
-def load_lock(path=None):
-    lock = json.loads((path or LOCK_PATH).read_text(encoding="utf-8"))
+def load_lock(path):
+    lock = json.loads(path.read_text(encoding="utf-8"))
     if not re.fullmatch(r"[0-9a-f]{40}", lock["revision"]):
         raise ValueError("Model revision must be a full commit hash")
     return lock
