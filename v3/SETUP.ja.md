@@ -52,7 +52,7 @@ cp v3/examples/tp4-rank0.graph.xml ~/glm53-tf3/graph.xml      # TP=4ではrank�
 
 ## 5. 起動
 
-全ホストにSSHできる機械から、[`examples/cluster.tp2.env`](examples/cluster.tp2.env)・[`cluster.tp3.env`](examples/cluster.tp3.env)・[`cluster.tp4.env`](examples/cluster.tp4.env) のどれかを `state/cluster.env`（Gitが追わないので、拠点の値がGitに入らない）に写し、`HOSTS`（rankの順のSSHの名前）と `CHECKOUT`（ホスト上のこのリポジトリ）、既定と違えば `CONTAINER`・`WORK`・`SSH` を設定してから：
+全ホストにSSHできる機械から、`state/` を作り（`mkdir -p state`）、[`examples/cluster.tp2.env`](examples/cluster.tp2.env)・[`cluster.tp3.env`](examples/cluster.tp3.env)・[`cluster.tp4.env`](examples/cluster.tp4.env) のどれかを `state/cluster.env`（Gitが追わないので、拠点の値がGitに入らない）に写し、`HOSTS`（rankの順のSSHの名前）と `CHECKOUT`（ホスト上のこのリポジトリ）、既定と違えば `CONTAINER`・`WORK`・`SSH` を設定してから：
 
 ```sh
 v3/scripts/cluster.sh state/cluster.env start first

@@ -52,7 +52,7 @@ The engine needs no build step on the host: its kernels are in the binary.
 
 ## 5. Start
 
-From a machine with SSH to every host, after copying [`examples/cluster.tp2.env`](examples/cluster.tp2.env), [`cluster.tp3.env`](examples/cluster.tp3.env) or [`cluster.tp4.env`](examples/cluster.tp4.env) to `state/cluster.env` (untracked, so your site's values stay out of Git) and setting `HOSTS` (SSH names in rank order), `CHECKOUT` (this repository on the hosts) and, if they differ from the defaults, `CONTAINER`, `WORK` and `SSH`:
+From a machine with SSH to every host, after creating `state/` (`mkdir -p state`) and copying [`examples/cluster.tp2.env`](examples/cluster.tp2.env), [`cluster.tp3.env`](examples/cluster.tp3.env) or [`cluster.tp4.env`](examples/cluster.tp4.env) to `state/cluster.env` (untracked, so your site's values stay out of Git) and setting `HOSTS` (SSH names in rank order), `CHECKOUT` (this repository on the hosts) and, if they differ from the defaults, `CONTAINER`, `WORK` and `SSH`:
 
 ```sh
 v3/scripts/cluster.sh state/cluster.env start first

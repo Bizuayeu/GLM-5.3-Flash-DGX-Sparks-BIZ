@@ -17,7 +17,7 @@ CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-FP4-Local/snapshots/<revision>
 Three hosts cabled in a ring, each with a `/32` address routed over the links ([three hosts in a ring](../../docs/qsfp-network.md#8-three-hosts-in-a-ring)). `cluster.sh` starts the ranks together, and rank 0's NCCL id reaches the others over the ranks' lines, upstream's bootstrap since this line's pull request #1178 ([setup §5](../SETUP.md#5-start)):
 
 ```sh
-cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKOUT
+mkdir -p state && cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKOUT
 v3/scripts/cluster.sh state/cluster.env start ring
 ```
 
@@ -27,7 +27,7 @@ Experimental from 3.12.0: four hosts cabled in a ring with no cable across, each
 
 ```sh
 cp v3/examples/tp4-rank0.graph.xml ~/glm53-tf3/graph.xml   # on each host, its rank's graph beside its rank file
-cp v3/examples/cluster.tp4.env state/cluster.env           # HOSTS in rank order round the ring, CHECKOUT
+mkdir -p state && cp v3/examples/cluster.tp4.env state/cluster.env   # HOSTS in rank order round the ring, CHECKOUT
 v3/scripts/cluster.sh state/cluster.env start ring4
 ```
 
@@ -94,7 +94,7 @@ TF_HEAT_LOW=86
 
 ## The tool-argument gate
 
-This repository's relay, not part of TensorFold: it checks each tool call's arguments against the tool's required fields and asks the model once more when one fails ([setup §6](../SETUP.md#6-tool-argument-gate-optional)). Clients that use tools talk to its port; what it changed in tool-eval-bench's scores is in [validation](validation.md#tools-through-the-tool-argument-gate):
+This repository's relay, not part of TensorFold: it checks each tool call's arguments against the tool's required fields and asks the model once more when one fails ([setup §6](../SETUP.md#6-tool-argument-gate-optional)). Clients that use tools talk to its port; what it changed in tool-eval-bench's scores is in [validation](validation.md#tools-through-the-tool-argument-gate). Run it from `v3/`:
 
 ```sh
 python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log ../records/<run>/gate.jsonl

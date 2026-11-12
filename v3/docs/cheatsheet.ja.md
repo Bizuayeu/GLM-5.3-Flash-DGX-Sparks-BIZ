@@ -17,7 +17,7 @@ CHECKPOINT=/hub/models--nvidia--GLM-5.3-Flash-FP4-Local/snapshots/<revision>
 3台をリングにつなぎ、各台にリンクの上で経路を引いた `/32` のアドレスを置きます（[3台をリングにつなぐ](../../docs/qsfp-network.ja.md#8-3台をリングにつなぐ)）。`cluster.sh` はrankを一緒に起動し、rank 0のNCCLのidはrankどうしの線で他へ届きます。この系列のpull request #1178からの上流のbootstrapです（[手順書 §5](../SETUP.ja.md#5-起動)）：
 
 ```sh
-cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKOUT
+mkdir -p state && cp v3/examples/cluster.tp3.env state/cluster.env   # HOSTS in rank order, CHECKOUT
 v3/scripts/cluster.sh state/cluster.env start ring
 ```
 
@@ -27,7 +27,7 @@ v3/scripts/cluster.sh state/cluster.env start ring
 
 ```sh
 cp v3/examples/tp4-rank0.graph.xml ~/glm53-tf3/graph.xml   # on each host, its rank's graph beside its rank file
-cp v3/examples/cluster.tp4.env state/cluster.env           # HOSTS in rank order round the ring, CHECKOUT
+mkdir -p state && cp v3/examples/cluster.tp4.env state/cluster.env   # HOSTS in rank order round the ring, CHECKOUT
 v3/scripts/cluster.sh state/cluster.env start ring4
 ```
 
@@ -94,7 +94,7 @@ TF_HEAT_LOW=86
 
 ## tool引数ゲート
 
-このリポジトリのrelayで、TensorFoldの一部ではありません：各tool callの引数をtoolの必須の欄と照らし、一つでも外れればモデルにもう一度問います（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。toolを使うclientはそのportに話します。tool-eval-benchの点にどう効いたかは[検証](validation.ja.md#tool引数ゲート越しのtool)にあります：
+このリポジトリのrelayで、TensorFoldの一部ではありません：各tool callの引数をtoolの必須の欄と照らし、一つでも外れればモデルにもう一度問います（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。toolを使うclientはそのportに話します。tool-eval-benchの点にどう効いたかは[検証](validation.ja.md#tool引数ゲート越しのtool)にあります。`v3/` で回します：
 
 ```sh
 python -m glm53_tf tool-gate --port 8896 --upstream http://127.0.0.1:8095 --log ../records/<run>/gate.jsonl
