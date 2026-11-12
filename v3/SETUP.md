@@ -30,8 +30,8 @@ At TP=2 give both commands `--tp 2` and `verify-download` an output folder of it
 Build on one of the GB10 hosts (linux/arm64), from the checkout root:
 
 ```sh
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.10.0 .
-docker image inspect --format '{{.Id}}' glm53-tf3:3.10.0
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.12.0 .
+docker image inspect --format '{{.Id}}' glm53-tf3:3.12.0
 ```
 
 The build compiles the engine from the BIZ release of TensorFold at the commit in [`config/engine.lock.json`](config/engine.lock.json) (`ENGINE_REF`), with the Zig compiler the lock names and checks by SHA-256, and builds `libtfgrammar` (structured output) from the xgrammar release the lock pins, checked by commit. For image and video input it builds libjpeg-turbo, libwebp's decoder and a static FFmpeg from the release tarballs the lock pins by SHA-256, and the engine's `libtfvideo` over that FFmpeg. The runtime image holds `tensorfold-native` and `tf-cuda-test` in `/usr/local/bin`, `libtfgrammar.so`, `libturbojpeg.so.0`, `libwebpdecoder.so.3` and `libtfvideo.so` in `/usr/local/lib`, NCCL 2.30.7 and the RDMA userspace, `serve.sh` in `/opt/glm53-tf3/`, `/usr/share/doc/tf3/ENGINE`, which names the engine commit, the media releases and every binary's and library's SHA-256, and the notices of this repository, xgrammar, libjpeg-turbo, libwebp, FFmpeg and the engine under `/usr/share/doc/tf3/`. Both base images are pinned by digest. The build of 3.2.0's image took about 13 minutes on a reference host, the base images pulled first. The same commit built on another host can give binaries with other SHA-256s (the reference hosts' builds did); the decode check, not the hash, tells whether two builds answer alike. Copy the image to the other hosts (`docker save glm53-tf3:3.10.0 | ssh <host> docker load`, over the link) and compare the image IDs of every host; they must be equal.
@@ -39,7 +39,7 @@ The build compiles the engine from the BIZ release of TensorFold at the commit i
 ## 4. Container and rank file on each host
 
 ```sh
-v3/scripts/create_container.sh glm53-tf3:3.10.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
+v3/scripts/create_container.sh glm53-tf3:3.12.0 ~/glm53-tf3   # container glm53-tf3, ~/glm53-tf3 at /work
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # this host's rank: tp2-rank0/1, tp3-rank0/1/2 or tp4-rank0/1/2/3
 cp v3/examples/tp4-rank0.graph.xml ~/glm53-tf3/graph.xml      # at TP=4 also the rank's NCCL graph, which its rank file names
 ```
