@@ -116,7 +116,11 @@ class HostwatchTests(unittest.TestCase):
         self.assertTrue(lines[-1].endswith(" done"))
 
     def test_a_stopped_or_missing_container_ends_the_watch(self):
-        for inspect in (("false", "", 0), ("", "Error: No such object: glm53-tf3", 1)):
+        for inspect in (
+            ("false", "", 0),
+            ("", "Error: No such object: glm53-tf3", 1),
+            ("", "error: no such object: glm53-tf3", 1),
+        ):
             with self.subTest(inspect=inspect):
                 lines, _ = self.watch(["fail"], inspect=inspect)
                 self.assertEqual(len(lines), 1)

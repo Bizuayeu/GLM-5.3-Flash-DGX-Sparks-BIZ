@@ -23,12 +23,13 @@ engines() {
   grep -c '[t]ensorfold-native serve' <<<"$out" || true
 }
 
-# Status 0 (stop watching) when the container is stopped or gone; 1 while it runs or docker cannot say.
+# Status 0 (stop watching) when the container is stopped or gone; 1 while it runs or docker cannot say. Docker
+# names a gone container "No such object" or, as 29.6.2 does, "no such object".
 container_gone() {
   local state
   state=$(dock inspect -f '{{.State.Running}}' "$container" 2>&1)
   case $state in
-    false | *"No such"*) return 0 ;;
+    false | *[Nn]"o such"*) return 0 ;;
   esac
   return 1
 }
