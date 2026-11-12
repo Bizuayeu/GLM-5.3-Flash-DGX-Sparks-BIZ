@@ -28,12 +28,12 @@
 | `NCCL_PORT` | `29583` | `NCCL_COMM_ID` のrank 0のport。rank 0のNCCLのbootstrapがここで待ち受ける。rankどうしの生存の線はその次のportを使う | 同じ |
 | `CONTEXT` | `1048576`。空の値は既定になる | 窓（`--context`） | 同じ。起動時に比べる |
 | `PARALLEL` | TP=2で `4`、TP=3とTP=4で `8` | 同時にdecodeする要求（`--parallel`）。空の値は何も渡さず、エンジンは起動時の空きメモリが許すだけ、最大8本のstreamを取る（両TPで受け入れ済み）。入らない数は起動時に断られる | rank 0。全rankのstreamを、rankのうち最も小さい余裕に合わせて決める |
-| `TF_KV_SHARE` | TP=2で `16`、TP=3とTP=4で `32` | KVのpoolのpageの上のprompt cache：保持するpromptをpageのまま持ち、その先のstateをこの数まで持つ。1 streamあたり4 stateを下回ると、動いているstreamどうしが追い出し合うとエンジンが警告する。空の値か `0` はコピーのprompt cache（`--prompt-cache-gib`）に戻す。3.11.xまでは `TF_GLM_KV_SHARE` で、上流1.2.4のエンジンは起動時にこれを断る（#2211） | 同じ |
+| `TF_KV_SHARE` | TP=2で `16`、TP=3とTP=4で `32` | KVのpoolのpageの上のprompt cache：保持するpromptをpageのまま持ち、その先のstateをこの数まで、起動の計画のslotに1つずつ持つ。rank 0の読み込みの行がslotの数を言い、入る数が少ない時は、入る数と、`--prompt-cache-gib` で全部入るかを言う。1 streamあたり4 stateを下回ると、動いているstreamどうしが追い出し合うとエンジンが警告する。64を越える値は起動を止める。空の値か `0` はコピーのprompt cache（`--prompt-cache-gib`）に戻す。3.11.xまでは `TF_GLM_KV_SHARE` で、上流1.2.4のエンジンは起動時にこれを断る（#2211） | 同じ |
 | `TENSORFOLD_PREFILL_SHARE` | `0.7` | 他のstreamがdecodeしている間の、長いpromptの時間の取り分（[rank 0のserver](#rank-0のserver)）。空の値はエンジンの `1` のまま | rank 0 |
 | `TF_GLM_CHUNK_SOLO` | 空 | `4096` は、他のstreamがdecodeしていない間、promptのpassを4,096行にする。そのpassの途中で来た要求はpassの終わりを待ち、全rankが広いprompt bufferを持つ。空の値か `2048` は2,048行のpassのまま。`--drafter` とは組めない | 同じ。起動時に比べる |
 | `MTP_CONFIDENCE` | TP=2で空、TP=3とTP=4で `0.5` | MTPのdraftの列を止める所（`--mtp-confidence`、0から1）：draftの確率がこの値を下回ると列が終わる。空の値は何も渡さない | 同じ |
 | `TF_GLM_ROCE_MULTI` | TP=2とTP=4で `0`、TP=3で `1` | wire：3 rankで、主streamの小さいall-gatherをNCCLの横でエンジンのmultirank RoCEに通す。`serve.sh` が次の行を渡す。4台のリングでは上流の試験的なrelay（`TF_TP_ROCE_RELAY=1`、#2352）を通ることになり、受け入れの外。`0` はNCCLのまま。他の値は、空も含めて `serve.sh` が起動時に断る | 同じ。起動時に比べる |
-| `TENSORFOLD_MEMORY_RESERVE_GIB` | TP=2で `9`、TP=3で `16`、TP=4で `14` | エンジンがシステムに残すメモリ。TP=2では1,048,576 tokenの窓のKVのpageの余地を作る。エンジン自身のreserve（[下](#各rankが読み比べないもの)）ではその余地が残らない。TP=3ではXSFP4のKVのpoolを窓2本のpageに保つ：余裕は3本目が取る大きさに近く、3本目が入るとrank 0の空きが約12 GiB減る。Jammed XSFP4はmodelが小さく、3.10.0の受け入れでは14 GiBで3本目が入った（[checkpoint](../README.ja.md#checkpoint)）。TP=4では参照機の4台のリングを配信した値で、そこでは詰めていない。空の値はエンジン自身の値 | 同じ |
+| `TENSORFOLD_MEMORY_RESERVE_GIB` | TP=2で `9`、TP=3で `16`、TP=4で `14` | エンジンがシステムに残すメモリ。TP=2では既定のJammed XSFP4のpoolを大きくする：2,961〜2,981 pageで、エンジン自身の12.3 GiB（[下](#各rankが読み比べないもの)）では2,451 page、どちらも1,048,576 tokenの窓が入る。XSFP4ではその窓の余地を作り、エンジン自身のreserveではそれが残らない。TP=3ではXSFP4のKVのpoolを窓2本とprompt cacheの残りのpageに保つ：余裕は3本目の窓が取る大きさに近く、起動の計画は余地に入る窓を全部、保持する状態のslotより先に置く。Jammed XSFP4はmodelが小さく、3.10.0の受け入れでは14 GiBで3本目が入った（[checkpoint](../README.ja.md#checkpoint)）。TP=4では参照機の4台のリングを配信した値で、そこでは詰めていない。空の値はエンジン自身の値 | 同じ |
 | `TF_TP_MASTER`・`TF_TP_PORT`・`TF_TP_PLAN_TIMEOUT`・`TF_TP_KERNEL_IMAGE`・`TF_TP_ROCE_FALLBACK` | `MASTER`、`29640`（と7つ上の `29647`）、`900`（秒）、imageの `/opt/glm53-tf3/tp_mailbox.fatbin`、`error` | `TF_GLM_ROCE_MULTI` がonの間に `serve.sh` がwireに渡す値：rank 0のアドレス、rankが落ち合うport、互いを待つ時間、mailboxのkernel、準備か確認に失敗した時の動き。`error` は起動を止め、`nccl` はwireなしで起動する | 同じ |
 | `VISION` | `1` | 画像と動画の入力（`--vision`）。rank 0でcheckpointのvision towerが読む。`0` でtextだけ。他の値は、空も含めて `serve.sh` が起動時に断る | 同じ。起動時に比べる |
 | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け（`--name`・`--host`・`--port`） | rank 0 |
@@ -61,7 +61,7 @@ labelの後に付けられるflagと、エンジンの既定です。「比べ�
 | flag | 既定 | 意味 |
 |---|---|---|
 | `--kv-cache fp8` | `bf16` | FP8のlatent cache。GiBあたり約2倍の窓。比べる。TP=2で一度試した（[制限](../README.ja.md#制限)） |
-| `--prompt-cache-gib N` | 無し：16 GiB、ただしstreamの残りまで | 保持するpromptの状態の予算。`0` で保持しない。リリースの `TF_KV_SHARE` では、promptはこの代わりにKVのpoolのpageの上に残る（[rankのファイル](#rankのファイル)） |
+| `--prompt-cache-gib N` | 無し：16 GiB、ただしstreamの残りまで | 保持するpromptの状態の予算。`0` で保持しない。リリースの `TF_KV_SHARE` では、promptはKVのpoolのpageの上に残り、stateはこの予算の中のslotに入り、残りはpoolのpageになる（[rankのファイル](#rankのファイル)） |
 | `--vision-max-images N` | `4`（1〜64） | 要求が持てる画像。送るmessageの全ての画像を数える。比べる |
 | `--vision-image-tokens N` | `4096`（16〜262144） | 要求の画像が分け合うtoken。比べる |
 | `--vision-max-videos N` | `2`（1〜16） | 要求が持てる動画。比べる |
