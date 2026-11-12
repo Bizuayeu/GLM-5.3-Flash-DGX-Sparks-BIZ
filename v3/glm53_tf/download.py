@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,6 +22,7 @@ from .io import write_json
 # In the checkpoint's state folder (config.checkpoint); the checksum run
 # (verify_download) reads what this writes there.
 STATUS_FILE = "download-status.json"
+LOCK_FILE = "download.lock"
 
 
 def started(model, revision):
@@ -91,6 +93,21 @@ def download(name):
         raise SystemExit(1)
 
 
+@contextmanager
+def owning(state):
+    """The state folder's download lock, taken at once or refused while another download holds it."""
+    from filelock import FileLock, Timeout
+
+    state.mkdir(parents=True, exist_ok=True)
+    try:
+        with FileLock(state / LOCK_FILE, timeout=0):
+            yield
+    except Timeout:
+        raise SystemExit(
+            "A download already owns this workspace; inspect its state"
+        ) from None
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--background", action="store_true")
@@ -98,21 +115,14 @@ def main(argv=None):
     args = parser.parse_args(argv)
     name = chosen_checkpoint(args)
     model, revision, state = checkpoint(name, STATE)
-    busy = "A download already owns this workspace; inspect its state"
     if args.background:
         if os.name != "posix":
             parser.error("Background jobs require Linux; use foreground mode here")
-        from filelock import FileLock, Timeout
-
-        state.mkdir(parents=True, exist_ok=True)
         # Written before this returns, so a verify-download started right after finds this
         # job's status rather than none or the last job's. The job takes the lock itself.
-        try:
-            with FileLock(state / "download.lock", timeout=0):
-                status = started(model, revision)
-                write_json(state / STATUS_FILE, status)
-        except Timeout:
-            raise SystemExit(busy) from None
+        with owning(state):
+            status = started(model, revision)
+            write_json(state / STATUS_FILE, status)
         env = os.environ.copy()
         with (state / "download.log").open("a", encoding="utf-8") as log:
             try:
@@ -139,15 +149,9 @@ def main(argv=None):
                 raise SystemExit(1) from None
         print("Download PID:", process.pid)
     else:
-        from filelock import FileLock, Timeout
-
-        state.mkdir(parents=True, exist_ok=True)
-        try:
-            with FileLock(state / "download.lock", timeout=0):
-                (state / "download.pid").write_text(str(os.getpid()) + "\n")
-                download(name)
-        except Timeout:
-            raise SystemExit(busy) from None
+        with owning(state):
+            (state / "download.pid").write_text(str(os.getpid()) + "\n")
+            download(name)
 
 
 if __name__ == "__main__":
