@@ -86,7 +86,7 @@ python -m glm53_tf mojibake --temperature 1.0 --top-p 0.95 --seed 42 --out ../re
 
 The requests name no reasoning effort, so the engine reasons at `serve.sh`'s default (high), within `serve.sh`'s limit of 32,768 tokens for the reasoning and the answer together. An answer that errs, is empty or short, is mostly outside its script or is cut at the limit is inconclusive (exit 2), never a pass; one broken character fails the check (exit 1). **Accepted when** every answer passes at both TP sizes.
 
-Reference, on 3.9.0's image (2026-11-03): twelve answers at each TP size, six at temperature 0 and six sampled (temperature 1.0, top_p 0.95, seeds 42 to 47), none with a broken character. They ran from 753 to 1,301 characters, 91 to 95% in the target script, every one finished with `stop`, and the longest reply was 1,067 tokens. The reasoning was empty in 20 of the 24 and 106 or 138 characters in the other four (the sampled Japanese answers of seeds 43 and 44 at both sizes), so the reasoning text was hardly exercised.
+Reference, at TP=2 on 3.9.0's image (2026-11-03) and at TP=3 on 3.12.0's (2026-11-12), which gave 3.9.0's answers word for word: twelve answers at each TP size, six at temperature 0 and six sampled (temperature 1.0, top_p 0.95, seeds 42 to 47), none with a broken character. They ran from 753 to 1,301 characters, 91 to 95% in the target script, every one finished with `stop`, and the longest reply was 1,067 tokens. The reasoning was empty in 20 of the 24 and 106 or 138 characters in the other four (the sampled Japanese answers of seeds 43 and 44 at both sizes), so the reasoning text was hardly exercised.
 
 ## Prefill and decode speed
 
