@@ -43,12 +43,26 @@ FILELOCK = (
 
 
 class BackgroundTests(unittest.TestCase):
+    def test_a_host_that_runs_no_background_job_is_told_to_use_the_foreground(self):
+        err = io.StringIO()
+        with (
+            patch.object(download, "background_supported", lambda: False),
+            patch.object(download.subprocess, "Popen") as popen,
+            self.assertRaises(SystemExit) as stop,
+            contextlib.redirect_stderr(err),
+        ):
+            download.main(["--background", "--tp", "2"])
+        self.assertEqual(stop.exception.code, 2)
+        self.assertIn(
+            "Background jobs require Linux; use foreground mode here", err.getvalue()
+        )
+        popen.assert_not_called()
+
     def background(self, *extra):
         with tempfile.TemporaryDirectory() as tmp:
-            posix = SimpleNamespace(name="posix", environ=os.environ)
             with (
                 patch.object(download, "STATE", Path(tmp)),
-                patch.object(download, "os", posix),
+                patch.object(download, "background_supported", lambda: True),
                 patch.object(download.subprocess, "Popen") as popen,
                 patch.dict(sys.modules, FILELOCK),
                 redirect_stdout(io.StringIO()),
@@ -129,11 +143,10 @@ class BackgroundStatusTests(unittest.TestCase):
             root = Path(tmp) / "state"
             model, revision, folder = config.checkpoint(which, root)
             folder.mkdir(parents=True)
-            posix = SimpleNamespace(name="posix", environ=os.environ)
             with (
                 patch.object(download, "STATE", root),
                 patch.object(verify_download, "STATE", root),
-                patch.object(download, "os", posix),
+                patch.object(download, "background_supported", lambda: True),
                 patch.object(download.subprocess, "Popen") as popen,
                 patch.dict(sys.modules, FILELOCK),
                 redirect_stdout(io.StringIO()),

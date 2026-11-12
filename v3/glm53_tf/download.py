@@ -93,6 +93,11 @@ def download(name):
         raise SystemExit(1)
 
 
+def background_supported():
+    """Whether this host runs a background job, which starts in a session of its own (POSIX)."""
+    return os.name == "posix"
+
+
 @contextmanager
 def owning(state):
     """The state folder's download lock, taken at once or refused while another download holds it."""
@@ -116,7 +121,7 @@ def main(argv=None):
     name = chosen_checkpoint(args)
     model, revision, state = checkpoint(name, STATE)
     if args.background:
-        if os.name != "posix":
+        if not background_supported():
             parser.error("Background jobs require Linux; use foreground mode here")
         # Written before this returns, so a verify-download started right after finds this
         # job's status rather than none or the last job's. The job takes the lock itself.
