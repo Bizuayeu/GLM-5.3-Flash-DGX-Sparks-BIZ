@@ -1,5 +1,6 @@
 """What the serving lines must agree on, checked where all of them are visible."""
 
+import ast
 import hashlib
 import json
 import tomllib
@@ -15,6 +16,16 @@ LINES = sorted(p.parent for p in REPO.glob("v[0-9]*/pyproject.toml"))
 def version(line):
     text = (line / "pyproject.toml").read_text(encoding="utf-8")
     return tomllib.loads(text)["project"]["version"]
+
+
+def constant(path, name):
+    """The literal a module assigns to name, read without importing its line."""
+    tree = ast.parse((REPO / path).read_text(encoding="utf-8"))
+    for node in tree.body:
+        targets = getattr(node, "targets", [])
+        if [getattr(t, "id", None) for t in targets] == [name]:
+            return ast.literal_eval(node.value)
+    raise AssertionError(f"{path} assigns no {name}")
 
 
 class LineTests(unittest.TestCase):
@@ -82,6 +93,46 @@ class CopiedModuleTests(unittest.TestCase):
                 with self.subTest(name=name, line=line):
                     copy = (REPO / line / "glm53_tf" / name).read_text("utf-8")
                     self.assertEqual(v1.replace("glm53_setup", "glm53_tf"), copy)
+
+
+class CopiedTextTests(unittest.TestCase):
+    """The measuring tools' texts are copies between the lines, so one measurement
+    reads the same on every line. A text that has to differ leaves this list."""
+
+    COPIES = {
+        "decode-check's tasks": (
+            ("v1/tools/decode_check.py", "TASKS"),
+            ("v2/glm53_tf/decode_check.py", "TASKS"),
+            ("v3/glm53_tf/decode_check.py", "TASKS"),
+        ),
+        "mojibake's prompts": (
+            ("v1/glm53_setup/mojibake.py", "PROMPTS"),
+            ("v3/glm53_tf/mojibake.py", "PROMPTS"),
+        ),
+        "bench's passage": (
+            ("v2/glm53_tf/bench.py", "PASSAGE"),
+            ("v3/glm53_tf/bench.py", "PASSAGE"),
+        ),
+        "long-input's ledger line": (
+            ("v2/glm53_tf/long_input.py", "LINE"),
+            ("v3/glm53_tf/long_input.py", "LEDGER_LINE"),
+        ),
+        "long-input's one passphrase": (
+            ("v2/glm53_tf/long_input.py", "ONE"),
+            ("v3/glm53_tf/long_input.py", "ONE"),
+        ),
+        "long-input's three passphrases": (
+            ("v2/glm53_tf/long_input.py", "THREE"),
+            ("v3/glm53_tf/long_input.py", "THREE"),
+        ),
+    }
+
+    def test_the_measuring_texts_are_the_same_on_every_line(self):
+        for text, copies in self.COPIES.items():
+            with self.subTest(text=text):
+                first, *rest = [constant(path, name) for path, name in copies]
+                for value in rest:
+                    self.assertEqual(first, value)
 
 
 if __name__ == "__main__":
