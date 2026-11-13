@@ -2,6 +2,14 @@
 
 [日本語](CHANGELOG.ja.md) (this English file is canonical and the GitHub Release is made from it)
 
+## 1.31.6 — 2026-11-13
+
+### Documentation
+
+- The Japanese changelog's 1.7.0 entry links the licensing guide's weight notices under the heading the root's guide gives them in 3.13.1 (重みの通知).
+
+No file of the reference image changes; it stays 1.31.0's.
+
 ## 1.31.5 — 2026-11-13
 
 ### Documentation

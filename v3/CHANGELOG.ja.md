@@ -6,6 +6,20 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.13.1 — 2026-11-13
+
+imageの外の道具とその試験と文書の版です。imageのファイルは変わらず、3.12.0のままです（`glm53-tf3:3.12.0`、`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）。
+
+### Documentation
+
+- `bench` のhelpは、送るdecodeの要求だけを書きます。2.5.0より前の要求は、それを載せている[2.x系の変更履歴](../v2/CHANGELOG.ja.md)に任せます。
+- [ライセンス整理](../docs/licensing.ja.md)の重みの節の見出しを、英語版のWeight noticesと同じく「重みの通知」にしました。節はMITのほかにNVIDIA Open Model Agreementも扱うからです。この節への頁の中・日本語のREADME・1.x系の日本語の変更履歴からのlinkも合わせました。
+
+### Repository
+
+- 根の試験は、系どうしが写し合う測りの文（decode-checkの課題、mojibakeのprompt、benchの文章、long-inputの台帳の行と合言葉）が、どの系でも同じであることを見ます。
+- 配信の既定の試験の一つの注釈は、streamあたり4つより少ない保持するpromptの状態でengineが出す警告の置き場（GLMの `cuda_share.zig`）を名指します。前は、engineに無い関数の名を書いていました。
+
 ## 3.13.0 — 2026-11-13
 
 imageの外の道具とその試験と文書の版です。imageのファイルは変わらず、3.12.0のままです（`glm53-tf3:3.12.0`、`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）。

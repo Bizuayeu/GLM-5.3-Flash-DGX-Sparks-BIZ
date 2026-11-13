@@ -4,6 +4,20 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.13.1 — 2026-11-13
+
+Tools outside the image, their tests and documents. No file of the image changes; it stays 3.12.0's (`glm53-tf3:3.12.0`, `sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
+
+### Documentation
+
+- `bench`'s help says only the decode request it sends; the request used before 2.5.0 is left to [2.x's changelog](../v2/CHANGELOG.md), which has it.
+- The Japanese page of the [licensing guide](../docs/licensing.md) heads its weight notices 重みの通知, as the English page heads them Weight notices, since the section covers the NVIDIA Open Model Agreement beside MIT; the links to the section from the page, the Japanese README and 1.x's Japanese changelog follow.
+
+### Repository
+
+- The root tests check that the measuring texts the lines copy from one another are the same on every line: decode-check's tasks, mojibake's prompts, bench's passage, and long-input's ledger line and passphrases.
+- A serving-defaults test's comment names the engine source behind its warning below four kept prompt states a stream, the GLM family's `cuda_share.zig`, where it named a function the engine does not have.
+
 ## 3.13.0 — 2026-11-13
 
 Tools outside the image, their tests and documents. No file of the image changes; it stays 3.12.0's (`glm53-tf3:3.12.0`, `sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
