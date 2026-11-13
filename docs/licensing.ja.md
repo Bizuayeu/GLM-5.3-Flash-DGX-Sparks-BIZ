@@ -29,7 +29,7 @@
 | 改変ファイル | 著作権表示と許諾文を保持 | 加えて改変した各ファイルに変更した旨を明示（本プロジェクトのvLLMパッチ処理は改変先へそのコメントを書き込む） |
 | 商標 | 言及なし | 商標の使用権は与えない |
 
-独自コードをApache-2.0にしたのは、明示の特許許諾と変更通知の規則が、採用組織側の審査を楽にするためです。NVIDIAのNVFP4の重みとその公開したAXLの組み直しがMITなのは上流Z.aiモデルとNVIDIAモデルカードの表記に従った結果で、XSFP4とJammed XSFP4は元のNVIDIA Open Model Agreementのままです（[重みのMIT通知](#重みのmit通知)）。どれも本プロジェクトが再許諾したものではありません。
+独自コードをApache-2.0にしたのは、明示の特許許諾と変更通知の規則が、採用組織側の審査を楽にするためです。NVIDIAのNVFP4の重みとその公開したAXLの組み直しがMITなのは上流Z.aiモデルとNVIDIAモデルカードの表記に従った結果で、XSFP4とJammed XSFP4は元のNVIDIA Open Model Agreementのままです（[重みの通知](#重みの通知)）。どれも本プロジェクトが再許諾したものではありません。
 
 ## Apache-2.0で配るとき
 
@@ -37,7 +37,7 @@
 
 無保証が基本で、有償サポートは自分の責任で提供できます。社内利用やAPIとしての提供だけで、Apache/MITが変更ソースの一般公開を要求するわけではありません。顧客へ成果物を渡す場合は、その配布物ごとの条件が加わります。
 
-## 重みのMIT通知
+## 重みの通知
 
 固定NVIDIA snapshotには独立したLICENSEファイルがなく、READMEにMIT表記と商用利用可の説明があります。上流Z.AIモデルの[固定版LICENSE](https://huggingface.co/zai-org/GLM-5.3-Flash/blob/eb9eb208eb0d988989d07a6a12d0fdeb5f52574a/LICENSE)を[原文で保持](../LICENSES/ZAI-GLM-MIT.txt)しています。これはNVIDIA snapshotに入っていたファイルと偽って扱うものではありません。
 
