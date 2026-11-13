@@ -346,6 +346,44 @@ class InstallTests(unittest.TestCase):
         self.assertRegex(unit, r"(?m)^User=@SERVICE_USER@$")
         self.assertIn("@SERVICE_USER@", self.install)
 
+    def installed(self, text):
+        """The files a part of install.sh installs, as {destination: source}."""
+        files = dict(
+            (dest, src)
+            for src, dest in re.findall(
+                r'(?m)^\s*install (?:-[ogm] \S+ )+"\$here/(\S+)" (\S+)$', text
+            )
+        )
+        files.update(
+            (dest, src)
+            for src, dest in re.findall(r'"\$here/(\S+)" >(/etc/\S+)$', text, re.M)
+        )
+        return files
+
+    def test_only_the_heat_cap_mark_installs_the_heat_cap(self):
+        # The default installs stay byte for byte what the hosts run (2026-11-11).
+        opted = re.compile(r'(?ms)^if \[ "\$heat_cap" = yes \]; then\n(.*?)^fi$')
+        default = opted.sub("", self.install)
+        self.assertEqual(
+            self.installed(default),
+            {
+                "/usr/local/sbin/gb10-telemetry": "gb10-telemetry",
+                "/etc/systemd/system/gb10-telemetry.service": "gb10-telemetry.service",
+                "/etc/systemd/system/gb10-clock-cap.service": "gb10-clock-cap.service",
+            },
+        )
+        self.assertNotIn("gb10-heat-cap.service", default)
+        self.assertIn('units="gb10-clock-cap.service gb10-telemetry.service"', default)
+        self.assertEqual(
+            self.installed("".join(opted.findall(self.install))),
+            {
+                "/usr/local/sbin/gb10-heat-cap": "gb10-heat-cap",
+                "/etc/systemd/system/gb10-heat-cap.service": "gb10-heat-cap.service",
+            },
+        )
+        self.assertIn("--heat-cap) heat_cap=yes ;;", self.install)
+        self.assertIn("heat_cap=no\n", self.install)
+
     def test_clock_cap_unit_keeps_its_commands(self):
         unit = (HOST / "gb10-clock-cap.service").read_text(encoding="utf-8")
         self.assertIn("ExecStart=/usr/bin/nvidia-smi -lgc 300,2200", unit)

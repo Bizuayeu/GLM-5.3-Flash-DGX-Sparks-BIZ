@@ -21,8 +21,8 @@ ruff check glm53_tf tests
 ruff format --check glm53_tf tests
 # at the checkout root; the host tools have no extension, so ruff is given them by name
 python -m unittest discover -s tests -t . -v
-ruff check tools tests host/nccl_probe.py host/gb10-telemetry host/cool-gate host/thermal-watch
-ruff format --check tools tests host/nccl_probe.py host/gb10-telemetry host/cool-gate host/thermal-watch
+ruff check tools tests host/nccl_probe.py host/gb10-telemetry host/cool-gate host/thermal-watch host/gb10-heat-cap
+ruff format --check tools tests host/nccl_probe.py host/gb10-telemetry host/cool-gate host/thermal-watch host/gb10-heat-cap
 python tools/check_publication.py
 ```
 

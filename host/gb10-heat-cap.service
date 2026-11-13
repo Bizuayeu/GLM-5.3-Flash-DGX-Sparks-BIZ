@@ -1,0 +1,16 @@
+# The heat cap's rules and their source: docs/hosts.md#gpu-clock-cap in this repository.
+# install.sh installs it only with --heat-cap.
+[Unit]
+Description=GB10 GPU clock cap lowered while the host stays hot
+After=gb10-clock-cap.service gb10-telemetry.service
+# Stopping the cap unit resets the clocks (-rgc) and restarting it locks 2200 again:
+# either one stops or restarts this one too, which locks 2200 on its way out.
+PartOf=gb10-clock-cap.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/gb10-heat-cap
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

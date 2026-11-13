@@ -33,9 +33,9 @@ jobs:
       # have no extension, so ruff is given them by name.
       - run: python -m unittest discover -s tests -t . -v
         working-directory: .
-      - run: ruff check tools tests host/nccl_probe.py host/gb10-telemetry host/cool-gate host/thermal-watch
+      - run: ruff check tools tests host/nccl_probe.py host/gb10-telemetry host/cool-gate host/thermal-watch host/gb10-heat-cap
         working-directory: .
-      - run: ruff format --check tools tests host/nccl_probe.py host/gb10-telemetry host/cool-gate host/thermal-watch
+      - run: ruff format --check tools tests host/nccl_probe.py host/gb10-telemetry host/cool-gate host/thermal-watch host/gb10-heat-cap
         working-directory: .
       - run: python tools/check_publication.py
         working-directory: .

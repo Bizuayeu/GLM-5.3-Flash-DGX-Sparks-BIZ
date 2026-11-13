@@ -1,0 +1,428 @@
+#!/usr/bin/python3
+"""Lower the GPU clock cap while this GB10 host stays hot, and raise it back once cool.
+
+    gb10-heat-cap [--high C] [--low C] [--window S] [--share F] [--hold S]
+                  [--hot-mhz MHZ] [--top-mhz MHZ] [--stale S]
+                  [--nvidia-smi PATH] [--log-dir DIR] [--state-file PATH]
+    gb10-heat-cap --status [--state-file PATH]
+
+Runs as a root service beside gb10-clock-cap.service, reading the latest rows of the
+gb10-telemetry record (/var/log/gb10-telemetry, or GB10_TELEMETRY_DIR when set). At
+--top-mhz, it locks the clock range at --hot-mhz once the hottest ACPI zone has read at
+or above --high for more than --share of the last --window seconds (counted from the
+rows' epochs, and only since the cap last became --top-mhz). At --hot-mhz, it locks
+--top-mhz again after the readings stay at or below --low for --hold seconds; a warmer
+reading starts the hold over. A missing record, or one older than --stale seconds,
+locks --hot-mhz. It starts at --top-mhz, or at --hot-mhz when the record is stale, and
+locks --top-mhz before it ends on SIGTERM. It never resets the clocks (-rgc) and never
+locks above --top-mhz, which is at most the boot unit's 2200. A failed nvidia-smi, or
+one that has not answered in --stale seconds, is recorded and tried again on the next
+reading.
+
+Each change is one fsynced JSON line in heat-cap.log in the record's directory, and so
+is a record that goes stale while the cap is already --hot-mhz (once, until it is fresh
+again). The state file holds the cap in force, when and why it was set; --status prints
+that file as one JSON line (exit 1 when it is absent or unreadable).
+"""
+
+import argparse
+import glob
+import json
+import math
+import os
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+from typing import NamedTuple
+
+LOG_DIR = (os.environ.get("GB10_TELEMETRY_DIR") or "").strip() or (
+    "/var/log/gb10-telemetry"
+)
+# Not *.jsonl: cool-gate, thermal-watch and install.sh take the newest *.jsonl of the
+# directory as the record.
+EVENTS = "heat-cap.log"
+STATE_FILE = "/run/gb10-heat-cap.json"
+# The floor and the cap of the boot unit's range (gb10-clock-cap.service: -lgc 300,2200).
+FLOOR_MHZ = 300
+TOP_MHZ = 2200
+# The reference hosts' long prefills: at 2200 MHz (2026-11-11, 2M tokens) the hottest
+# zone reached 90 C in 2-4 min and then stayed at 88-92 C; at 2000 MHz (2026-11-12, 2M
+# tokens at TP=3 and 1M at TP=2) it moved between 79 and 89 C while loaded and fell
+# below 75 C within 12 s of each load's end, so the return waits for the load to end.
+# Provisional: revisit on another host or room.
+HIGH_C = 90.0
+LOW_C = 75.0
+WINDOW_S = 300.0
+SHARE = 0.5
+HOLD_S = 120.0
+HOT_MHZ = 2000
+# cool-gate's STALE_SECONDS: the logger writes every 2 s and restarts after 5 s.
+STALE_S = 30.0
+POLL_S = 2.0  # the logger's period
+TAIL_BYTES = 4096
+
+
+class Lines(NamedTuple):
+    high: float = HIGH_C
+    low: float = LOW_C
+    window: float = WINDOW_S
+    share: float = SHARE
+    hold: float = HOLD_S
+    hot_mhz: int = HOT_MHZ
+    top_mhz: int = TOP_MHZ
+    stale: float = STALE_S
+
+
+class Decision(NamedTuple):
+    mhz: int
+    reason: str | None  # None: keep the cap in force
+    hot_s: float  # seconds at or above high in the window (at top_mhz)
+    cool_s: float  # seconds the latest readings have stayed at or below low
+
+
+def hottest(row):
+    """The hottest ACPI zone of a telemetry row, or None without a reading."""
+    zones = [t for t in (row or {}).get("acpi_c") or [] if t is not None]
+    return max(zones) if zones else None
+
+
+def hot_seconds(readings, start, high, stale):
+    """Seconds after start at or above high.
+
+    readings are (epoch, hottest) oldest first. Each reading stands for the time since
+    the one before it, at most stale: a longer gap is a stopped record.
+    """
+    total = 0.0
+    for (before, _), (epoch, acpi) in zip(readings, readings[1:], strict=False):
+        if epoch > start and acpi is not None and acpi >= high:
+            total += min(epoch - max(before, start), stale)
+    return total
+
+
+def cool_seconds(readings, low, stale):
+    """Seconds the latest readings in a row have stayed at or below low.
+
+    A reading without a zone, or a gap longer than stale, ends the run.
+    """
+    first = None
+    for epoch, acpi in reversed(readings):
+        if acpi is None or acpi > low or (first is not None and first - epoch > stale):
+            break
+        first = epoch
+    return 0.0 if first is None else readings[-1][0] - first
+
+
+def decide(cap, readings, now, since, lines):
+    """The cap to hold after the latest reading.
+
+    cap is the cap in force (None before one is set), since the epoch of the reading
+    at which it became top_mhz.
+    """
+    if not readings or now - readings[-1][0] > lines.stale:
+        reason = "telemetry stale" if readings else "no telemetry"
+        return Decision(lines.hot_mhz, reason, 0.0, 0.0)
+    latest = readings[-1][0]
+    cool = cool_seconds(readings, lines.low, lines.stale)
+    if cap is None:
+        return Decision(lines.top_mhz, "start", 0.0, cool)
+    if cap == lines.top_mhz:
+        start = max(latest - lines.window, since)
+        hot = hot_seconds(readings, start, lines.high, lines.stale)
+        if hot > lines.window * lines.share:
+            return Decision(lines.hot_mhz, "hot", hot, cool)
+        return Decision(cap, None, hot, cool)
+    if cool >= lines.hold:
+        return Decision(lines.top_mhz, "cool", 0.0, cool)
+    return Decision(cap, None, 0.0, cool)
+
+
+def tail_rows(log_dir):
+    """The rows at the end of the two newest day files, oldest first.
+
+    Two files, so that just after the UTC day changes the previous day's rows are
+    read too. A torn line, or a file that cannot be read, is skipped.
+    """
+    rows = []
+    for path in sorted(glob.glob(os.path.join(log_dir, "*.jsonl")))[-2:]:
+        try:
+            with open(path, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                f.seek(max(0, f.tell() - TAIL_BYTES))
+                lines = f.read().decode(errors="replace").splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            try:
+                row = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(row, dict) and isinstance(row.get("epoch"), int | float):
+                rows.append(row)
+    return rows
+
+
+def lock(nvidia_smi, mhz, top_mhz, timeout=STALE_S):
+    """Lock the clock range at FLOOR_MHZ..mhz; None, or why it failed."""
+    top = min(top_mhz, TOP_MHZ)
+    if not FLOOR_MHZ < mhz <= top:
+        raise ValueError(f"{mhz} MHz is outside {FLOOR_MHZ}..{top}")
+    try:
+        done = subprocess.run(
+            [nvidia_smi, "-lgc", f"{FLOOR_MHZ},{mhz}"],
+            capture_output=True,
+            text=True,
+            check=False,
+            # The stale line: a decision older than that is out of date. A hang that a
+            # kill cannot end (D state) still holds the watch.
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        return f"no answer in {timeout:g} s"
+    except OSError as error:
+        return str(error)
+    if done.returncode != 0:
+        return f"exit {done.returncode}: {(done.stderr or done.stdout).strip()}"
+    return None
+
+
+def record(log_dir, event):
+    """Append one fsynced JSON line to the events file, and print it."""
+    line = json.dumps(event)
+    print(line, flush=True)
+    try:
+        with open(os.path.join(log_dir, EVENTS), "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+    except OSError as error:
+        print(f"cannot record: {error}", file=sys.stderr, flush=True)
+
+
+def write_state(path, state):
+    """Replace the state file in one step, readable by every user."""
+    try:
+        fd, temporary = tempfile.mkstemp(
+            dir=os.path.dirname(path) or ".", prefix=".gb10-heat-cap."
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(json.dumps(state) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, path)
+    except OSError as error:
+        print(f"cannot write the state: {error}", file=sys.stderr, flush=True)
+
+
+def status(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            state = json.load(f)
+    except FileNotFoundError:
+        print(json.dumps({"state_file": path, "result": "absent"}))
+        return 1
+    except (OSError, ValueError) as error:
+        print(json.dumps({"state_file": path, "result": f"unreadable: {error}"}))
+        return 1
+    print(json.dumps(state))
+    return 0
+
+
+class Watch:
+    """The cap in force and the readings it is judged on."""
+
+    def __init__(self, lines, nvidia_smi, log_dir, state_file):
+        self.lines = lines
+        self.nvidia_smi = nvidia_smi
+        self.log_dir = log_dir
+        self.state_file = state_file
+        self.cap = None
+        self.since = None
+        self.readings = []
+        self.latest = None
+        self.failure = None
+        self.changed = (None, None)  # the epoch and reason of the cap in force
+        self.kept = None  # the reason the cap in force was last set or kept for
+        self.stopping = False
+
+    def read(self):
+        last = self.readings[-1][0] if self.readings else -math.inf
+        for row in tail_rows(self.log_dir):
+            if row["epoch"] > last:
+                self.readings.append((row["epoch"], hottest(row)))
+                self.latest = row
+                last = row["epoch"]
+        if self.readings:
+            keep = max(self.lines.window, self.lines.hold) + self.lines.stale
+            oldest = self.readings[-1][0] - keep
+            self.readings = [r for r in self.readings if r[0] >= oldest]
+
+    def step(self, now):
+        self.read()
+        wanted = decide(self.cap, self.readings, now, self.since, self.lines)
+        if wanted.mhz != self.cap:
+            self.set(wanted.mhz, wanted.reason, now, wanted)
+        elif wanted.reason != self.kept:
+            # The cap in force stays for another reason (a record gone stale at the hot
+            # cap): one line, until the record is fresh again.
+            if wanted.reason is not None:
+                record(
+                    self.log_dir,
+                    self.event(now, self.cap, wanted.reason, "kept", wanted),
+                )
+            self.kept = wanted.reason
+
+    def event(self, now, mhz, reason, result, decision):
+        """A line of the events file: the change or the keep, and the newest row."""
+        latest = self.latest or {}
+        return {
+            "epoch": round(now, 3),
+            "from_mhz": self.cap,
+            "to_mhz": mhz,
+            "reason": reason,
+            "result": result,
+            "hot_s": decision and round(decision.hot_s, 1),
+            "cool_s": decision and round(decision.cool_s, 1),
+            "window_s": self.lines.window,
+            "row_epoch": latest.get("epoch"),
+            "acpi_max_c": hottest(latest),
+            "gpu_c": latest.get("gpu_c"),
+            "clock_mhz": latest.get("clock_mhz"),
+        }
+
+    def set(self, mhz, reason, now, decision=None):
+        """Lock mhz; on failure keep the cap in force and record why, once per cause."""
+        error = lock(self.nvidia_smi, mhz, self.lines.top_mhz, self.lines.stale)
+        event = self.event(now, mhz, reason, "failed" if error else "set", decision)
+        if error:
+            event["error"] = error
+            if error != self.failure:
+                record(self.log_dir, event)
+                self.save(
+                    {"error": error, "wanted_mhz": mhz, "error_epoch": round(now, 3)}
+                )
+            self.failure = error
+            return False
+        record(self.log_dir, event)
+        self.cap, self.failure, self.kept = mhz, None, reason
+        if mhz == self.lines.top_mhz:
+            self.since = self.readings[-1][0] if self.readings else now
+        self.changed = (round(now, 3), reason)
+        self.save()
+        return True
+
+    def save(self, failure=None):
+        """The cap in force, when and why it was set; a failed change only adds fields."""
+        state = {
+            "mhz": self.cap,
+            "changed_epoch": self.changed[0],
+            "reason": self.changed[1],
+            "running": not self.stopping,
+            "pid": os.getpid(),
+        }
+        state.update(failure or {})
+        write_state(self.state_file, state)
+
+    def stop(self, signum, frame):
+        self.stopping = True
+
+    def run(self):
+        signal.signal(signal.SIGTERM, self.stop)
+        while not self.stopping:
+            self.step(time.time())
+            time.sleep(POLL_S)
+        self.failure = None
+        done = self.set(self.lines.top_mhz, "stop", time.time())
+        return 0 if done else 1
+
+
+def bounded(form, convert, low=None, high=None, low_open=True, high_open=True):
+    """An argparse type: convert, then check the range; the error names the form."""
+
+    def read(text):
+        try:
+            value = convert(text)
+        except ValueError:
+            value = None
+        if value is not None and isinstance(value, float) and not math.isfinite(value):
+            value = None
+        if value is not None and low is not None:
+            if value < low or (low_open and value == low):
+                value = None
+        if value is not None and high is not None:
+            if value > high or (high_open and value == high):
+                value = None
+        if value is None:
+            raise argparse.ArgumentTypeError(f"{text!r} is not {form}")
+        return value
+
+    return read
+
+
+def parse(argv):
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    celsius = bounded("a temperature above 0 C", float, 0.0)
+    seconds = bounded("a number of seconds above 0", float, 0.0)
+    parser.add_argument("--high", type=celsius, default=HIGH_C)
+    parser.add_argument("--low", type=celsius, default=LOW_C)
+    parser.add_argument("--window", type=seconds, default=WINDOW_S)
+    parser.add_argument(
+        "--share",
+        type=bounded("a fraction between 0 and 1", float, 0.0, 1.0),
+        default=SHARE,
+    )
+    parser.add_argument("--hold", type=seconds, default=HOLD_S)
+    mhz = bounded(f"a whole number of MHz above {FLOOR_MHZ}", int, FLOOR_MHZ)
+    parser.add_argument("--hot-mhz", type=mhz, default=HOT_MHZ)
+    # Never above the boot unit's cap, the one against the hard power-off.
+    top = bounded(
+        f"a whole number of MHz above {FLOOR_MHZ} and at most {TOP_MHZ}",
+        int,
+        FLOOR_MHZ,
+        TOP_MHZ,
+        high_open=False,
+    )
+    parser.add_argument("--top-mhz", type=top, default=TOP_MHZ)
+    parser.add_argument(
+        "--stale",
+        type=bounded(f"a number of seconds above {POLL_S:g}", float, POLL_S),
+        default=STALE_S,
+    )
+    parser.add_argument("--nvidia-smi", default="/usr/bin/nvidia-smi")
+    parser.add_argument("--log-dir", default=LOG_DIR)
+    parser.add_argument("--state-file", default=STATE_FILE)
+    parser.add_argument("--status", action="store_true")
+    args = parser.parse_args(argv)
+    if args.low >= args.high:
+        parser.error(f"--low {args.low} must be below --high {args.high}")
+    if args.hot_mhz >= args.top_mhz:
+        parser.error(f"--hot-mhz {args.hot_mhz} must be below --top-mhz {args.top_mhz}")
+    for name in ("nvidia_smi", "log_dir", "state_file"):
+        if not getattr(args, name).strip():
+            parser.error(f"--{name.replace('_', '-')} must not be empty")
+    return args
+
+
+def main(argv=None):
+    args = parse(argv)
+    if args.status:
+        return status(args.state_file)
+    lines = Lines(
+        args.high,
+        args.low,
+        args.window,
+        args.share,
+        args.hold,
+        args.hot_mhz,
+        args.top_mhz,
+        args.stale,
+    )
+    return Watch(lines, args.nvidia_smi, args.log_dir, args.state_file).run()
+
+
+if __name__ == "__main__":
+    sys.exit(main())
