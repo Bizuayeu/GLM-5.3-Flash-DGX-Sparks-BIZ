@@ -4,7 +4,7 @@
 # devices with locked memory unlimited, the Hugging Face cache read-only at /hub (HUB_RW=1: writable, for a build host
 # that writes synthetic checkpoints there), and WORK_DIR at /work for the binaries, rank.env and logs. It sleeps until
 # a rank is started in it. CONTAINER names it (default glm53-tf3); HF_HUB is the cache
-# (default ~/.cache/huggingface/hub).
+# (default ~/.cache/huggingface/hub); RDMA_DEVICES the RDMA devices (default /dev/infiniband).
 # CPUSET picks its cores (cpuset.sh): unset, the cores with the lowest maximum frequency (on a GB10, the efficiency
 # cores 0-4,10-14, which keep the CPU zones cooler while the engine's threads spin); empty, every core; or a list for
 # docker's --cpuset-cpus.
@@ -18,8 +18,9 @@ work=$2
 hub=${HF_HUB:-$HOME/.cache/huggingface/hub}
 mode=ro
 [ "${HUB_RW:-0}" = 1 ] && mode=rw
-if [ ! -e /dev/infiniband ]; then
-  echo "/dev/infiniband is missing: NCCL would fall back to sockets" >&2
+rdma=${RDMA_DEVICES:-/dev/infiniband}
+if [ ! -e "$rdma" ]; then
+  echo "$rdma is missing: NCCL would fall back to sockets" >&2
   exit 1
 fi
 cpuset=$(bash "$(dirname "$0")/cpuset.sh")
@@ -30,6 +31,6 @@ if [ -n "$cpuset" ]; then
 else
   echo "cpuset: every core"
 fi
-docker run -d --name "${CONTAINER:-glm53-tf3}" --net=host --ipc=host --gpus all --device /dev/infiniband \
+docker run -d --name "${CONTAINER:-glm53-tf3}" --net=host --ipc=host --gpus all --device "$rdma" \
   --cap-add IPC_LOCK --ulimit memlock=-1:-1 --shm-size 64m "${cpus[@]}" -v "$hub:/hub:$mode" -v "$work:/work" \
   -w /work "$image" sleep infinity

@@ -211,9 +211,10 @@ TP=4のexample（参照機の4台のリング、3.12.0から試験的）は、TP
 | `CONTAINER` | `glm53-tf3` | containerの名前 |
 | `HF_HUB` | `~/.cache/huggingface/hub` | Hugging Faceのcache、`/hub` に読み取り専用で |
 | `HUB_RW` | `0` | `1` はcacheを書き込めるように見せる。そこへ書くbuild用のホスト向け |
+| `RDMA_DEVICES` | `/dev/infiniband` | containerに渡すRDMAデバイス（`--device`）。無いホストは断る（NCCLがsocketに落ちるため） |
 | `CPUSET` | 無しか `auto`：最大周波数の最も低いcore（GB10では `0-4,10-14`）。全coreが同じ最大を示すか、どれも示さないときは全core | containerのcore（[理由](../README.ja.md#配信の既定)）。空なら全core（3.0.0と3.1.0の熱の測定の起動がそうだった）、またはdockerの `--cpuset-cpus` に渡すリスト |
 
-`create_container.sh` に固定のもの：hostのnetworkとIPC、全てのGPU、`/dev/infiniband`（無いホストは断る）、`IPC_LOCK` と無制限のlocked memory、64 MiBの `/dev/shm`、作業directoryの `/work`、restart policyなし。containerは、rankが中で起動するまで眠ります。既にあるcontainerのcoreは `docker update --cpuset-cpus` で動かせます（[containerを作り直す](operations.ja.md#containerを作り直す)）。
+`create_container.sh` に固定のもの：hostのnetworkとIPC、全てのGPU、`IPC_LOCK` と無制限のlocked memory、64 MiBの `/dev/shm`、作業directoryの `/work`、restart policyなし。containerは、rankが中で起動するまで眠ります。既にあるcontainerのcoreは `docker update --cpuset-cpus` で動かせます（[containerを作り直す](operations.ja.md#containerを作り直す)）。
 
 ## メモリの見張り
 

@@ -211,9 +211,10 @@ The values other than each host's own came from 2.x, where they were measured; w
 | `CONTAINER` | `glm53-tf3` | the container's name |
 | `HF_HUB` | `~/.cache/huggingface/hub` | the Hugging Face cache, at `/hub` read-only |
 | `HUB_RW` | `0` | `1` mounts the cache writable, for a build host that writes into it |
+| `RDMA_DEVICES` | `/dev/infiniband` | the RDMA devices given to the container (`--device`); the script refuses a host without them, where NCCL would fall back to sockets |
 | `CPUSET` | unset or `auto`: the cores with the lowest maximum frequency (`0-4,10-14` on a GB10), or every core when all report the same maximum or none reports one | the container's cores ([why](../README.md#serving-defaults)); empty for every core, as 3.0.0's and 3.1.0's heat runs had them, or a list for docker's `--cpuset-cpus` |
 
-Fixed in `create_container.sh`: host network and IPC, every GPU, `/dev/infiniband` (it refuses a host without it), `IPC_LOCK` with locked memory unlimited, a 64 MiB `/dev/shm`, `/work` as the working directory and no restart policy; the container sleeps until a rank starts in it. `docker update --cpuset-cpus` moves the cores of a container that exists ([recreate the container](operations.md#recreate-the-container)).
+Fixed in `create_container.sh`: host network and IPC, every GPU, `IPC_LOCK` with locked memory unlimited, a 64 MiB `/dev/shm`, `/work` as the working directory and no restart policy; the container sleeps until a rank starts in it. `docker update --cpuset-cpus` moves the cores of a container that exists ([recreate the container](operations.md#recreate-the-container)).
 
 ## Memory guard
 
