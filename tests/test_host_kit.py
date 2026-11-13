@@ -52,6 +52,14 @@ def row(acpi, epoch=None):
     }
 
 
+def day_change(log_dir, *rows, new_day=""):
+    """The record just after the UTC day changes: rows end the previous day's file, and
+    the new day's file holds only new_day (nothing yet, or a torn first line)."""
+    lines = "".join(json.dumps(r) + "\n" for r in rows)
+    Path(log_dir, "2026-11-12.jsonl").write_text(lines, encoding="utf-8")
+    Path(log_dir, "2026-11-13.jsonl").write_text(new_day, encoding="utf-8")
+
+
 class CoolGateTests(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
@@ -99,6 +107,20 @@ class CoolGateTests(unittest.TestCase):
         with open(next(Path(self.dir.name).glob("*.jsonl")), "a") as f:
             f.write('{"epoch": 1')
         self.assertEqual(self.gate.last_row()["acpi_c"], [45.0])
+
+    def test_just_after_the_day_changes_the_previous_day_is_read(self):
+        day_change(self.dir.name, row([90.0]), row([55.0]))
+        code, result = self.run_gate("--band", "60", "--cap", "0")
+        self.assertEqual((code, result["result"]), (0, "cool"))
+        self.assertEqual(result["end"]["acpi_max_c"], 55.0)
+
+    def test_a_torn_first_line_of_the_new_day_reads_the_previous_day(self):
+        day_change(self.dir.name, row([55.0]), new_day='{"epoch": 1')
+        self.assertEqual(self.gate.last_row()["acpi_c"], [55.0])
+
+    def test_the_new_day_wins_once_it_has_a_row(self):
+        day_change(self.dir.name, row([55.0]), new_day=json.dumps(row([65.0])) + "\n")
+        self.assertEqual(self.gate.last_row()["acpi_c"], [65.0])
 
     def test_view_takes_the_hottest_non_null_zone(self):
         self.assertEqual(self.gate.view(row([None, 61.5, 58.0]))["acpi_max_c"], 61.5)
@@ -150,6 +172,10 @@ class ThermalWatchTests(unittest.TestCase):
 
     def test_no_telemetry_reads_as_none(self):
         self.assertIsNone(self.watch.last_row())
+
+    def test_just_after_the_day_changes_the_previous_day_is_read(self):
+        day_change(self.dir.name, row([93.0]))
+        self.assertEqual(self.watch.hottest(self.watch.last_row()), 93.0)
 
     def run_watch(self, *argv):
         log = os.path.join(self.dir.name, "therm-run.log")

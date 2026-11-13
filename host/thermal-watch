@@ -32,18 +32,20 @@ READINGS = 2
 
 
 def last_row():
-    files = sorted(glob.glob(os.path.join(LOG_DIR, "*.jsonl")))
-    if not files:
-        return None
-    with open(files[-1], "rb") as f:
-        f.seek(0, os.SEEK_END)
-        f.seek(max(0, f.tell() - 4096))
-        lines = f.read().decode(errors="replace").strip().splitlines()
-    for line in reversed(lines):
-        try:
-            return json.loads(line)
-        except ValueError:
-            continue
+    """The newest row of the two newest day files.
+
+    Just after the UTC day changes, the new day's file holds no whole line yet.
+    """
+    for path in reversed(sorted(glob.glob(os.path.join(LOG_DIR, "*.jsonl")))[-2:]):
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 4096))
+            lines = f.read().decode(errors="replace").strip().splitlines()
+        for line in reversed(lines):
+            try:
+                return json.loads(line)
+            except ValueError:
+                continue
     return None
 
 
