@@ -4,6 +4,23 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.15.0 — 2026-11-13
+
+Tools outside the image, their tests and documents. No file of the image changes; it stays 3.12.0's (`glm53-tf3:3.12.0`, `sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
+
+### Host tools
+
+- An opt-in [heat cap](../host/README.md#heat-cap), `gb10-heat-cap`, lowers the GPU clock cap from 2,200 to 2,000 MHz while the host stays hot and raises it back once cool: at 2,200 MHz, more than 150 of the last 300 s at or above 90 °C in the hottest ACPI zone lock 2,000 MHz; at 2,000 MHz, 120 s at or below 75 °C lock 2,200 again; a missing or stale record locks 2,000. It is a root service beside the boot cap that starts at 2,200, locks 2,200 when it stops, never resets the clocks and never locks above 2,200, and it records each change in `heat-cap.log` and the cap in force in `/run/gb10-heat-cap.json` (`--status`). `install.sh` installs it only with `--heat-cap`; without the flag it installs what it did before. The lines come from the reference hosts' long prefills at 2,200 MHz (2026-11-11) and at 2,000 MHz (2026-11-12) ([GPU clock cap](../docs/hosts.md#gpu-clock-cap)).
+- `cool-gate` and `thermal-watch` read the newest row of the two newest telemetry files; up to 3.14.x, just after the UTC day changed and before the logger wrote the new day's first line, they read the record as missing, and `cool-gate` exited 2, which stopped a run that called it.
+
+### Repository
+
+- Tests replay the heat cap's rules on the two prefills' records in `tests/data` and run its watch against a stand-in `nvidia-smi`; the host tools' tests plant the moment the UTC day changes. CI's ruff steps name `host/gb10-heat-cap`.
+
+### Accepted
+
+On one reference host on 2026-11-13, with this release's host files: `install.sh --heat-cap` installed and enabled the heat cap, which started at 2,200 MHz. Restarting `gb10-clock-cap.service` while it ran restarted it; while it was stopped, the restart left it stopped. Under 178 s of GPU load, with trial lines 12 and 8 °C over the idle zone (`--high 60.8 --low 56.8 --window 60 --share 0.25 --hold 20`), it locked 2,000 MHz 32 s into the load: the busy clock read 1,969 to 1,976 MHz and the power at most 31.1 W, against 2,190 MHz and 39.2 W before. It locked 2,200 again 55 s after the load, and 2,200 when stopped. The default lines did not act there; they come from the records above.
+
 ## 3.14.0 — 2026-11-13
 
 Tools outside the image, their tests and documents. No file of the image changes; it stays 3.12.0's (`glm53-tf3:3.12.0`, `sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
