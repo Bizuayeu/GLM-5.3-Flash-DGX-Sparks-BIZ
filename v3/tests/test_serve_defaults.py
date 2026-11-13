@@ -70,7 +70,7 @@ class ReleaseDefaultsTests(unittest.TestCase):
                 self.assertIn(f"`{key}`", text, name)
 
     def test_the_kept_prompts_clear_the_engines_warning(self):
-        # The engine warns below four kept states a stream (fewStates).
+        # The engine warns below four kept states a stream (glm/cuda_share.zig).
         for tp in SIZES:
             values = defaults(tp)
             self.assertGreaterEqual(
