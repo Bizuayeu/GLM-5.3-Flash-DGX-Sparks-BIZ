@@ -6,6 +6,18 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.14.0 — 2026-11-13
+
+imageの外の道具とその試験と文書の版です。imageのファイルは変わらず、3.12.0のままです（`glm53-tf3:3.12.0`、`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）。
+
+### Image and launch
+
+- `create_container.sh` は、containerに渡すRDMAデバイスを `RDMA_DEVICES` から取ります（無いか空なら、前と同じ `/dev/infiniband`）。そのpathに無いホストは断ります（[設定](docs/configuration.ja.md#container)）。
+
+### Repository
+
+- 試験は、dockerの代役に対して `create_container.sh` を回し、組む `docker run` の引数を全部見ます：RDMAデバイス、全てのGPU、hostのnetworkとIPC、`IPC_LOCK` と無制限のlocked memory、64 MiBの `/dev/shm`、`/hub` のcache（読むだけか書けるか）、`/work`、選んだ時のcore。
+
 ## 3.13.1 — 2026-11-13
 
 imageの外の道具とその試験と文書の版です。imageのファイルは変わらず、3.12.0のままです（`glm53-tf3:3.12.0`、`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）。

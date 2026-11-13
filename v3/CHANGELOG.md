@@ -4,6 +4,18 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.14.0 — 2026-11-13
+
+Tools outside the image, their tests and documents. No file of the image changes; it stays 3.12.0's (`glm53-tf3:3.12.0`, `sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
+
+### Image and launch
+
+- `create_container.sh` takes the RDMA devices it gives the container from `RDMA_DEVICES` (unset or empty: `/dev/infiniband`, as before) and refuses a host without them by that path ([configuration](docs/configuration.md#container)).
+
+### Repository
+
+- Tests run `create_container.sh` against a stand-in docker and hold the whole `docker run` it builds: the devices, every GPU, host network and IPC, `IPC_LOCK` with locked memory unlimited, the 64 MiB `/dev/shm`, the cache at `/hub` read-only or writable, `/work`, and the cores when some are picked.
+
 ## 3.13.1 — 2026-11-13
 
 Tools outside the image, their tests and documents. No file of the image changes; it stays 3.12.0's (`glm53-tf3:3.12.0`, `sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
