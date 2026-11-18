@@ -51,8 +51,8 @@ class LineTests(unittest.TestCase):
 
 
 class SharedCheckpointTests(unittest.TestCase):
-    """1.x and 2.x serve one pinned checkpoint (3.x serves XSFP4 from 3.6.0 and
-    Jammed XSFP4 from 3.10.0, from locks of its own); each line keeps its own copy of
+    """1.x and 2.x serve one pinned checkpoint (3.x serves XSFP4 from 3.6.0, Jammed XSFP4
+    from 3.10.0 and Jammed XSFP4 NZ5 from 3.16.0, from locks of its own); each line keeps its own copy of
     what it reads."""
 
     def test_1x_and_2x_pin_the_same_model_and_revision(self):

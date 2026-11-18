@@ -139,13 +139,13 @@ class ServeScriptTextTests(unittest.TestCase):
     """serve.sh read as text: what ServeTests runs, seen where bash does not run (nt) as well."""
 
     def test_each_tp_serves_its_checkpoint_at_its_locks_revision(self):
-        # From 3.12.0 config/tp*.env names the TP's checkpoint, Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4,
+        # config/tp*.env names the TP's checkpoint, from 3.16.0 Jammed XSFP4 NZ5 at TP=2 and XSFP4 at TP=3 and TP=4,
         # and serve.sh none of its own; download and verify-download read the same table for --tp.
         serve = (LINE / "scripts/serve.sh").read_text(encoding="utf-8")
         self.assertNotIn("/hub/models--", serve)
         self.assertIn("CHECKPOINT=${CHECKPOINT:-$release_checkpoint}\n", serve)
         self.assertEqual(sorted(config.TP_CHECKPOINTS), [2, 3, 4])
-        self.assertEqual(config.TP_CHECKPOINTS[2], "jammed")
+        self.assertEqual(config.TP_CHECKPOINTS[2], "nz5")
         pattern = (
             r"^CHECKPOINT=/hub/models--([\w.-]+)--([\w.-]+)/snapshots/([0-9a-f]{40})$"
         )
@@ -328,11 +328,11 @@ class ServeTests(unittest.TestCase):
         self.assertEqual(env["TF_KV_SHARE"], "8")
 
     def test_each_tp_serves_its_checkpoint_and_one_line_serves_the_other(self):
-        # From 3.12.0 Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4 (tp*.env); the rank file's CHECKPOINT line
+        # From 3.16.0 Jammed XSFP4 NZ5 at TP=2 and XSFP4 at TP=3 and TP=4 (tp*.env); the rank file's CHECKPOINT line
         # changes that and nothing else, and an empty one keeps the TP's.
         for tp in SIZES:
             own = config.TP_CHECKPOINTS[tp]
-            other = "xsfp4" if own == "jammed" else "jammed"
+            other = "jammed"
             with self.subTest(tp=tp):
                 base, _, start = self.serve(tp)
                 self.assertEqual(base[:2], ["serve", "ROOT" + folder(own)])
@@ -341,7 +341,7 @@ class ServeTests(unittest.TestCase):
                 self.assertEqual(args[:2], ["serve", "ROOT" + folder(other)])
                 self.assertEqual(args[2:], base[2:])
                 self.assertEqual(self.serve(tp, "CHECKPOINT=\n")[0], base)
-        self.assertEqual(config.TP_CHECKPOINTS[2], "jammed")
+        self.assertEqual(config.TP_CHECKPOINTS[2], "nz5")
 
     def test_a_folder_the_host_lacks_stops_the_start_and_says_what_to_do(self):
         code, out, err = self.run_serve(2, "CHECKPOINT=/hub/models--a--b/snapshots/0\n")

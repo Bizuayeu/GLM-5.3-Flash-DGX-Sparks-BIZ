@@ -102,8 +102,14 @@ class BackgroundTests(unittest.TestCase):
         self.assertEqual(logs, ["jammed/download.log"])
         self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "jammed"])
 
+    def test_an_nz5_job_passes_its_checkpoint_on_and_logs_in_its_folder(self):
+        popen, logs = self.background("--checkpoint", "nz5")
+        self.assertEqual(logs, ["nz5/download.log"])
+        self.assertEqual(popen.call_args.args[0][-2:], ["--checkpoint", "nz5"])
+
     def test_a_tp_fetches_the_checkpoint_that_tp_serves_by_default(self):
-        # From 3.12.0: Jammed XSFP4 at TP=2, XSFP4 at TP=3 and TP=4 (config/tp*.env).
+        # From 3.16.0: Jammed XSFP4 NZ5 at TP=2, XSFP4 at TP=3 and TP=4 (config/tp*.env).
+        self.assertEqual(config.TP_CHECKPOINTS, {2: "nz5", 3: "xsfp4", 4: "xsfp4"})
         for tp, name in config.TP_CHECKPOINTS.items():
             with self.subTest(tp=tp):
                 popen, logs = self.background("--tp", str(tp))
@@ -287,6 +293,15 @@ class DownloadTests(unittest.TestCase):
     def test_xsfp4_records_its_own_model_and_revision_in_its_own_folder(self):
         code, status = self.run_download(which="xsfp4")
         model, revision, _ = config.checkpoint("xsfp4", Path("state"))
+        self.assertIsNone(code)
+        self.assertEqual(
+            (status["model"], status["revision"], status["status"]),
+            (model, revision, "complete"),
+        )
+
+    def test_nz5_records_its_own_model_and_revision_in_its_own_folder(self):
+        code, status = self.run_download(which="nz5")
+        model, revision, _ = config.checkpoint("nz5", Path("state"))
         self.assertIsNone(code)
         self.assertEqual(
             (status["model"], status["revision"], status["status"]),

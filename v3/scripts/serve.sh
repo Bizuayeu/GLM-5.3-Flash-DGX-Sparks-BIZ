@@ -61,8 +61,8 @@ if [ "${TF_GLM_ROCE_MULTI:-0}" != 0 ]; then
   export TF_TP_ROCE_FALLBACK=${TF_TP_ROCE_FALLBACK:-error}
 fi
 # The checkpoint by TP from tp$tp.env, each at its lock's revision as the Hugging Face cache holds it, mounted
-# read-only at /hub (create_container.sh): from 3.12.0 Jammed XSFP4 at TP=2 (config/jammed.lock.json), and XSFP4 at
-# TP=3 and TP=4 (config/xsfp4.lock.json). CHECKPOINT in the rank file names another folder, such as the other one's
+# read-only at /hub (create_container.sh): from 3.16.0 Jammed XSFP4 NZ5 at TP=2 (config/nz5.lock.json), and XSFP4 at
+# TP=3 and TP=4 (config/xsfp4.lock.json). CHECKPOINT in the rank file names another folder, such as another one's
 # at its lock's revision; an empty one keeps this TP's. A folder the host lacks stops the start here, by name.
 CHECKPOINT=${CHECKPOINT:-$release_checkpoint}
 [ -d "$CHECKPOINT" ] || { echo "CHECKPOINT: no folder $CHECKPOINT on this host; download the checkpoint this TP" \

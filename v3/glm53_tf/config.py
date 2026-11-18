@@ -13,14 +13,21 @@ ROOT = LINE.parent
 STATE = ROOT / "state"
 # The checkpoints 3.x serves, which download and verify-download fetch by --checkpoint, or
 # by --tp as that TP's release file (config/tp*.env) serves it at its lock's revision: from
-# 3.12.0 Jammed XSFP4 at TP=2 and XSFP4 at TP=3 and TP=4. One of the two is required (up to
-# 3.11.x a run without either fetched XSFP4).
-# A rank file's CHECKPOINT line serves the other one at its lock's revision.
+# 3.16.0 Jammed XSFP4 NZ5 at TP=2 (3.12.0 to 3.15.0 served Jammed XSFP4 there) and XSFP4 at
+# TP=3 and TP=4. One of the two is required (up to 3.11.x a run without either fetched XSFP4).
+# A rank file's CHECKPOINT line serves another one at its lock's revision.
 LOCK_PATH = LINE / "config/xsfp4.lock.json"
-LOCKS = {"xsfp4": LOCK_PATH, "jammed": LINE / "config/jammed.lock.json"}
+LOCKS = {
+    "xsfp4": LOCK_PATH,
+    "jammed": LINE / "config/jammed.lock.json",
+    "nz5": LINE / "config/nz5.lock.json",
+}
 CHECKPOINTS = tuple(LOCKS)
-TP_CHECKPOINTS = {2: "jammed", 3: "xsfp4", 4: "xsfp4"}
-CHECKPOINT_HELP = "xsfp4 (XSFP4, kept under state/xsfp4) or jammed (Jammed XSFP4, kept under state/jammed)"
+TP_CHECKPOINTS = {2: "nz5", 3: "xsfp4", 4: "xsfp4"}
+CHECKPOINT_HELP = (
+    "xsfp4 (XSFP4, kept under state/xsfp4), jammed (Jammed XSFP4, kept under state/jammed) "
+    "or nz5 (Jammed XSFP4 NZ5, kept under state/nz5)"
+)
 
 
 def checkpoint_sizes(table):

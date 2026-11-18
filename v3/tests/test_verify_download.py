@@ -127,8 +127,18 @@ class VerifyDownloadTests(unittest.TestCase):
         self.assertEqual(saved["model"], model)
         self.assertEqual(run.call_args.args[0][3:6], [model, "--revision", revision])
 
-    def test_tp2_verifies_jammed_xsfp4_the_checkpoint_it_serves(self):
-        model, revision, folder = config.checkpoint("jammed", self.state)
+    def test_nz5_verifies_its_own_model_and_revision(self):
+        model, revision, folder = config.checkpoint("nz5", self.state)
+        folder.mkdir()
+        record = {"model": model, "revision": revision, "status": "complete"}
+        (folder / STATUS_FILE).write_text(json.dumps(record))
+        code, saved, run, _ = self.run_main(which=("--checkpoint", "nz5"))
+        self.assertEqual(code, 0)
+        self.assertEqual(saved["model"], model)
+        self.assertEqual(run.call_args.args[0][3:6], [model, "--revision", revision])
+
+    def test_tp2_verifies_nz5_the_checkpoint_it_serves(self):
+        model, revision, folder = config.checkpoint("nz5", self.state)
         folder.mkdir()
         record = {"model": model, "revision": revision, "status": "complete"}
         (folder / STATUS_FILE).write_text(json.dumps(record))

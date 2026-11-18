@@ -525,13 +525,17 @@ LINE3 = dict(
         + '"revision": "'
         + "c" * 40
         + '"}',
+        "config/nz5.lock.json": '{"model": "Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4-NZ5", '
+        + '"revision": "'
+        + "d" * 40
+        + '"}',
     },
 )
 
 
 class Line3Tests(unittest.TestCase):
-    """3.x pins each checkpoint it serves in a lock of its own: XSFP4 (from 3.6.0) and
-    Jammed XSFP4 (from 3.10.0)."""
+    """3.x pins each checkpoint it serves in a lock of its own: XSFP4 (from 3.6.0),
+    Jammed XSFP4 (from 3.10.0) and Jammed XSFP4 NZ5 (from 3.16.0)."""
 
     def check(self, **changes):
         with tempfile.TemporaryDirectory() as tmp:
@@ -550,6 +554,10 @@ class Line3Tests(unittest.TestCase):
     def test_jammed_xsfp4s_lock_is_required_too(self):
         found = self.check(**{"config/jammed.lock.json": None})
         self.assertIn("missing required file: v3/config/jammed.lock.json", found)
+
+    def test_nz5s_lock_is_required_too(self):
+        found = self.check(**{"config/nz5.lock.json": None})
+        self.assertIn("missing required file: v3/config/nz5.lock.json", found)
 
     def test_an_unpinned_revision_is_reported(self):
         lock = '{"model": "m", "revision": "main"}'

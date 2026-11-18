@@ -40,13 +40,19 @@ class CheckoutLayoutTests(unittest.TestCase):
         # 3.6.0 took NVIDIA's NVFP4 (model.lock.json) and the AXL weights off 3.x.
         locks = sorted(p.name for p in (LINE / "config").glob("*.lock.json"))
         self.assertEqual(
-            locks, ["engine.lock.json", "jammed.lock.json", "xsfp4.lock.json"]
+            locks,
+            [
+                "engine.lock.json",
+                "jammed.lock.json",
+                "nz5.lock.json",
+                "xsfp4.lock.json",
+            ],
         )
 
 
 class CheckpointTests(unittest.TestCase):
-    def test_xsfp4_and_jammed_are_the_choices(self):
-        self.assertEqual(config.CHECKPOINTS, ("xsfp4", "jammed"))
+    def test_xsfp4_jammed_and_nz5_are_the_choices(self):
+        self.assertEqual(config.CHECKPOINTS, ("xsfp4", "jammed", "nz5"))
         for name in ("pinned", "axl"):
             with (
                 self.subTest(checkpoint=name),
@@ -65,6 +71,12 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(model, "Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4")
         self.assertRegex(revision, r"^[0-9a-f]{40}$")
         self.assertEqual(state, Path("state/jammed"))
+
+    def test_nz5_is_its_own_full_revision_in_its_own_state_folder(self):
+        model, revision, state = config.checkpoint("nz5", Path("state"))
+        self.assertEqual(model, "Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4-NZ5")
+        self.assertRegex(revision, r"^[0-9a-f]{40}$")
+        self.assertEqual(state, Path("state/nz5"))
 
     def test_both_tools_explain_the_checkpoint_choice(self):
         import contextlib
@@ -85,7 +97,7 @@ class CheckpointTests(unittest.TestCase):
     def test_the_tp_help_names_each_checkpoint_at_its_tp_sizes(self):
         self.assertEqual(
             config.TP_HELP,
-            "the checkpoint this TP serves by default: jammed at 2, xsfp4 at 3 and 4",
+            "the checkpoint this TP serves by default: nz5 at 2, xsfp4 at 3 and 4",
         )
         self.assertEqual(
             config.checkpoint_sizes({2: "a", 3: "b", 4: "a"}), "a at 2 and 4, b at 3"

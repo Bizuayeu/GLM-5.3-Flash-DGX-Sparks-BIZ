@@ -442,10 +442,10 @@ LINE_REQUIRED = {
     "pyproject.toml",
 }
 # Each line's pins of the checkpoints it serves, a lock each: 2.x NVIDIA's NVFP4 (as 1.x
-# does), 3.x XSFP4 (from 3.6.0) and Jammed XSFP4 (from 3.10.0).
+# does), 3.x XSFP4 (from 3.6.0), Jammed XSFP4 (from 3.10.0) and Jammed XSFP4 NZ5 (from 3.16.0).
 LINE_LOCKS = {
     "v2": ("config/model.lock.json",),
-    "v3": ("config/xsfp4.lock.json", "config/jammed.lock.json"),
+    "v3": ("config/xsfp4.lock.json", "config/jammed.lock.json", "config/nz5.lock.json"),
 }
 
 
