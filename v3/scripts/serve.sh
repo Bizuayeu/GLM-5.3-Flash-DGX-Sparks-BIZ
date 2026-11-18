@@ -4,7 +4,8 @@
 # names no limit, high reasoning effort, and what differs by TP from the release's tp2.env, tp3.env and tp4.env, which
 # sit beside this script: the checkpoint, the window, the streams, the kept prompts, a prompt's share beside a decode,
 # the solo passes, the drafts' confidence, the wire and the memory reserve. The rank file follows them, so its value
-# wins, every rank the same. An empty value turns a number or word setting off; the on/off settings (VISION,
+# wins, every rank the same. An empty value turns a number or word setting off, or leaves the engine's own (the
+# reserve); the on/off settings (VISION,
 # TF_GLM_ROCE_MULTI, TF_GLM_PROMPT_PAIR, TF_GLM_L2PF) take 1 or 0, and another value, an empty one included, stops the
 # start. An empty PARALLEL leaves the streams to the engine, which sizes them and the prompt cache from the memory free
 # at start, so they can differ between starts; an empty CONTEXT or CHECKPOINT keeps the release's.
@@ -15,7 +16,8 @@
 # does, the engine drops NCCL_COMM_ID before NCCL's first call, so NCCL's bootstrap uses that interface (#1178).
 # A prefill waits between chunks while any rank's hottest zone is above TF_HEAT_HIGH (92), until all are at or below
 # TF_HEAT_LOW (88). The rank file may set other values, the same on every rank, or empty ones for none (from upstream
-# 1.2.6 the engine reads an empty value as unset). Without the bands a 1M prefill held one host at 94-97.7 C.
+# 1.2.6 the engine reads an empty value as unset, but for TF_ROCE_MAX_KB and TF_NVFP4_DECODE_WARPS, which refuse one).
+# Without the bands a 1M prefill held one host at 94-97.7 C.
 set -eu
 if [ $# -lt 3 ]; then
   echo "usage: serve.sh TP RANK RANK_ENV [tensorfold-native serve arguments...]" >&2
@@ -33,14 +35,17 @@ case $rank in
 esac
 set -a
 . "$(dirname "$0")/tp$tp.env"
+set +a
+# The release's window and folder, kept for an empty rank-file line; serve.sh's own, so not exported to the engine
 release_context=$CONTEXT
 release_checkpoint=${CHECKPOINT-}
+set -a
 . "$rank_env"
 set +a
 : "${MASTER:?$rank_env must set MASTER, rank 0 address on the link between the hosts}"
 : "${release_checkpoint:?tp$tp.env names no CHECKPOINT, the folder this TP serves}"
 # The on/off settings take 1 or 0, as the engine's own switches do: an empty value or a word would otherwise be read as
-# one of them unseen (VISION= turned images off and VISION=0 turned them on)
+# one of them unseen (up to 3.11.x VISION= turned images off and VISION=0 turned them on)
 for v in VISION TF_GLM_ROCE_MULTI TF_GLM_PROMPT_PAIR TF_GLM_L2PF; do
   [ -n "${!v+x}" ] || continue
   case ${!v} in
@@ -65,8 +70,16 @@ fi
 # TP=3 and TP=4 (config/xsfp4.lock.json). CHECKPOINT in the rank file names another folder, such as another one's
 # at its lock's revision; an empty one keeps this TP's. A folder the host lacks stops the start here, by name.
 CHECKPOINT=${CHECKPOINT:-$release_checkpoint}
-[ -d "$CHECKPOINT" ] || { echo "CHECKPOINT: no folder $CHECKPOINT on this host; download the checkpoint this TP" \
-  "serves (python -m glm53_tf download --tp $tp) or name a folder the host holds in the rank file" >&2; exit 2; }
+if [ ! -d "$CHECKPOINT" ]; then
+  if [ "$CHECKPOINT" = "$release_checkpoint" ]; then
+    echo "CHECKPOINT: no folder $CHECKPOINT on this host; download the checkpoint this TP serves" \
+      "(python -m glm53_tf download --tp $tp) or name a folder the host holds in the rank file" >&2
+  else
+    echo "CHECKPOINT: no folder $CHECKPOINT on this host; the rank file names it, so download that checkpoint by" \
+      "its name (python -m glm53_tf download --checkpoint NAME) or name a folder the host holds" >&2
+  fi
+  exit 2
+fi
 # Every rank takes the same arguments (the ranks compare their settings at start); only rank 0 serves HTTP.
 # REASONING_EFFORT: what a request that names none gets (default high; empty: the chat template's own).
 # PARALLEL: how many requests share the rounds (empty: the engine's auto). MTP_CONFIDENCE: the drafts' confidence

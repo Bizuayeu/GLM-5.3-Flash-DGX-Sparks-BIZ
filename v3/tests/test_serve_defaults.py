@@ -343,12 +343,34 @@ class ServeTests(unittest.TestCase):
                 self.assertEqual(self.serve(tp, "CHECKPOINT=\n")[0], base)
         self.assertEqual(config.TP_CHECKPOINTS[2], "nz5")
 
-    def test_a_folder_the_host_lacks_stops_the_start_and_says_what_to_do(self):
-        code, out, err = self.run_serve(2, "CHECKPOINT=/hub/models--a--b/snapshots/0\n")
+    def test_the_tps_own_folder_missing_stops_the_start_and_names_its_download(self):
+        def gone(text):
+            return re.sub(r"(/snapshots/)[0-9a-f]{40}", r"\g<1>" + "0" * 40, text)
+
+        code, out, err = self.run_serve(2, release=gone)
         self.assertEqual(code, 2, err)
         self.assertIn("CHECKPOINT: no folder", err)
         self.assertIn("download --tp 2", err)
         self.assertNotIn("[serve.sh]", out)
+
+    def test_a_rank_files_folder_missing_stops_the_start_without_naming_the_tps_download(
+        self,
+    ):
+        # --tp fetches the TP's own checkpoint, which is not the one the rank file names.
+        code, out, err = self.run_serve(2, "CHECKPOINT=/hub/models--a--b/snapshots/0\n")
+        self.assertEqual(code, 2, err)
+        self.assertIn("CHECKPOINT: no folder", err)
+        self.assertIn("the rank file names it", err)
+        self.assertIn("download --checkpoint", err)
+        self.assertNotIn("download --tp", err)
+        self.assertNotIn("[serve.sh]", out)
+
+    def test_the_engine_gets_none_of_serve_shs_own_variables(self):
+        for tp in SIZES:
+            with self.subTest(tp=tp):
+                env = self.serve(tp)[1]
+                self.assertNotIn("release_context", env)
+                self.assertNotIn("release_checkpoint", env)
 
     def test_a_release_file_without_a_checkpoint_stops_the_start(self):
         code, out, err = self.run_serve(
