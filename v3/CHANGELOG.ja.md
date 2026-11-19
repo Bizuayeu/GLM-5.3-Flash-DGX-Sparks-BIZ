@@ -24,7 +24,7 @@ TP=2の既定をJammed XSFP4 NZ5にし、エンジンを、この系列のcommit
 ### Serving defaults
 
 - TP=2の既定のcheckpointはJammed XSFP4 NZ5です（[`config/nz5.lock.json`](config/nz5.lock.json)、`config/tp2.env` の `CHECKPOINT`）。Jammed XSFP4と同じ大きさ（rank 0でどちらも84.79 GiB）で、このエンジンのTP=2ではBF16により近くなります：NLLはBF16より1.08%高く（Jammed XSFP4は1.35%）、KLの下限は0.0463（0.0482）で、差の文書ごとの95%区間は0を含みません（[checkpoint](README.ja.md#checkpoint)）。返答とdecode検査のhashはこのcheckpointのものです。Jammed XSFP4は `CHECKPOINT` の1行で選べます。**Jammed XSFP4だけを持つ対**は、先にJammed XSFP4 NZ5を取得する（`download --tp 2`、`verify-download --tp 2`）か、全rankのファイルにJammed XSFP4の `CHECKPOINT` の行を足します（[手順書 §2](SETUP.ja.md#2-checkoutとcheckpoint)）。どちらも無い起動は、`serve.sh` がdownloadを名指して止めます。
-- `config/tp2.env`・`tp3.env`・`tp4.env` の他の値は3.15.0のままです。TP=2では、systemに残す9 GiBで2,948〜2,982 pageと16のslot全部、rank 0の起動後の空きは9.1〜9.4 GiB、検査が走っている間は8〜9 GiBでした。TP=3では、16 GiBで4,745〜4,766 pageと32のslot全部、起動後の空きは16.5〜16.6 GiB、検査が走っている間の最低は15 GiBで、16を下回りました：reserveは計画が起動の時に残す量で、床はmemory guardの5 GiBです（[TP=3で16 GiBにする理由](README.ja.md#配信の既定)）。
+- `config/tp2.env`・`tp3.env`・`tp4.env` の他の値は3.15.0のままです。TP=2では、systemに残す9 GiBで2,948〜2,982 pageと16のslot全部、rank 0の起動後の空きは9.1〜9.4 GiB、検査が走っている間は8〜9 GiBでした。TP=3では、16 GiBで4,745〜4,766 pageと32のslot全部、起動後の空きは16.5〜16.6 GiB、検査が走っている間の最低は15 GiBで、16を下回りました（ホストのtelemetryでは15.63 GiB、3.12.0の最低は15.99 GiB。止めるたびに空きは戻りました）：reserveは計画が起動の時に残す量で、床はmemory guardの5 GiBです（[TP=3で16 GiBにする理由](README.ja.md#配信の既定)）。
 
 ### Image and launch
 
