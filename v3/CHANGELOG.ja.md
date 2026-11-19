@@ -40,6 +40,7 @@ TP=2の既定をJammed XSFP4 NZ5にし、エンジンを、この系列のcommit
 
 - READMEのcheckpoint・配信の既定・制限・[リリースでの測定値](README.ja.md#リリースでの測定値)は3.16.0のもので、Jammed XSFP4 NZ5が3つ目の列です。3.12.0の測定値の段は[測定値](docs/measurements.ja.md#3120)へ移しました。
 - [検証](docs/validation.ja.md#jammed-xsfp4-nz5)に、TP=2のJammed XSFP4 NZ5の基準値が入りました。XSFP4のTP=3のprefillとdecodeの基準値は3.16.0のものです。
+- READMEの[配信の既定](README.ja.md#配信の既定)に、KVのpoolの大きさの決まり方を書きました：loadの時の空きの1回の読みで決まり、page数は起動ごとに動きますが、メモリは失われません。
 - README・手順書・運用のコマンドは `glm53-tf3:3.16.0` をbuildして名指します。
 
 ### Accepted

@@ -38,6 +38,7 @@ TP=2 serves Jammed XSFP4 NZ5 by default, and the engine moves onto upstream Tens
 
 - The README's checkpoints, serving defaults, limits and [measured on the release](README.md#measured-on-the-release) are 3.16.0's, with Jammed XSFP4 NZ5 as a third column; 3.12.0's measured part is in [measurements](docs/measurements.md#3120).
 - [Validation](docs/validation.md#jammed-xsfp4-nz5) has Jammed XSFP4 NZ5's reference values at TP=2, and TP=3's prefill and decode reference on XSFP4 is 3.16.0's.
+- The README's [serving defaults](README.md#serving-defaults) say how the KV pool's size is set: one reading of the free memory at load, which moves the pages from one launch to the next and loses no memory.
 - The commands in the README, setup and operations build and name `glm53-tf3:3.16.0`.
 
 ### Accepted
