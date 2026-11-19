@@ -2,7 +2,7 @@
 
 [日本語](validation.ja.md) · [3.x overview](../README.md) · [Setup runbook](../SETUP.md) · [Benchmark method](benchmarks.md)
 
-What a 3.x launch is accepted on, in the order to run it, with the reference values. The reference values are the native engine's own on XSFP4, the default at TP=3 and TP=4 and at every TP size up to 3.11.x ([checkpoints](../README.md#checkpoints)), measured on the reference hosts with the defaults of their release (`serve.sh`, from 3.9.0 with `config/tp*.env`) and every container on the efficiency cores. Which acceptance gave each is in [XSFP4](#xsfp4). TP=4, new in 3.12.0 and experimental, has no reference values here; 3.12.0's figures at TP=4 are the README's ([measured on the release](../README.md#measured-on-the-release)). Jammed XSFP4, a choice from 3.10.0 and TP=2's default from 3.12.0, has reference values of its own ([Jammed XSFP4](#jammed-xsfp4)). NVIDIA's NVFP4, the default until 3.3.0 and a choice up to 3.5.x, had reference values of its own, which those releases' tags and the [changelog](../CHANGELOG.md) keep. 2.x's references do not apply: the native engine's kernels and its BF16 KV cache give other tokens, so the two lines compare by teacher-forced NLL, and 2.x's values appear here as information only. Which images were accepted against them is the README's [status](../README.md#summary). A check that differs is a finding to explain before routine use, not a value to replace.
+What a 3.x launch is accepted on, in the order to run it, with the reference values. The reference values are the native engine's own on XSFP4, the default at TP=3 and TP=4 and at every TP size up to 3.11.x ([checkpoints](../README.md#checkpoints)), measured on the reference hosts with the defaults of their release (`serve.sh`, from 3.9.0 with `config/tp*.env`) and every container on the efficiency cores. Which acceptance gave each is in [XSFP4](#xsfp4). TP=4, new in 3.12.0 and experimental, has no reference values here; 3.12.0's figures at TP=4 are the README's ([measured on the release](../README.md#measured-on-the-release)). Jammed XSFP4, a choice from 3.10.0 and TP=2's default from 3.12.0 to 3.15.0, and Jammed XSFP4 NZ5, TP=2's default from 3.16.0, have reference values of their own ([Jammed XSFP4](#jammed-xsfp4), [Jammed XSFP4 NZ5](#jammed-xsfp4-nz5)). NVIDIA's NVFP4, the default until 3.3.0 and a choice up to 3.5.x, had reference values of its own, which those releases' tags and the [changelog](../CHANGELOG.md) keep. 2.x's references do not apply: the native engine's kernels and its BF16 KV cache give other tokens, so the two lines compare by teacher-forced NLL, and 2.x's values appear here as information only. Which images were accepted against them is the README's [status](../README.md#summary). A check that differs is a finding to explain before routine use, not a value to replace.
 
 The checks rest on what repeats. Within a launch the same request gives the same tokens, drafted or not (`"draft": false`), and a prompt resumed from the prompt cache gives the tokens of a fresh one; a launch gives the token ids of the launch before it at the same TP size and build. TP=2 and TP=3 differ by design, and so do kernels that sum differently, such as the glue kernels against the tiled ones (`TF_GLM_MM`). The same commit built on another host can give binaries with other SHA-256s that answer alike, so the decode check, not the hash, tells two builds apart ([setup §3](../SETUP.md#3-image)). Requests at once give the tokens of the same requests alone ([requests at once](#requests-at-once)). A number written twice in a count is the known place where generation and prompts part ([3.3.0's measurements](measurements.md#330)).
 
@@ -47,7 +47,7 @@ Upstream's own served checks of these inputs, `tools/zig/vision_served.py` and `
 
 ## Teacher-forced NLL
 
-The NLL set of [`config/nll_set.json`](../config/nll_set.json), a byte copy of 1.x's and 2.x's: four domains (Japanese, English, code, math) of four texts each, 5,851-6,830 tokens per domain, scored through `prompt_logprobs` on `/v1/completions`. The tokenizer is the served checkpoint's: XSFP4's, Jammed XSFP4's and NVIDIA's NVFP4's `tokenizer.json` are the same bytes, which the set names by SHA-256, and `score-nll` refuses another. In the container, which has `tokenizers`, the cache is at `/hub`:
+The NLL set of [`config/nll_set.json`](../config/nll_set.json), a byte copy of 1.x's and 2.x's: four domains (Japanese, English, code, math) of four texts each, 5,851-6,830 tokens per domain, scored through `prompt_logprobs` on `/v1/completions`. The tokenizer is the served checkpoint's: XSFP4's, Jammed XSFP4's, Jammed XSFP4 NZ5's and NVIDIA's NVFP4's `tokenizer.json` are the same bytes, which the set names by SHA-256, and `score-nll` refuses another. In the container, which has `tokenizers`, the cache is at `/hub`:
 
 ```sh
 python3 -m glm53_tf score-nll --url http://127.0.0.1:8095 \
@@ -55,7 +55,7 @@ python3 -m glm53_tf score-nll --url http://127.0.0.1:8095 \
   --out ../records/<run>/nll.json
 ```
 
-A TP=2 host that fetched only its default takes Jammed XSFP4's, `/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<the revision in config/jammed.lock.json>/tokenizer.json`. Needs the `tokenizers` package where it runs. Each text is scored twice; the run passes when every request answered, and its `self-agreement` line gives the largest move between the two scores of a text.
+A TP=2 host that fetched only its default takes Jammed XSFP4 NZ5's, `/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4-NZ5/snapshots/<the revision in config/nz5.lock.json>/tokenizer.json`. Needs the `tokenizers` package where it runs. Each text is scored twice; the run passes when every request answered, and its `self-agreement` line gives the largest move between the two scores of a text.
 
 | Domain (positions) | TP=2 | TP=3 | 2.x TP=2 (information) | 2.x TP=3 (information) |
 |---|---|---|---|---|
@@ -183,3 +183,30 @@ The checks above accept a launch of [Jammed XSFP4](../README.md#checkpoints) aga
 | Hottest zone of a launch, by rank (°C) | 92.3 / 89.6 | 90.5 / 88.8 / 88.9 |
 
 Drafted equalled serial, a picture's included, and no reply had a broken character. The stop string's request ended at 299 with `finish_reason` `stop` at both TP sizes. The tool-eval-bench row's first values are 3.11.0's gate, one launch at each TP size, at TP=2 on this release's image (3.12.0's acceptance) and at TP=3 on 3.10.0's image, where the Safety Gate passed at both TP sizes: TP=2 left TC-11, TC-39, TC-49 and TC-67 partial and failed TC-62, TC-68 and TC-69, as on 3.10.0's image, and TP=3 left TC-11, TC-39, TC-57, TC-60 and TC-67 partial and failed TC-62, TC-68 and TC-69. At TP=3 the Safety Gate failed on TC-51 through the gate before it and fails without it. TC-49, TC-67 and TC-69 through 3.11.0's gate, and the decode check's `count`, slower than XSFP4's, are [known behaviours](measurements.md#3100). No request was stopped by the memory guard or the thermal watch.
+
+## Jammed XSFP4 NZ5
+
+The checks above accept a launch of [Jammed XSFP4 NZ5](../README.md#checkpoints) at TP=2 against the values below, 3.16.0's acceptance's on 2026-11-19, on upstream 1.2.10, where it is TP=2's default and the rank files name no checkpoint. That acceptance ran on the pair of the `tp2-04-05` examples, two hosts of the reference ring of four, and 3.12.0's TP=2 figures on the pair of the `tp2-rank*` examples, so its speeds are not set beside theirs. Its code map gives decode checks of its own, so XSFP4's and Jammed XSFP4's decode-check hashes do not apply. `bench --kinds edit` gave XSFP4's reply. `score-nll` takes its own `tokenizer.json` (byte for byte XSFP4's). The hashes and the edit reply held in a second launch, the count's in a launch with `PARALLEL=` empty, which took eight streams, and the three hashes in a launch with `TF_GLM_INDEX_CUDA=0` and `TF_GLM_DSEL=0` in the rank files. The acceptance length is the range of those launches: with the same tokens, the drafts taken move from one launch to the next.
+
+| Check | TP=2 |
+|---|---|
+| count: `completion_sha256` / `token_sha256` | `907b1ffa7214f7b1` / `8644311e2865514c` |
+| prose: `completion_sha256` / `token_sha256` | `57aad2bca4d9b9f5` / `c573bfb5a552e528` |
+| code: `completion_sha256` / `token_sha256` | `122eb8839c47f929` / `72bbf00e4cb0efb9` |
+| Acceptance length, count / prose / code | 3.723 to 4.099 / 2.049 to 2.109 / 2.920 to 2.965 |
+| `bench --kinds edit`: `token_sha256`, rounds | `c419bce559d86b66`, 64 to 67 |
+| NLL, Japanese / English / code / math | 2.5517 / 2.9273 / 1.3136 / 0.6200 |
+| Prefill / decode (tok/s) | 1,504.4 / 54.06 |
+| Long inputs, 199,307 tokens (s) / 499,254 and 1,035,295 tokens, first token (s), every passphrase found | 133.6 / 345.8, 760.0 |
+| The request without scores or a grammar: `token_sha256` | `a094669ab5de…` |
+| tool-eval-bench 3.0.0 through 3.11.0's gate / without it | 93 / 93 |
+| Forty replies (s) | 1,225.6 |
+| Replies equal the same request alone | 20 |
+| Lowest `MemAvailable`, by rank (GiB) | 8 / 9 |
+| Hottest zone of a launch, by rank (°C) | 89.1 / 89.0 |
+
+Drafted equalled serial, a picture's included, and no reply had a broken character. The stop string's request ended at 299 with `finish_reason` `stop`, and a short request after the 93,000-token prompt cut 3 s in answered in 2.87 s, against 63.6 s to the whole prompt's first token. The request without scores or a grammar ends " Paris. In French, Paris is spelled", XSFP4's reply at TP=3 ([XSFP4](#xsfp4)). The 20 replies at once equalled the same requests alone, and the 20 checks of the alone runs `"draft": false`. With thinking off, three requests that each named an effort had it reach the template ([configuration](configuration.md#rank-0s-server)).
+
+**Tools.** Through 3.11.0's gate the Safety Gate passed, with TC-11, TC-39, TC-57 and TC-67 partial and TC-62, TC-68 and TC-69 failed. Without the gate the score is the same and the Safety Gate fails on TC-51 (Goal-Level Planning): the model calls `send_email` in the same turn as `create_calendar_event` instead of waiting for its result, as Jammed XSFP4 does at TP=3 ([known behaviours](measurements.md#3100)); that run left TC-11 and TC-52 partial and failed TC-43, TC-62 and TC-68 too. The gate asks for one tool call a turn, which is why it passes there ([setup §6](../SETUP.md#6-tool-argument-gate-optional)).
+
+**Memory and heat.** No request was stopped by the memory guard or the thermal watch, no launch waited for heat, and the hosts' heat watcher lowered no clock during a launch. Rank 0's load line read a model of 84.79 GiB and a pool of 2,948 to 2,982 pages with four streams, every one of the 16 kept states' slots, and no warning; with `PARALLEL=` empty it read eight streams and 2,712 pages, with the engine's warning that 16 states are under four a stream. Rank 0's host had 9.07 GiB of `MemAvailable` after load and stayed between 8 and 9 GiB for nearly the whole launch of every check, under the 9 GiB left to the system and 3 GiB over the guard's 5 GiB, as Jammed XSFP4 did in 3.12.0's acceptance.

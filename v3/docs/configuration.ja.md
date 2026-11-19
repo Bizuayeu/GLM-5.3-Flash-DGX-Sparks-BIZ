@@ -122,7 +122,7 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 | `TF_ROCE_HCA` | `NCCL_IB_HCA` | その経路が分けて使うデバイス、2つまで。`=` の接頭辞と `:port` の接尾辞は外す |
 | `TF_ROCE_GID_INDEX` | 各デバイスのRoCE v2のIPv4のGID | その経路が使うGIDのindex |
 | `TF_ROCE_MAX_KB` | `4096` | rankがその経路で送る最も大きいgather、KiB単位。空の値・`0`・数でない語は起動を止める |
-| `TF_GLM_INDEX_CUDA` | 3.16.0から有効（上流の既定は1.2.9から） | promptのchunkのDSAの索引器の採点とpoolを、専用の2つのkernelで回す（#1449）。`0` は前のkernel（`tf_glm_scores`）のまま、`scores` は採点のkernelだけ（切り分け用）で、ほかの語は起動を止める。使えないrankはlogに `the indexer kernels are not used` と書き、`0` と同じに進む |
+| `TF_GLM_INDEX_CUDA` | 3.16.0から有効（上流の既定は1.2.9から） | promptのchunkのDSAの索引器の採点とpoolを、専用の2つのkernelで回す（#1449）。`0` は前のkernel（`tf_glm_scores`）のまま、`scores` は採点のkernelだけ（切り分け用）で、ほかの語は起動を止める。使えないrankはlogに `the indexer kernels are not used` と書き、`0` と同じに進む。これと `TF_GLM_DSEL` をrankのファイルで `0` にした3.16.0の受け入れのTP=2の起動は、両方が有効の起動と同じdecode検査のtokenを出した（[検証](validation.ja.md#jammed-xsfp4-nz5)） |
 | `TF_GLM_DSEL` | 3.16.0から有効（上流の既定は1.2.9から） | decodeの窓のDSAのselectが、行ごとに多くのblockへ広がる（#2722）。`0` は1行1blockのままで、rankのlogにそう出る |
 | `TF_GLM_PDL` | 有効 | `0` はdependent launch（前のkernelが終わる間に行列積の重みを流し込む）を止める |
 | `TF_NVFP4_DECODE_WARPS` | `4` | NVFP4のexpertのdecodeのkernelのwarp、`1` か `4`。他の値は空も含めて読み込みを失敗させる |
