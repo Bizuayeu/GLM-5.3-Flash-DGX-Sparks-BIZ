@@ -4,7 +4,7 @@
 
 [English](README.md) · [リポジトリの索引](../README.ja.md) · [配備の手順書](SETUP.ja.md) · [検証](docs/validation.ja.md) · [変更履歴](CHANGELOG.ja.md)
 
-**GLM-5.3-Flash BIZ** は、DGX Sparkまたは互換のGB10機でGLM-5.3-Flashを配信します。3.x系はTensorFoldのネイティブエンジン、つまり[2.x系](../v2/README.ja.md)が動かすPythonのエンジンに代わったZigとCUDAのエンジンで、2台のTP=2、3台のTP=3、または3.12.0から試験的に4台のTP=4で配信します。配信するcheckpointは[XSFP4](#checkpoint)と[Jammed XSFP4](#checkpoint)（routed expertがTP=2の各ホストで6.58 GiB少ない）です。3.12.0から既定は、2台ならJammed XSFP4、3台か4台ならXSFP4で、rankのファイルの1行でもう一方を配信します。XSFP4は、NVIDIAのGLM-5.3-Flash-FP4-Localの派生物、expertsを本リポジトリの管理者が量子化し直したものです。1.x系・2.x系が配信するNVIDIAの固定したGLM-5.3-Flash NVFP4 checkpointは、3.5.xまでここでも選べました。各リリースのエンジンは、上流のTensorFoldの一つのリリースの上にbuildします（[何であるか](#何であるか)）。各リリースで何が変わったかは[変更履歴](CHANGELOG.ja.md)にあります。2.x系も並んで続きます。
+**GLM-5.3-Flash BIZ** は、DGX Sparkまたは互換のGB10機でGLM-5.3-Flashを配信します。3.x系はTensorFoldのネイティブエンジン、つまり[2.x系](../v2/README.ja.md)が動かすPythonのエンジンに代わったZigとCUDAのエンジンで、2台のTP=2、3台のTP=3、または3.12.0から試験的に4台のTP=4で配信します。配信するcheckpointは[XSFP4](#checkpoint)、[Jammed XSFP4](#checkpoint)（routed expertがTP=2の各ホストで6.58 GiB少ない）、[Jammed XSFP4 NZ5](#checkpoint)（Jammed XSFP4の並びのまま、4 bitのcodeの1つを+5と読む）です。3.16.0から既定は、2台ならJammed XSFP4 NZ5、3台か4台ならXSFP4で、rankのファイルの1行で別のものを配信します。XSFP4は、NVIDIAのGLM-5.3-Flash-FP4-Localの派生物、expertsを本リポジトリの管理者が量子化し直したものです。1.x系・2.x系が配信するNVIDIAの固定したGLM-5.3-Flash NVFP4 checkpointは、3.5.xまでここでも選べました。各リリースのエンジンは、上流のTensorFoldの一つのリリースの上にbuildします（[何であるか](#何であるか)）。各リリースで何が変わったかは[変更履歴](CHANGELOG.ja.md)にあります。2.x系も並んで続きます。
 
 **BIZ**は保守者の印で、リポジトリの意図を示す語です。意味することと意味しないことは[リポジトリのREADME](../README.ja.md#biz)にあります。
 
@@ -75,26 +75,28 @@ curl -s http://127.0.0.1:8095/v1/chat/completions -H 'Content-Type: application/
 
 ## checkpoint
 
-3.x系が配信するcheckpointは、XSFP4と、3.10.0からのJammed XSFP4です。Jammed XSFP4はrouted expertを入力32個ごとのblockのスケールで合わせ直し、そのスケールを4分の1のメモリで持ちます。3.12.0から既定はTPで分かれ、TP=2はJammed XSFP4、TP=3とTP=4はXSFP4です（3.4.0から3.11.xまでは、どのTPでもXSFP4）。各リリースのファイルがそのTPのfolderを名指し（[`config/tp*.env`](config/)）、rankのファイルの `CHECKPOINT` の1行でもう一方を配信します。3.3.0まで既定で3.5.xまで選べたNVIDIAのNVFP4は、1.x系・2.x系のものです。全rankが同じものを配信します。
+3.x系が配信するcheckpointは、XSFP4と、3.10.0からのJammed XSFP4と、3.16.0からのJammed XSFP4 NZ5です。Jammed XSFP4はrouted expertを入力32個ごとのblockのスケールで合わせ直し、そのスケールを4分の1のメモリで持ちます。Jammed XSFP4 NZ5はJammed XSFP4の並びのまま、−0を表していた4 bitのcodeを+5と読み、それを使うようにexpertを合わせ直したものです。既定はTPで分かれ、TP=2は3.16.0からJammed XSFP4 NZ5（3.12.0〜3.15.0はJammed XSFP4）、TP=3とTP=4はXSFP4です（3.4.0から3.11.xまでは、どのTPでもXSFP4）。各リリースのファイルがそのTPのfolderを名指し（[`config/tp*.env`](config/)）、rankのファイルの `CHECKPOINT` の1行で別のものを配信します。3.3.0まで既定で3.5.xまで選べたNVIDIAのNVFP4は、1.x系・2.x系のものです。全rankが同じものを配信します。
 
-| | XSFP4 | Jammed XSFP4 |
-|---|---|---|
-| 重み | [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)（[`config/xsfp4.lock.json`](config/xsfp4.lock.json)） | [`Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4)（[`config/jammed.lock.json`](config/jammed.lock.json)） |
-| 作り手 | 本リポジトリの管理者、NVIDIAの[`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)（revision `76348ddb`）とZ.aiのBF16の重みから | 同じ。XSFP4の平滑化とBF16の重みから |
-| routed expert | XSFP4、W4A16で配信：平滑化を重みに畳み込み、BF16の重みからNVFP4のblockを当てはめ直したもので、実行時にkernelが何も掛けません。MTP層のexpertも同じ。3〜44層はblockのスケールを可逆に圧縮して持ち（`csf_32x2_v1`、FP4-Localと同じ）、エンジンが読み込みの時にホストで元に戻します | NVFP4、W4A16で配信。XSFP4の平滑化のまま、3〜44層のblockのスケールを入力16個ごとから32個ごとにしたもの。行ごとのスケールはE4M3の16段に収まり、行に1つのbaseとblockごとの4 bitのoffset（`csf0_v1`）で、fileでもGPUでも同じ形で持つので、スケールのメモリは4分の1です。MTP層のexpertはFP4-Localのもの、block 16 |
-| その他 | FP4-Localのtensorを保存の形のまま：MXFP8（dense MLP、KDA、`lm_head`、MTP層のattentionとshared expert）、128×128 blockのFP8（MLAとshared expert）、BF16（KDAの小さいprojection、MLAの `kv_b` とindexer、router、embeddings）、BF16とF32のnorm。vision towerはMXFP8とNVFP4 | XSFP4と同じ |
-| TP=2・TP=3のrank 0のmodel（読み込みの行、KV cacheはpage） | 91.26・64.01 GiB | 84.68・59.50 GiB |
-| このエンジンのTP=2でBF16の重みと比べた次token（128文書、144,285位置）：top-1の一致 / BF16に対するNLLの上がり / KLの下限 | 93.26% / +0.85% / 0.0431 | 92.78% / +1.35% / 0.0482 |
-| 同じものをTP=3で | 93.30% / +0.85% / 0.0436 | 92.80% / +1.41% / 0.0483 |
-| ライセンス | NVIDIA Open Model Agreement（FP4-Localの派生物。repositoryに `LICENSE` と `NOTICE`） | 同じ |
-| ダウンロード（SETUP §2） | `download`・`verify-download` に `--tp 3`・`--tp 4`・`--checkpoint xsfp4` のどれか（ダウンロードの状況は `state/xsfp4` に） | `download`・`verify-download` に `--tp 2` か `--checkpoint jammed`（状況は `state/jammed` に） |
-| rankのファイル | TP=3とTP=4では何も要らない（リリースのファイルがlockのrevisionを名指す）。TP=2では全rankのファイルに `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<lockのrevision>` の1行だけ | TP=2では何も要らない（リリースのファイルがlockのrevisionを名指す）。TP=3とTP=4では全rankのファイルに `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<lockのrevision>` の1行だけ |
+| | XSFP4 | Jammed XSFP4 | Jammed XSFP4 NZ5 |
+|---|---|---|---|
+| 重み | [`Bizuayeu/GLM-5.3-Flash-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)（[`config/xsfp4.lock.json`](config/xsfp4.lock.json)） | [`Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4)（[`config/jammed.lock.json`](config/jammed.lock.json)） | [`Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4-NZ5`](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4-NZ5)（[`config/nz5.lock.json`](config/nz5.lock.json)） |
+| 作り手 | 本リポジトリの管理者、NVIDIAの[`GLM-5.3-Flash-FP4-Local`](https://huggingface.co/nvidia/GLM-5.3-Flash-FP4-Local)（revision `76348ddb`）とZ.aiのBF16の重みから | 同じ。XSFP4の平滑化とBF16の重みから | 同じ。XSFP4の平滑化とBF16の重みから、Jammed XSFP4の並びで |
+| routed expert | XSFP4、W4A16で配信：平滑化を重みに畳み込み、BF16の重みからNVFP4のblockを当てはめ直したもので、実行時にkernelが何も掛けません。MTP層のexpertも同じ。3〜44層はblockのスケールを可逆に圧縮して持ち（`csf_32x2_v1`、FP4-Localと同じ）、エンジンが読み込みの時にホストで元に戻します | NVFP4、W4A16で配信。XSFP4の平滑化のまま、3〜44層のblockのスケールを入力16個ごとから32個ごとにしたもの。行ごとのスケールはE4M3の16段に収まり、行に1つのbaseとblockごとの4 bitのoffset（`csf0_v1`）で、fileでもGPUでも同じ形で持つので、スケールのメモリは4分の1です。MTP層のexpertはFP4-Localのもの、block 16 | 3〜44層はJammed XSFP4の並び（block 32、スケールは `csf0_v1`）のまま、codeの1つの意味を変えたもの：E2M1の−0である `0b1000` を+5と読み（`NVFP4_NZ5`）、それを使うようにexpertをBF16の重みから合わせ直しました。bitは増えず、fileの大きさはJammed XSFP4と同じで、エンジンは専用のkernelで読みます。W4A16で配信。MTP層のexpertはFP4-Localのもの、block 16 |
+| その他 | FP4-Localのtensorを保存の形のまま：MXFP8（dense MLP、KDA、`lm_head`、MTP層のattentionとshared expert）、128×128 blockのFP8（MLAとshared expert）、BF16（KDAの小さいprojection、MLAの `kv_b` とindexer、router、embeddings）、BF16とF32のnorm。vision towerはMXFP8とNVFP4 | XSFP4と同じ | XSFP4と同じ |
+| TP=2・TP=3のrank 0のmodel（読み込みの行、KV cacheはpage） | 91.26・64.01 GiB | 84.68・59.50 GiB | TP=2で84.79 GiB（3.16.0の受け入れ、上流1.2.10。他の列は3.12.0のもので、1.2.7）。TP=3では起動していない |
+| このエンジンのTP=2でBF16の重みと比べた次token（128文書、144,285位置）：top-1の一致 / BF16に対するNLLの上がり / KLの下限 | 93.26% / +0.85% / 0.0431 | 92.78% / +1.35% / 0.0482 | — |
+| 同じものをTP=3で | 93.30% / +0.85% / 0.0436 | 92.80% / +1.41% / 0.0483 | — |
+| ライセンス | NVIDIA Open Model Agreement（FP4-Localの派生物。repositoryに `LICENSE` と `NOTICE`） | 同じ | 同じ |
+| ダウンロード（SETUP §2） | `download`・`verify-download` に `--tp 3`・`--tp 4`・`--checkpoint xsfp4` のどれか（ダウンロードの状況は `state/xsfp4` に） | `download`・`verify-download` に `--checkpoint jammed`（状況は `state/jammed` に） | `download`・`verify-download` に `--tp 2` か `--checkpoint nz5`（状況は `state/nz5` に） |
+| rankのファイル | TP=3とTP=4では何も要らない（リリースのファイルがlockのrevisionを名指す）。TP=2では全rankのファイルに `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<lockのrevision>` の1行だけ | どのTPでも、全rankのファイルに `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<lockのrevision>` の1行だけ | TP=2では何も要らない（リリースのファイルがlockのrevisionを名指す）。3.16.0の受け入れは、TP=3とTP=4では起動していない |
 
 各文書はtoken idとしてエンジンに送り、`prompt_logprobs` は20。KLの下限は、両方が確率を返したtoken（エンジンの上位20、BF16の上位20、本文のtoken）を1つずつ数え、残りを1つの塊として数えます。全語彙のKLより低く、エンジンの外で測ったKLとは比べられません（XSFP4の[model card](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-XSFP4)に両方があります）。同じエンジンと文書で、NVIDIAのNVFP4はTP=2で 92.68% / +1.37% / 0.0510、TP=3で 92.71% / +1.38% / 0.0511 だったので、XSFP4はどちらのTPでも3つともBF16に近く、差の文書ごとの95%区間は0を含みません。FP4-Local自身を同じエンジンでそのまま読み込むと、TP=2で 92.82% / +1.11% / 0.0510、TP=3で 92.75% / +1.07% / 0.0514 でした。
 
 XSFP4の[測定値](#リリースでの測定値)の速さはXSFP4のものです：draftの受理と層の形がNVIDIAのNVFP4と違うので、1.x系・2.x系の数とは比べられません。XSFP4が持つFP4-Localのchat templateは、NVIDIAのものと3か所違います（contentの無いmessageは何も出さない、tool callの名前を `~` でつなぐ、toolの結果を呼び出しの順に並べられるかの検査が、だめと分かった所で止まる）。
 
 Jammed XSFP4はBF16への近さの一部をメモリと引き換えにします：表の3つの数では、両TPでXSFP4よりBF16から離れています（差の文書ごとの95%区間はどれも0を含みません）。3.12.0のエンジンからは、空いた分はprompt cacheの残りを取るKVのpoolに入ります：TP=2では同じくsystemに9 GiBを残し、poolが2,961〜2,981 page（XSFP4は2,059）、読み込みの後のrank 0の空きは9.1〜9.5 GiB（XSFP4は9.1 GiB）でした。TP=3で16 GiBを残すと、poolは窓3本目を取って6,171 page（XSFP4は4,706〜4,780）、prompt cacheに残る保持の状態のslotは32のうち8（[16 GiBにする理由](#配信の既定)）、rank 0の空きは16.4 GiB（XSFP4は16.5〜17.1 GiB）でした。返答はこのcheckpointのものなので、draftありのdecodeの速さはXSFP4と比べられません。promptの速さは比べられ、同じimageでTP=2が1,535.0 tok/s対1,507.3、TP=3が1,953.9対1,940.9です（[測定値](#リリースでの測定値)）。作り方とエンジンの外での点は[モデルカード](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4)にあります。
+
+Jammed XSFP4 NZ5は、Jammed XSFP4が使っていないcodeを1つ使います。E2M1の4 bitのcodeは16個ですが、0が正負の両方にあるので、表す数は15個です。このcheckpointは3〜44層のrouted expertで、0をすべて `0b0000` と書き、`0b1000` を+5と読みます。+5は4と6の間の目盛りで、blockの大きい重みが落ちる所です。expertはこれを使うようにBF16の重みから合わせ直しました。fileの大きさはJammed XSFP4と同じで、上流のリリースは1.2.10から読めます（#2894）。このエンジンの上でBF16とは比べていないので、表に数はありません：[モデルカード](https://huggingface.co/Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4-NZ5)にあるのはPyTorchで全語彙にわたって測った近さで、同じ128文書でKLが0.0440（Jammed XSFP4は0.0470、XSFP4は0.0410）、表の下限とは比べられません。3.16.0のTP=2の受け入れでは、systemに9 GiBを残して、poolが2,948〜2,982 page、保持の状態のslotは16全部でした（[TP=2を1,048,576にする理由](#配信の既定)）。返答はこのcheckpointのものです：decode checkのhashはXSFP4ともJammed XSFP4とも違い、draftありのdecodeの速さもそれらと比べられません（[検証](docs/validation.ja.md#jammed-xsfp4-nz5)）。
 
 ## 配信の既定
 
@@ -131,7 +133,7 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env)・[`config/tp3.env
 
 **TP=3で16 GiBにする理由。** poolは窓の丸ごとの本数でpageを取り、3.12.0のエンジン（上流1.2.5、#2358）からは、prompt cacheのうち保持するstateのslotの残りもpageにします。起動の計画は、余地に入る窓を全部cacheより先に置きます。参照リングのホストは2026-11-07からメモリを1.50 GiB多く報告します（MemTotal 129,168,464 kB）。3.11.xのエンジンの14 GiBでは、poolの余地が39.3〜39.5 GiBと、窓3本に要る38.85 GiB（上流の `kv_pool.plan`）を超えたので、poolは5,989〜6,017 pageを取り、rank 0の起動後の空きは約10.3 GiBでした。16 GiBでは余地は窓3本に届きません：3.12.0の受け入れでは余地が36.8〜37.2 GiBで、保持する32 stateのslotが5.3 GiBを取り、poolは窓2本とcacheの残り、512行のpageを4,706〜4,780（29.30〜29.76 GiB）取り、rank 0の空きは16.5〜17.1 GiBでした。TP=2のpoolは窓1本とcacheの残りです。3.10.0の受け入れでは、Jammed XSFP4はmodelが小さいので14 GiBで窓3本、6,147 page（38.27 GiB）を取りました。3.12.0の受け入れでは16 GiBでも窓3本、6,171 page（38.42 GiB）を取り、計画が窓をslotより先に置くので、prompt cacheが保持したstateは32のうち8で、動いているstreamどうしが追い出し合うとエンジンが警告しました。`cluster.sh` のlabelの後に `--prompt-cache-gib 6` を足すと、32全部と窓2本、5,525 page（34.40 GiB）が入り、decode検査のtokenは同じでした（[エンジンのflag](docs/configuration.ja.md#エンジンのflag)）。3.9.0〜3.11.xのimageはTP=3で14 GiBを残すので、メモリを多く報告するホストでは、rankのファイルの `TENSORFOLD_MEMORY_RESERVE_GIB=16` でpoolを窓2本に保てます。
 
-**TP=2を1,048,576にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取ります。3.8.xまではstreamの窓がまるごとmodelの横に置かれたので、TP=2の窓は245,760 token、3.5.0からはXSFP4で524,288 tokenまででした。KVのpageでは窓はpoolのpageで、streamの本数によりません：512行のpageを2,052（12.77 GiB）でモデルの上限の1,048,576 token全部が入り、3.12.0の受け入れでは1,035,295 tokenのpromptがJammed XSFP4で835.5秒で最初のtokenを返し、合言葉を全部見つけました。3.12.0から既定のJammed XSFP4では、エンジン自身のreserve 12.3 GiBで余地20.0 GiB・2,451 pageと、窓とprompt cacheの残りの一部が入り、`config/tp2.env` の9 GiBでは余地23.2〜23.3 GiB・2,961〜2,981 pageで、rank 0の起動後の空きは9.1〜9.5 GiB、memory guardの5 GiBの上です。全rankのファイルの `CHECKPOINT` の行でTP=2に配信するXSFP4では、9 GiBが窓の場所を作ります：3.9.0のエンジンでは自身のreserve 12.2 GiBの余地が12.0 GiBで、窓のpageの12.77 GiBに足りず、3.12.0の受け入れでは9 GiBで余地16.7 GiB・2,059 page、rank 0の空き9.1 GiBで、`TF_KV_SHARE=16` の状態は12でした（どの `--prompt-cache-gib` でも、この余地に入るのは12です）。この受け入れでは、TP=2のXSFP4をエンジン自身のreserveでは起動していません。`TF_GLM_CHUNK_SOLO=4096` の広いpromptのpassは全rankでさらにメモリを取るので、この窓では切ります（[決定](docs/decisions.ja.md#窓とstream)）。全rankのファイルの `CONTEXT` で別の値を選びます：524,288ならreserveを戻せて、広いpassも入ります。
+**TP=2を1,048,576にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取ります。3.8.xまではstreamの窓がまるごとmodelの横に置かれたので、TP=2の窓は245,760 token、3.5.0からはXSFP4で524,288 tokenまででした。KVのpageでは窓はpoolのpageで、streamの本数によりません：512行のpageを2,052（12.77 GiB）でモデルの上限の1,048,576 token全部が入り、3.16.0の受け入れでは1,035,295 tokenのpromptがJammed XSFP4 NZ5で760.0秒で最初のtokenを返し、合言葉を全部見つけました。3.16.0から既定のJammed XSFP4 NZ5では、その受け入れで `config/tp2.env` の9 GiBが余地23.1〜23.3 GiB・2,948〜2,982 pageになり、窓とprompt cacheの残りが入りました。rank 0のホストの `MemAvailable` は起動後に9.07 GiB、検査が走っている間は8〜9 GiBでした。起動の計画が残す9 GiBより少なく、memory guardの5 GiBより3 GiB上で、3.12.0の受け入れのJammed XSFP4も最低は8 GiBでした。3.12.0〜3.15.0で既定だったJammed XSFP4では、3.12.0の受け入れで、エンジン自身のreserve 12.3 GiBが余地20.0 GiB・2,451 page（窓とprompt cacheの残りの一部）、9 GiBが余地23.2〜23.3 GiB・2,961〜2,981 pageで、rank 0の起動後の空きは9.1〜9.5 GiBでした。全rankのファイルの `CHECKPOINT` の行でTP=2に配信するXSFP4では、9 GiBが窓の場所を作ります：3.9.0のエンジンでは自身のreserve 12.2 GiBの余地が12.0 GiBで、窓のpageの12.77 GiBに足りず、3.12.0の受け入れでは9 GiBで余地16.7 GiB・2,059 page、rank 0の空き9.1 GiBで、`TF_KV_SHARE=16` の状態は12でした（どの `--prompt-cache-gib` でも、この余地に入るのは12です）。この受け入れでは、TP=2のXSFP4をエンジン自身のreserveでは起動していません。`TF_GLM_CHUNK_SOLO=4096` の広いpromptのpassは全rankでさらにメモリを取るので、この窓では切ります（[決定](docs/decisions.ja.md#窓とstream)）。全rankのファイルの `CONTEXT` で別の値を選びます：524,288ならreserveを戻せて、広いpassも入ります。
 
 **効率coreにする理由。** エンジンは要求を回す間、全rankで2本のCPUのthreadを空回りさせ続けます。rank 0ではdecodeの間、他のrankではそれを待つ間です（上流1.1.2のエンジンより前は、他のrankは要求の無い間も空回りしました。#1053は、rank 0にstreamが無い間それらを眠らせます）：一つはGPUを待ち、もう一つはそのkernel時間から見てNCCLのものである見込みが高いthreadです。全coreでは、これらがCPUのthermal zone（GB10の7つのzoneのうち5つ）を温めました：約6,000 tokenのpromptの後の1,024 tokenの返答を40本続けると、3.0.0のエンジンでは、TP=2でrank 0の最も熱いzoneが94.7 °Cに達し、熱の見張りが7本目でエンジンを止めました。3.1.0のエンジンは全coreでも効率coreと同じ1,535秒で40本を終えましたが、rank 0のホストは93.0 °Cに達し（止める温度まで1 °C）、効率coreでは74.9 °Cでした。全coreで2つの要求を同時に回すと88.5 °Cでした。熱の待ちはprompt chunkの合間に働くので、これを抑えられません。3.0.0のエンジンでは、効率coreで40本の返答がそのzone 85.1 °Cで終わり、rank 1のホストは約70 °Cではなく57〜63 °Cで待ちました。その代わり速さの1〜3%を失い、起動は約25秒長くなりました（[3.0.0の測定値](docs/measurements.ja.md#300)）。熱の帯を下げる（86/82/87）と、待ったpromptが26〜89%遅くなり、1,048,576 tokenのpromptの最高温度は下がりませんでした。空回りせずに眠るCUDAのcontextはdecodeが12%遅く、もう一つのthreadは空回りしたままでした。1.1.1から、上流の[runbook](https://github.com/ashhart/TensorFold/blob/v1.2.10/RUNBOOK.md#gb10-cpu-pinning-for-long-cuda-runs)もこれらの測定からGB10の各rankに同じcoreを挙げています。`CPUSET=` でcontainerに全coreを与えます。
 
@@ -215,7 +217,8 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 ## 制限
 
 - **Jammed XSFP4には `csf0_v1` のkernelが要ります。** 形はこの系列のもので、kernelはこの系列のエンジンが3.10.0から、上流のリリースが1.2.3から持っています（#2041、2026-11-04から上流のmainにある）。vLLM、他のNVFP4のloader、そのkernelを持たないエンジンは読めず、3.8.0のエンジンは読み込みの時に名前を挙げて断ります。blockのスケールが粗いので、返答はXSFP4と違います（[checkpoint](#checkpoint)）。
-- **TP=2で4本、TP=3で8本。** それを超える要求はstreamを待ちます。streamは1つのKVのpoolを分け合います：TP=2はJammed XSFP4で2,961〜2,981 page、XSFP4で2,059 page（窓いっぱいの1本分）、TP=3はXSFP4で4,706〜4,780 page（2本分）、Jammed XSFP4で6,171 page（3本分。prompt cacheが保持するstateは32のうち8、`--prompt-cache-gib 6` で32全部と2本分）、TP=4は8,198〜8,215 page（4本分）です。長い会話が同時に何本も並ぶ負荷は測っていません（[配信の既定](#配信の既定)）。
+- **Jammed XSFP4 NZ5には `NVFP4_NZ5` のkernelが要ります。** kernelは上流のリリースが1.2.10から（#2894）、この系列のエンジンが3.16.0から持っています。Jammed XSFP4は読めてもこのkernelを持たないエンジンは、読み込みの時に名前を挙げて断ります（3.10.0のimageで確かめた）。同じbyteをJammed XSFP4として読むと、+5がすべて0になるからです。vLLMと他のNVFP4のloaderは読めません。codeの読み方が違うので、返答はこのcheckpointのものです。3.16.0の受け入れが配信したのはTP=2だけです（[checkpoint](#checkpoint)）。
+- **TP=2で4本、TP=3で8本。** それを超える要求はstreamを待ちます。streamは1つのKVのpoolを分け合います：TP=2はJammed XSFP4 NZ5で2,948〜2,982 page、3.12.0の受け入れではJammed XSFP4で2,961〜2,981 page、XSFP4で2,059 page（どれも窓いっぱいの1本分）、TP=3はXSFP4で4,706〜4,780 page（2本分）、Jammed XSFP4で6,171 page（3本分。prompt cacheが保持するstateは32のうち8、`--prompt-cache-gib 6` で32全部と2本分）、TP=4は8,198〜8,215 page（4本分）です。長い会話が同時に何本も並ぶ負荷は測っていません（[配信の既定](#配信の既定)）。
 - **画像と動画はエンジンの制限の中で。** 画像は1要求に最大4枚で、送られた履歴にある画像を全部数えます（前のturnを画像ごと送り直すclientはそこに届きます）。4枚で4,096 tokenを分け合い、1枚10 MiB・1要求20 MiBまで。PNG・JPEG・WebPのdata URLで、GIFと動く絵は断ります。動画はuserのmessageだけで、1要求に2本（1本16 MiB・合わせて20 MiB・1時間まで）、1秒に2 frameで最大256 frameを取り、16,384 tokenを分け合います。0.5秒より短いclipは断ります。画像と動画のtokenは窓から取られます。HTTPSのURLには `serve.sh` が渡さない `--vision-urls` が要ります。音声のpartは400で断ります。
 - **生成したtokenのlog確率は無い。** `logprobs` と `top_logprobs` は400で断ります。`prompt_logprobs` はstreamでない `/v1/completions` でだけ配信します。
 - **要求を回す間、どのrankも2つのCPUのcoreを空回りさせ続けます。** rank 0はdecodeの間、他のrankはそれを待つ間です（上流1.1.2のエンジンからは、#1053により、rank 0にstreamが無い間は他のrankは眠ります）。containerの既定のcoreは、少しの速さと長くなる起動と引き換えに、CPUのzoneを熱の見張りが止める温度より下に保ちます。全coreでは、返答の長い連続がその温度に達するか、その手前まで来ました（[効率coreにする理由](#配信の既定)）。
@@ -234,7 +237,7 @@ v3/
   glm53_tf/         Pythonの道具：download・verify-download・tool-gate・
                     decode-check・decode-divergence・score-nll・bench・long-input・mojibake
   config/           tp2.env、tp3.env、tp4.env（TPごとの配信の既定）、xsfp4.lock.json（XSFP4）、
-                    jammed.lock.json（Jammed XSFP4）、
+                    jammed.lock.json（Jammed XSFP4）、nz5.lock.json（Jammed XSFP4 NZ5）、
                     engine.lock.json（エンジンのcommit、Zigのcompiler、xgrammar）、nll_set.json（NLL採点セット）
   requirements/     huggingface.lock.txt：ダウンロードとその検証に使うHugging Faceのclient
   docker/           Dockerfile：image。エンジンは ENGINE_REF で固定
@@ -262,8 +265,8 @@ v3/
 
 - **BIZは意図であり、約束ではありません**（[リポジトリのREADME](../README.ja.md#biz)）。
 - **受け入れは参照機のものです。** 他のホストや別のimage IDでの起動は、そこで[検証](docs/validation.ja.md)を回して受け入れます。
-- **XSFP4とJammed XSFP4は本リポジトリの管理者のcheckpointです。** NVIDIA Open Model Agreementの下のFP4-Localの派生物で、NVIDIAやZ.aiのリリースではありません。
-- **エンジンはこの系列による上流のforkのリリースのbranchです。** 他の利用者にも役立つものは上流のTensorFoldへpull requestとして出し、残りはリリースのbranchが持ちます。3.12.0のbranchはこの系列のcommitを持たず、上流v1.2.7そのものです。上流がどのpull requestをどのリリースで取り込んだかは[決定](docs/decisions.ja.md)にあります。
+- **XSFP4・Jammed XSFP4・Jammed XSFP4 NZ5は本リポジトリの管理者のcheckpointです。** NVIDIA Open Model Agreementの下のFP4-Localの派生物で、NVIDIAやZ.aiのリリースではありません。
+- **エンジンはこの系列による上流のforkのリリースのbranchです。** 他の利用者にも役立つものは上流のTensorFoldへpull requestとして出し、残りはリリースのbranchが持ちます。3.16.0のbranchはこの系列のcommitを持たず、上流v1.2.10そのものです。上流がどのpull requestをどのリリースで取り込んだかは[決定](docs/decisions.ja.md)にあります。
 
 ## Next Action
 
