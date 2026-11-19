@@ -4,6 +4,14 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.16.1 — 2026-11-19
+
+A correction to 3.16.0's README. No file of the image changes; it stays 3.16.0's (`glm53-tf3:3.16.0`, `sha256:7130d97805fd0126af7f13143196956e59904870aecef3bee60cde9608c95a42`).
+
+### Fixes
+
+- The README's paragraph on how the KV pool's size is set gave TP=4's pages as 8,006 to 8,036 over launches of the same settings, the reading moving by 0.1 to 0.2 GiB. Two of those seven launches, the decode grid's, set `TF_GLM_PROMPT_TAIL=1`, and they read 8,006 and 8,015. Between launches of the same settings the pages moved by 21 at TP=3 (0.13 GiB) and by 1 at TP=4, and by 9 (0.06 GiB) over TP=4's five launches that differed in one setting at most. The paragraph, the load lines of [measured on the release](README.md#measured-on-the-release) and the decode grid's note there now say so.
+
 ## 3.16.0 — 2026-11-19
 
 TP=2 serves Jammed XSFP4 NZ5 by default, and the engine moves onto upstream TensorFold v1.2.10 itself (`2a674b55`), with no commit of this line's: upstream's first release that reads the checkpoint's `NVFP4_NZ5` form. TP=3 and TP=4 serve XSFP4 as before. The image is `glm53-tf3:3.16.0` (`sha256:7130d97805fd0126af7f13143196956e59904870aecef3bee60cde9608c95a42`).
