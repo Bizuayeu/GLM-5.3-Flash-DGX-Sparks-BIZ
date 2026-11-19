@@ -4,6 +4,16 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.16.2 — 2026-11-19
+
+Documents. No file of the image changes; it stays 3.16.0's (`glm53-tf3:3.16.0`, `sha256:7130d97805fd0126af7f13143196956e59904870aecef3bee60cde9608c95a42`).
+
+### Documentation
+
+- [Validation](docs/validation.md#memory-and-temperature)'s reference for memory and temperature was 3.12.0's and 3.9.0's: 16, 17 and 22 GiB at TP=3 and no wait for heat. It is 3.16.0's now, 15, 17 and 22 GiB at TP=3 and the daytime launch's heat waits, and it says that rank 0 reads down to 1 GiB under the memory left to the system, the memory guard's 5 GiB being the floor.
+- The [decisions](docs/decisions.md#engine) have the row of upstream's default-on switches, `TF_GLM_INDEX_CUDA` and `TF_GLM_DSEL`, with what 3.16.0's acceptance measured with them off.
+- 3.16.0's notes and the README's measured part read as if TP=4 had run with both switches off at once. Each was off in a launch of its own, `TF_GLM_INDEX_CUDA=0` over the three long prompts and `TF_GLM_DSEL=0` over the 199,307-token prompt, and the README says so now.
+
 ## 3.16.1 — 2026-11-19
 
 A correction to 3.16.0's README. No file of the image changes; it stays 3.16.0's (`glm53-tf3:3.16.0`, `sha256:7130d97805fd0126af7f13143196956e59904870aecef3bee60cde9608c95a42`).

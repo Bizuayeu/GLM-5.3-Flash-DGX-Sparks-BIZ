@@ -6,6 +6,16 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.16.2 — 2026-11-19
+
+文書の版です。imageのファイルは変わらず、3.16.0のままです（`glm53-tf3:3.16.0`、`sha256:7130d97805fd0126af7f13143196956e59904870aecef3bee60cde9608c95a42`）。
+
+### Documentation
+
+- [検証](docs/validation.ja.md#メモリと温度)のメモリと温度の基準値は、3.12.0と3.9.0のもの（TP=3で16・17・22 GiB、熱の待ちなし）でした。3.16.0のもの（TP=3で15・17・22 GiB、昼の起動の熱の待ち）にし、rank 0がsystemに残すメモリの1 GiB下まで読む事があり、床はmemory guardの5 GiBである事を書きました。
+- [設計判断](docs/decisions.ja.md#エンジン)に、上流が既定でonにしたswitch（`TF_GLM_INDEX_CUDA` と `TF_GLM_DSEL`）を受けた行と、3.16.0の受け入れがそれを切って測った数を足しました。
+- 3.16.0の節とREADMEの測定値の段は、TP=4で2つのswitchを同時に切ったように読めました。実際は1つずつ別の起動で、`TF_GLM_INDEX_CUDA=0` は長い3つのprompt、`TF_GLM_DSEL=0` は199,307 tokenのpromptで確かめています。READMEをそう直しました。
+
 ## 3.16.1 — 2026-11-19
 
 3.16.0のREADMEの訂正です。imageのファイルは変わらず、3.16.0のままです（`glm53-tf3:3.16.0`、`sha256:7130d97805fd0126af7f13143196956e59904870aecef3bee60cde9608c95a42`）。
