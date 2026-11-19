@@ -163,7 +163,7 @@ python3 tools/bench_concurrent.py http://127.0.0.1:8095 glm-tf --tokens 256 --re
 
 ## Jammed XSFP4
 
-上の検査は、[Jammed XSFP4](../README.ja.md#checkpoint)の起動を次の値と比べて受け入れます。TP=2の列は、TP=2の既定としてrankのファイルにcheckpointを書かない、2026-11-12の上流1.2.7の上での3.12.0の受け入れの値で、同時の返答だけは3.10.0のものです。TP=3の列は、上流1.2.1に `csf0_v1` の6つのcommitを足したエンジンで、rankのファイルにその `CHECKPOINT` の1行だけを足した、2026-11-03の3.10.0の受け入れの値です。ただしdecode検査、`bench --kinds edit`、promptとdecodeの速さは、同じ `CHECKPOINT` の行で2026-11-12に上流1.2.7の上で起動した3.12.0のTP=3の値です。blockのスケールが粗いのでdecode検査の返答はこのcheckpointのものになり、XSFP4のdecode検査のhashは当てはまりません。`bench --kinds edit` は両TPでXSFP4と同じ返答でした。`score-nll` には自身の `tokenizer.json`（XSFP4のものとbyteまで同じ）を渡します。hashは各TPの2回目の起動でも保たれ、3.10.0の受け入れでは、countは各TPで `PARALLEL=` を空にした起動でも保たれました。2026-11-19の3.16.0の受け入れ（上流1.2.10、`tp2-04-05` のexampleの対）は、rankのファイルの `CHECKPOINT` の行で起こした1回の起動で、TP=2のhash・editの返答・NLLをもう一度同じ値で返しました。同じ受け入れのTP=3（参照機）でも、同じ形の1回の起動がTP=3のhashとeditの返答を同じ値で返しました。
+上の検査は、[Jammed XSFP4](../README.ja.md#checkpoint)の起動を次の値と比べて受け入れます。TP=2の列は、TP=2の既定としてrankのファイルにcheckpointを書かない、2026-11-12の上流1.2.7の上での3.12.0の受け入れの値で、同時の返答だけは3.10.0のものです。TP=3の列は、上流1.2.1に `csf0_v1` の6つのcommitを足したエンジンで、rankのファイルにその `CHECKPOINT` の1行だけを足した、2026-11-03の3.10.0の受け入れの値です。ただしdecode検査と `bench --kinds edit` は、同じ `CHECKPOINT` の行で2026-11-12に上流1.2.7の上で起動した3.12.0のTP=3の値、promptとdecodeの速さは3.16.0の値です。blockのスケールが粗いのでdecode検査の返答はこのcheckpointのものになり、XSFP4のdecode検査のhashは当てはまりません。`bench --kinds edit` は両TPでXSFP4と同じ返答でした。`score-nll` には自身の `tokenizer.json`（XSFP4のものとbyteまで同じ）を渡します。hashは各TPの2回目の起動でも保たれ、3.10.0の受け入れでは、countは各TPで `PARALLEL=` を空にした起動でも保たれました。2026-11-19の3.16.0の受け入れ（上流1.2.10、`tp2-04-05` のexampleの対）は、rankのファイルの `CHECKPOINT` の行で起こした1回の起動で、TP=2のhash・editの返答・NLLをもう一度同じ値で返しました。同じ受け入れのTP=3（参照機）でも、同じ形の1回の起動がTP=3のhashとeditの返答を同じ値で返しました。
 
 | 検査 | TP=2 | TP=3 |
 |---|---|---|
@@ -173,7 +173,7 @@ python3 tools/bench_concurrent.py http://127.0.0.1:8095 glm-tf --tokens 256 --re
 | 受理長、count / prose / code | 3.200 / 1.964 / 3.262 | 3.234 / 2.044 / 3.556 |
 | `bench --kinds edit`：`token_sha256`、round | `c419bce559d86b66`, 64〜65 | `c419bce559d86b66`, 63 |
 | NLL、日本語 / 英語 / code / math | 2.5349 / 2.9247 / 1.3125 / 0.6235 | 2.5320 / 2.9090 / 1.3107 / 0.6249 |
-| prefill / decode（tok/s） | 1,535.0 / 58.21 | 1,953.9 / 62.45 |
+| prefill / decode（tok/s） | 1,535.0 / 58.21 | 1,956.0 / 76.54 |
 | 長い入力、199,307 token（秒） / 499,254と1,035,295 token、最初のtoken（秒）、合言葉はすべて見つかる | 134.8 / 360.3, 835.5 | 122.3 / 327.1, 758.1 |
 | scoreもgrammarも無い要求：`token_sha256` | `09a15f0582e7…` | `09a15f0582e7…` |
 | tool-eval-bench、3.11.0のゲート越し / その前のゲート越し / ゲートなし（TP=2は3.0.0、TP=3は2.8.0） | 93 / 93 / 92 | 92 / 92 / 91 |

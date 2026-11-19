@@ -226,11 +226,12 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
   | 1,040,384 × 1 | 32.39 / 32.28 | 30.81 / 30.84 | −4.68% | 速い |
   | 1,040,384 × 4 | 69.14 / 69.24 | 62.95 / 63.00 | −8.98% | 速い |
   | 1,040,384 × 8 | 112.14 / 112.20 | 99.58 / 99.83 | −11.11% | 速い |
-- **1.2.7の後の上流の既定。** 1.2.9から、promptのDSAのindexerは専用のkernelで走り（`TF_GLM_INDEX_CUDA`、#3159）、選びをdeviceの上でします（`TF_GLM_DSEL`、#2722）。どちらも既定です。TP=4の1,035,295 tokenのpromptの最初のtokenは、既定で587.3秒と578.7秒、`TF_GLM_INDEX_CUDA=0` で624.9秒で、返答は同じでした。1.2.10は、expertの2つの形をloadの時に測って速い方を保ちます（`TF_GLM_EXPERT_FORM`、#3151）：XSFP4とJammed XSFP4 NZ5の起動は `factored`、TP=3のJammed XSFP4は `classic` でした（[設定](docs/configuration.ja.md#各rankが読み比べないもの)）。
+- **1.2.7の後の上流の既定。** 1.2.9から、promptのDSAのindexerは専用のkernelで走り（`TF_GLM_INDEX_CUDA`、#3159）、選びをdeviceの上でします（`TF_GLM_DSEL`、#2722）。どちらも既定です。TP=4の1,035,295 tokenのpromptの最初のtokenは、専用のkernelで587.3秒と578.7秒、`TF_GLM_INDEX_CUDA=0` で624.9秒で、返答は同じでした。1.2.10は、buildの最初のdraftありのloadでexpertの2つの形を測り、速い方を保ちます（`TF_GLM_EXPERT_FORM`、#3151）：XSFP4とJammed XSFP4 NZ5ではどのTPでも `factored`、TP=3のJammed XSFP4では `classic` を選びました。TP=4の2回目から後の起動と、TP=2のJammed XSFP4の起動は、rank 0のファイルで `factored` を名指しました。名指すと窓の値付けを取り直します（[設定](docs/configuration.ja.md#各rankが読み比べないもの)）。
 - **Jammed XSFP4 NZ5とBF16。** 全検査の起動は、[checkpoint](#checkpoint)の表の128文書を採点しました：TP=2で 92.89% / +1.08% / 0.0463 で、Jammed XSFP4とXSFP4の間です。TP=3のXSFP4は、その表の3つの数をもう一度同じ値で返しました。
+- **Jammed XSFP4。** rankのファイルに `CHECKPOINT` の行を足した、各TPの1回の起動です。TP=2ではpoolが2,995 page、rank 0の起動後の空きは9.2 GiBで、`bench` はdecode 57.45 tok/s・edit 145.62・prefill 1,525.4、expertはrank 0のファイルで名指した `factored` でした。TP=3では5,505 page、空き16.5 GiBで、76.54・194.41・1,956.0、expertはエンジンが選んだ `classic` でした。decode検査のhashは[検証](docs/validation.ja.md#jammed-xsfp4)の値と同じです。
 - **切ったpromptの後の要求。** 3秒で切った約93,000 tokenのpromptの後の次の要求は、TP=2で2.87秒、TP=3で1.60秒、TP=4で1.69秒で答えました。どれも1回の到着の数で、promptのpassのどこに来るかで大きく動きます。
 - **tool。** 1手番1つのtool callを求める3.11.0の[tool引数ゲート](SETUP.ja.md#6-tool引数ゲート任意)越しで、Safety Gateは3つの起動とも合格しました。TP=2のJammed XSFP4 NZ5はTC-11・TC-39・TC-57・TC-67が部分点でTC-62・TC-68・TC-69を落とし、TP=2とTP=3のXSFP4はTC-11・TC-39・TC-67が部分点で同じ3つを落としました。ゲートなしではJammed XSFP4 NZ5は同じ93点で、Safety GateはTC-51で不合格でした：`create_calendar_event` の結果を待たずに、同じ手番で `send_email` を呼びます。その回はTC-11とTC-52が部分点で、TC-43・TC-62・TC-68も落としました。ゲートは1手番1つのtool callを求めるので、ゲート越しでは合格します。
-- **TP=3の熱。** 上の待ちのほか、rank 0のホストは、1,035,295 tokenのpromptの取り直しで94.0 °C、全検査の起動で92.7 °Cに達しました（昼）。夜に回した3.12.0の起動は91.3 °Cでした。
+- **TP=3の熱。** 上の待ちのほか、thermal watchは、1,035,295 tokenのpromptの取り直しでrank 0のホストに94.0 °Cを読みました。エンジンを止める線ですが、止める条件の2回続きにはなっていません。全検査の起動では92.7 °Cでした（どちらも昼）。夜に回した3.12.0の起動は91.3 °Cでした。
 - **既知の振る舞い。** TP=3とTP=4では、stop文字列の要求は上限まで続きます。TP=3では、短いgreedyの返答が自分のhashを持ちます。3.9.0・3.12.0と同じです（[検証](docs/validation.ja.md#xsfp4)）。
 
 前の版の値は[前の版の測定値](docs/measurements.ja.md)にあります。
@@ -239,7 +240,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 - **Jammed XSFP4には `csf0_v1` のkernelが要ります。** 形はこの系列のもので、kernelはこの系列のエンジンが3.10.0から、上流のリリースが1.2.3から持っています（#2041、2026-11-04から上流のmainにある）。vLLM、他のNVFP4のloader、そのkernelを持たないエンジンは読めず、3.8.0のエンジンは読み込みの時に名前を挙げて断ります。blockのスケールが粗いので、返答はXSFP4と違います（[checkpoint](#checkpoint)）。
 - **Jammed XSFP4 NZ5には `NVFP4_NZ5` のkernelが要ります。** kernelは上流のリリースが1.2.10から（#2894）、この系列のエンジンが3.16.0から持っています。Jammed XSFP4は読めてもこのkernelを持たないエンジンは、読み込みの時に名前を挙げて断ります（3.10.0のimageで確かめた）。同じbyteをJammed XSFP4として読むと、+5がすべて0になるからです。vLLMと他のNVFP4のloaderは読めません。codeの読み方が違うので、返答はこのcheckpointのものです。3.16.0の受け入れが配信したのはTP=2だけです（[checkpoint](#checkpoint)）。
-- **TP=2で4本、TP=3で8本。** それを超える要求はstreamを待ちます。streamは1つのKVのpoolを分け合います。3.16.0の受け入れでは、TP=2はJammed XSFP4 NZ5で2,948〜2,982 page、Jammed XSFP4で2,995 page、XSFP4で2,055 page（どれも窓いっぱいの1本分）、TP=3はXSFP4で4,745〜4,766 page、Jammed XSFP4で5,505 page（どちらも2本分）、TP=4は8,006〜8,036 page（3本分）でした。長い会話が同時に何本も並ぶ負荷は測っていません（[配信の既定](#配信の既定)）。
+- **TP=2で4本、TP=3で8本。** それを超える要求はstreamを待ちます。streamは1つのKVのpoolを分け合います。既定のcheckpointでは、窓いっぱいのstreamがTP=2で1本分、TP=3で2本分、TP=4で3本分です。受け入れの各起動のpage数は[loadの行](#リリースでの測定値)にあります。長い会話が同時に何本も並ぶ負荷は測っていません（[配信の既定](#配信の既定)）。
 - **画像と動画はエンジンの制限の中で。** 画像は1要求に最大4枚で、送られた履歴にある画像を全部数えます（前のturnを画像ごと送り直すclientはそこに届きます）。4枚で4,096 tokenを分け合い、1枚10 MiB・1要求20 MiBまで。PNG・JPEG・WebPのdata URLで、GIFと動く絵は断ります。動画はuserのmessageだけで、1要求に2本（1本16 MiB・合わせて20 MiB・1時間まで）、1秒に2 frameで最大256 frameを取り、16,384 tokenを分け合います。0.5秒より短いclipは断ります。画像と動画のtokenは窓から取られます。HTTPSのURLには `serve.sh` が渡さない `--vision-urls` が要ります。音声のpartは400で断ります。
 - **生成したtokenのlog確率は無い。** `logprobs` と `top_logprobs` は400で断ります。`prompt_logprobs` はstreamでない `/v1/completions` でだけ配信します。
 - **要求を回す間、どのrankも2つのCPUのcoreを空回りさせ続けます。** rank 0はdecodeの間、他のrankはそれを待つ間です（上流1.1.2のエンジンからは、#1053により、rank 0にstreamが無い間は他のrankは眠ります）。containerの既定のcoreは、少しの速さと長くなる起動と引き換えに、CPUのzoneを熱の見張りが止める温度より下に保ちます。全coreでは、返答の長い連続がその温度に達するか、その手前まで来ました（[効率coreにする理由](#配信の既定)）。
