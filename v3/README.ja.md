@@ -10,7 +10,7 @@
 
 ## 要約
 
-- **状況。** 3.12.0はエンジンを、この系列のcommitを持たない上流のTensorFold 1.2.7そのものに移し、既定のcheckpointをTPで決めます：TP=2は[Jammed XSFP4](#checkpoint)、TP=3と、switchの無いリングの4台で新しく試験的なTP=4はXSFP4です（[配信の既定](#配信の既定)）。リリースのimageを、全containerを効率coreに置いてそれ自身の `serve.sh` と `cluster.sh` で起動すると、TP=3のXSFP4で3.9.0の、TP=2のJammed XSFP4で3.10.0の、decode検査のhash・編集の返答・NLLを返しました。どのTPでも、1,035,295 tokenのpromptを含めて長い入力の合言葉はすべて見つかり、`mojibake` は、temperature 0でもsampledでも、日本語と韓国語の答えに化けた文字を見つけませんでした（[リリースでの測定値](#リリースでの測定値)）。3.11.0のtool引数ゲート越しのtool-eval-benchは、TP=2のJammed XSFP4とTP=3のXSFP4で93、Safety Gateは合格で、3.10.0のimageと同じでした。TP=3のdraftありのdecodeは、tokenは同じまま3.10.0のエンジンより遅く、上流の直し（[TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864)）がリリースに入るまで続きます。上流1.2.6から、rankのファイルの空の値はほとんどの設定でunsetと読まれます（[設定](docs/configuration.ja.md#rank-0のserver)）。TP=3ではstop文字列の要求が上限まで走り、短いgreedyの返答が自分のhashを持ちます。どちらも[検証](docs/validation.ja.md#xsfp4)に書いた既知の振る舞いです。[検証](docs/validation.ja.md)の基準値はXSFP4のものと、[その節](docs/validation.ja.md#jammed-xsfp4)のJammed XSFP4のもので、その節が名指す受け入れが決め、最も新しいのは2026-11-12の参照機での3.12.0の受け入れです。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
+- **状況。** 3.16.0はエンジンを、この系列のcommitを持たない上流のTensorFold 1.2.10そのものに移し、TP=2の既定のcheckpointを[Jammed XSFP4 NZ5](#checkpoint)にします。TP=3と、switchの無いリングの4台で試験的なTP=4は、XSFP4のままです（[配信の既定](#配信の既定)）。リリースのimageを、全containerを効率coreに置いてそれ自身の `serve.sh` と `cluster.sh` で起動すると、TP=2とTP=3のXSFP4、両TPのJammed XSFP4で基準値のdecode検査のhashと編集の返答を、TP=4で3.12.0のものを返しました。どのTPでも、1,035,295 tokenのpromptを含めて長い入力の合言葉はすべて見つかり、`mojibake` は、temperature 0でもsampledでも、日本語と韓国語の答えに化けた文字を見つけませんでした（[リリースでの測定値](#リリースでの測定値)）。3.11.0のtool引数ゲート越しのtool-eval-benchは、TP=2のJammed XSFP4 NZ5とXSFP4、TP=3のXSFP4で93、Safety Gateは合格でした。ゲートなしでは、Jammed XSFP4 NZ5は同じ93点で、Safety Gateを1つのscenarioで落とします。TP=3のdraftありのdecodeは、tokenは同じまま、3.12.0のエンジンより、3.10.0のエンジンよりも速くなりました：上流の直し（[TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864)）は1.2.8からリリースに入っています。TP=3の受け入れは昼に回し、長い2つのpromptは熱で待ちました。TP=3とTP=4ではstop文字列の要求が上限まで走り、TP=3では短いgreedyの返答が自分のhashを持ちます。どちらも[検証](docs/validation.ja.md#xsfp4)に書いた既知の振る舞いです。[検証](docs/validation.ja.md)の基準値はXSFP4のものと、それぞれの節の[Jammed XSFP4](docs/validation.ja.md#jammed-xsfp4)と[Jammed XSFP4 NZ5](docs/validation.ja.md#jammed-xsfp4-nz5)のもので、その節が名指す受け入れが決め、最も新しいのは2026-11-19の参照機での3.16.0の受け入れです。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
 - **何であるか。** XSFP4・Jammed XSFP4・Jammed XSFP4 NZ5のどれかを、TensorFoldのネイティブエンジンの固定したcommitで一つのOpenAI互換endpointとして配信するための、build手順・起動の台本・受け入れ検査です。2台なら直結のConnectX-7リンクでTP=2、3台ならswitchなしのリングでTP=3、試験的に4台ならswitchなしのリングでTP=4です。公開している測定値はMSI EdgeXpert（MS-C931）で取りました。Macでは、TensorFoldが自身のMLXの重みでGLM-5.3-Flashを配信します（[Macでは](../README.ja.md#macでは)）。
 - **反復性。** draftした応答はserialと同じで、起動は同じTPの前の起動のtoken idを出します。ネイティブエンジンのtokenはそれ自身のもので、2.x系のものではありません：kernelとBF16のKV cacheの丸めが違うので、二つの系列はtokenごとではなくteacher-forced NLLで比べます（[2.x系との違い](#2x系との違い)）。
 - **構造化出力とpromptのscore。** JSON schemaつきの `response_format`、`required` か名指しの関数の `tool_choice`（GLM自身のtoolのmarkupで書く）、`/v1/completions` の `prompt_logprobs` は、1.1.1からGLMのCUDAのエンジンで上流のTensorFold自身のものです。この系列のpull request #1016・#1017・#1018の後に上流が書きました（[API](#api)）。
@@ -121,7 +121,7 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env)・[`config/tp3.env
 | 画像と動画の入力 | 有効（`VISION=1`、エンジンの `--vision`）：rank 0にcheckpointのvision tower、PNG・JPEG・WebPの画像と動画をdata URLで、エンジンの制限の中で（[制限](#制限)）。`VISION=0` でtextだけ、全rankで同じに | 同じ |
 | containerのcore | 最大周波数の最も低いcore：GB10の効率core、0-4と10-14（`create_container.sh`、`CPUSET`） | 同じ |
 
-**TP=4（試験的）。** 3.12.0から、4台がswitchなしのリングでTP=4で配信します。[`config/tp4.env`](config/tp4.env) はTP=3の値でwireを切り、システムに14 GiBを残します。2026-11-07から上流のmainで参照機の4台のリングを配信した設定で、どれも4台では詰めていません。このリングではwireは上流の試験的なrelay（#2352）を通ります。上流でもopt-inで、ここでは既定として測っていません。参照機のリングでは、#2352の最後のheadで、1本のdecodeがNCCLより2〜3%速く、4本とcoldのpromptは同じ速さでした。[example](examples/tp4-rank0.env)はリングのNCCLの行と `TF_GLM_PREFILL_REDUCE=gather` を足します：エンジンの `split` は各rankの行を他の全rankへ送るので、4台のリングでは起動しません：peer warm-upがNCCLの `ncclGroupEnd: unhandled system error` で止まり、届かない組を名指すsplitの確かめまで進みません。
+**TP=4（試験的）。** 3.12.0から、4台がswitchなしのリングでTP=4で配信します。[`config/tp4.env`](config/tp4.env) はTP=3の値でwireを切り、システムに14 GiBを残します。2026-11-07から上流のmainで参照機の4台のリングを配信した設定で、どれも4台では詰めていません。このリングではwireは上流の試験的なrelay（#2352）を通ります。上流でもopt-inで、ここでは既定として測っていません。参照機のリングでは、#2352の最後のheadで、1本のdecodeがNCCLより2〜3%速く、4本とcoldのpromptは同じ速さでした。[example](examples/tp4-rank0.env)はリングのNCCLの行と `TF_GLM_PREFILL_REDUCE=gather` を足します：エンジンの `split` は各rankの行を他の全rankへ送るので、4台のリングでは起動しません。3.16.0のエンジンからは、rankが起動時のやり取りで `REFUSE TF_GLM_PREFILL_REDUCE=split` の行を出して止まり、その行はこういうリングに `gather` を名指します。3.12.0のエンジンは、設定を名指さずにNCCLの `ncclGroupEnd: unhandled system error` で止まりました。
 
 **TP=2で4本、TP=3で8本にする理由。** 1本のstreamでは要求は前の返答の終わりを待ちます。3.8.xまでのTP=2では2本目のstreamが自分の窓を取り、短い窓にしか余地がありませんでした。KVのpageではstreamは使う分を一つのpoolから取るので、窓は本数によらずどの起動でも同じです。TP=2の4本は、agentが長い会話の横で送る短い要求のためのものです：32K tokenのpromptに6〜8秒で来た要求は1.20秒で最初のtokenを返しました。1本ならpromptと返答の全体を待ちます。TP=3の8本は複数の人のためのもので、4本の1本が終わるのを5本目が待たないようにします：別々の8つのpromptを一緒に送ると全部が1.65秒以内に始まり、合計は94.23 tok/s（4本では75.00）でした。同時の返答は同じ要求の単独の返答と同じです（[同時の要求](docs/validation.ja.md#同時の要求)）。
 
@@ -186,31 +186,52 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 ## リリースでの測定値
 
-**3.12.0**（2026-11-12、エンジン `93a2e93e`、上流1.2.7そのもの、image `glm53-tf3:3.12.0`）。エンジンはこの系列のcommitを持たない上流1.2.7で、既定のcheckpointはTPで決まります：TP=2はJammed XSFP4、TP=3と、新しく試験的なTP=4はXSFP4です（[checkpoint](#checkpoint)）。リリースのimageを、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました。rankのファイルには、名指した所のほか `CHECKPOINT` も `CONTEXT` も書いていません。既定のTP=2のJammed XSFP4とTP=3のXSFP4では、全検査の起動、decode検査のhashと `bench --kinds edit` の返答を同じく返した2回目の起動、tool-eval-benchの起動です。TP=2のXSFP4では、rankのファイルにその `CHECKPOINT` の行を足した1回の起動で、decode検査と `bench` のdecode・edit・prefillです。既定のTP=2のJammed XSFP4とTP=3のXSFP4では、3.11.0のゲート越しのtool-eval-benchの起動も1回ずつです。TP=3のJammed XSFP4では、rankのファイルにその `CHECKPOINT` の行を足した1回の起動で、decode検査と `bench` のdecode・edit・prefill、labelの後に `--prompt-cache-gib 6` を足した1回の起動で、decode検査です。TP=4では、switchの無いリングの別の4台で、tool-eval-bench以外の全検査の起動と2回目の起動です。decode検査のhash、`bench --kinds edit` の返答、NLLは、TP=3で3.9.0のもの、TP=2のJammed XSFP4で3.10.0のものと同じです（[検証](docs/validation.ja.md)）。199,307・499,254・1,035,295 tokenのpromptの合言葉は、どのTPでもすべて見つかりました。見張りが止めた起動はありません。TP=2の全検査の起動が熱で2秒待ち、表のほかの起動は待っていません。TP=2のXSFP4、3.11.0のゲート越しのtool-eval-bench、TP=3のJammed XSFP4の起動は、このリリースの `hostwatch.sh` で回し、どれも2〜3秒ごとの行と最後の `done` を残し、熱で待った起動はありません。draftありのdecodeの速さは各checkpointが自分で書いた返答の上の数で、checkpointの間では比べられません。
+**3.16.0**（2026-11-19、エンジン `2a674b55`、上流1.2.10そのもの、image `glm53-tf3:3.16.0`）。エンジンはこの系列のcommitを持たない上流1.2.10で、TP=2の既定のcheckpointはJammed XSFP4 NZ5です。TP=3とTP=4はXSFP4のままです（[checkpoint](#checkpoint)）。リリースのimageを、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました。rankのファイルには、名指した所のほか `CHECKPOINT` も `CONTEXT` も書いていません。TP=2は `tp2-04-05` のexampleの対（参照機の4台のリングのうちの2台）で回しました。3.12.0のTP=2は `tp2-rank*` のexampleの対だったので、この表のTP=2の速さは[3.12.0の表](docs/measurements.ja.md#3120)と並べません。既定のTP=2のJammed XSFP4 NZ5では、全検査の起動、decode検査のhashと `bench --kinds edit` の返答を同じく返した2回目の起動、`PARALLEL=` を空にした起動、rankのファイルで `TF_GLM_INDEX_CUDA=0` と `TF_GLM_DSEL=0` にした起動（decode検査のtokenは同じ）、同時の要求の起動、promptの点と構造化出力の検査をもう一度回した起動です。TP=2のXSFP4では、rankのファイルにその `CHECKPOINT` の行を足した1回の起動で、decode検査、`bench` のdecode・edit・prefill、199,307 tokenと1,035,295 tokenのprompt、ゲート越しのtool-eval-benchです。TP=2のJammed XSFP4では、その `CHECKPOINT` の行を足した1回の起動で、decode検査、`bench` のdecode・edit・prefill、NLLです。既定のTP=3のXSFP4では、全検査の起動、2回目の起動、1,035,295 tokenのpromptを取り直した起動、ゲート越しのtool-eval-benchの起動です。TP=3のJammed XSFP4では、その `CHECKPOINT` の行を足した1回の起動で、decode検査と `bench` のdecode・edit・prefillです。TP=4のXSFP4では、参照機の4台のリングで、tool-eval-bench以外の全検査の起動、2回目の起動、rankのファイルで `TF_GLM_INDEX_CUDA=0` にした起動と `TF_GLM_DSEL=0` にした起動です（長いpromptの返答のhashは既定と同じ）。decode検査のhashと `bench --kinds edit` の返答は、TP=2とTP=3のXSFP4、両TPのJammed XSFP4で[検証](docs/validation.ja.md)の基準値と同じで、NLLも回した所では同じです。TP=4は3.12.0のものと同じです。Jammed XSFP4 NZ5の値は新しく、[その節](docs/validation.ja.md#jammed-xsfp4-nz5)の基準値になりました。199,307・499,254・1,035,295 tokenのpromptの合言葉は、どのTPでもすべて見つかりました。見張りが止めた起動はありません。TP=2とTP=4では熱で待った起動は無く、ホストの熱の見張りがclockを下げた事もありません。TP=3は昼に回しました：499,254 tokenのpromptが熱で6秒、1,035,295 tokenのpromptが14秒待ち（取り直しでも同じ）、長い方のpromptの途中で、熱の見張りがrank 0のホストを2,200 MHzから2,000 MHzに下げました（2回とも）。表のその行のTP=3の2つの数はこの待ちを含みます。夜に取った3.12.0の数には待ちがありません。draftありのdecodeの速さは各checkpointが自分で書いた返答の上の数で、checkpointの間では比べられません。
 
-| 3.12.0 | TP=2、Jammed XSFP4 | TP=2、XSFP4 | TP=3、XSFP4 | TP=4、XSFP4 |
+| 3.16.0 | TP=2、Jammed XSFP4 NZ5 | TP=2、XSFP4 | TP=3、XSFP4 | TP=4、XSFP4 |
 |---|---|---|---|---|
-| 起動（秒）：全検査の起動 / 2回目の起動 | 118 / 53 | 64 | 114 / 56 | 113 / 48 |
-| decode検査 count / prose / code（tok/s） | 44.07 / 35.32 / 44.81 | 50.20 / 33.81 / 44.45 | 57.94 / 33.09 / 48.51 | 58.31 / 38.95 / 56.77 |
-| MTPの受理長、同じタスク | 3.200 / 1.964 / 3.262 | 4.080 / 1.826 / 3.399 | 4.197 / 2.040 / 3.650 | 3.483 / 2.086 / 3.599 |
-| `bench --kinds decode`（tok/s、中央値） | 58.21 | 56.64 | 63.23 | 74.14 |
-| `bench --kinds edit`（tok/s、中央値） | 144.41 | 142.37 | 192.21 | 239.69 |
-| 38,960 tokenのprefill（tok/s、3回の中央値） | 1,535.0 | 1,507.3 | 1,940.9 | 1,868.0 |
-| 199,307 tokenのprompt（秒） | 134.8 | — | 105.0 | 107.9 |
-| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken（秒） | 360.3 / 835.5 | — | 277.9 / 635.3 | 280.9 / 626.9 |
-| 約93,000 tokenのpromptを3秒で切った後、次の要求が答えるまで（秒）、切らないpromptの最初のtokenとの比べ | 2.85 対 62.7 | — | 1.59 対 49.2 | 1.69 対 50.8 |
-| teacher-forced NLL、ja / en / code / math | 2.5349 / 2.9247 / 1.3125 / 0.6235 | — | 2.5369 / 2.9244 / 1.3098 / 0.6224 | 2.5262 / 2.9140 / 1.3083 / 0.6248 |
-| tool-eval-bench 3.0.0、3.11.0のゲート越し / その前のゲート越し / ゲートなし | 93 / 93 / 92 | — | 93 / 93 / 91 | — |
+| 起動（秒）：全検査の起動 / 2回目の起動 | 53 / 54 | 118 | 114 / 56 | 114 / 48 |
+| decode検査 count / prose / code（tok/s） | 51.43 / 35.99 / 42.73 | 51.76 / 34.29 / 45.20 | 72.22 / 47.24 / 62.52 | 71.31 / 56.40 / 72.48 |
+| MTPの受理長、同じタスク | 3.723 / 2.097 / 2.920 | 3.995 / 1.860 / 3.290 | 4.163 / 2.018 / 3.453 | 3.376 / 2.052 / 3.422 |
+| `bench --kinds decode`（tok/s、中央値） | 54.06 | 57.80 | 77.34 | 89.85 |
+| `bench --kinds edit`（tok/s、中央値） | 142.16 | 144.34 | 193.64 | 245.13 |
+| 38,960 tokenのprefill（tok/s、3回の中央値） | 1,504.4 | 1,507.6 | 1,949.8 | 1,867.6 |
+| 199,307 tokenのprompt（秒） | 133.6 | 133.0 | 103.1 | 106.6 |
+| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken（秒） | 345.8 / 760.0 | — / 760.6 | 270.3 / 605.0（上の熱の待ちを含む） | 272.9 / 587.3 |
+| 約93,000 tokenのpromptを3秒で切った後、次の要求が答えるまで（秒）、切らないpromptの最初のtokenとの比べ | 2.87（63.6） | — | 1.60（48.9） | 1.69（50.6） |
+| teacher-forced NLL、ja / en / code / math | 2.5517 / 2.9273 / 1.3136 / 0.6200 | — | 2.5369 / 2.9244 / 1.3098 / 0.6224 | 2.5262 / 2.9140 / 1.3083 / 0.6248 |
+| tool-eval-bench 3.0.0、3.11.0のゲート越し / ゲートなし | 93 / 93 | 93 / — | 93 / — | — |
 | 化けた文字のある日本語と韓国語の答え、temperature 0 / sampled | 0 / 0 | — | 0 / 0 | 0 / 0 |
-| 6,000 tokenのpromptの後の最大1,024 tokenの40の返答（秒、rank 0のホストの最も熱いzone） | 1,236.0、83.8 °C | — | 1,124.5、82.3 °C | 985.1、74.2 °C |
-| 起動の中で最も熱いzone、rankごと（°C） | 92.3 / 89.6 | 89.3 / 85.5 | 91.3 / 89.1 / 89.2 | 79.3 / 83.3 / 82.7 / 84.2 |
-| 最も低い `MemAvailable`、rankごと（GiB） | 8 / 9 | 8 / 9 | 16 / 17 / 22 | 13 / 14 / 14 / 14 |
+| 6,000 tokenのpromptの後の最大1,024 tokenの40の返答（秒、rank 0のホストの最も熱いzone） | 1,225.6、76.8 °C | — | 900.2、87.7 °C | 793.2、74.6 °C |
+| 起動の中で最も熱いzone、rankごと（°C） | 89.1 / 89.0 | 89.2 / 89.1 | 92.7 / 91.6 / 90.2 | 82.5 / 84.9 / 83.0 / 85.4 |
+| 最も低い `MemAvailable`、rankごと（GiB） | 8 / 9 | 8 / 9 | 15 / 17 / 22 | 13 / 14 / 14 / 14 |
 
-- **loadの行。** rank 0のloadの行は、TP=2でJammed XSFP4が84.68 GiB、XSFP4が91.26 GiBのmodel、TP=3で64.01 GiBを示します。poolはTP=2で窓1本とprompt cacheの残り、Jammed XSFP4で512行のpageを2,961〜2,981、XSFP4で2,059、TP=3で窓2本と残り、4,706〜4,780 pageを取りました。保持する状態のslotはTP=2で3.6 GiB、TP=3で5.3 GiBを取り、全部が入りました（[TP=3で16 GiBにする理由](#配信の既定)）。rank 0の `kv pool idle` の行はどれも合っていました：約束されたpageは0で、空きのpageとstoreのpageでpoolの全部です。
-- **TP=3のdraftありのdecodeは3.10.0より遅い。** XSFP4でdecode検査の `count` は57.94 tok/s（3.9.0は65.67）、`bench --kinds decode` は63.23（68.52）で、tokenは同じです。Jammed XSFP4では `bench --kinds decode` が62.45（3.10.0は68.55）でした。`--mtp-confidence` の下では、temperature 0のstreamが毎roundで鎖の上限までdraftを作り、窓は確率がconfidenceの床より上の頭だけを検証します。上流の直し（[TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864)）は、それを持つ最初のリリースで入ります。TP=4はTP=3の `MTP_CONFIDENCE` を使います。
-- **切ったpromptの後の要求。** 3秒で切った約93,000 tokenのpromptの後の次の要求は、TP=2で2.85秒、TP=3で1.59秒で答えました。3.10.0の表では0.29と1.01です。同じホストで上流1.2.4は、TP=2のXSFP4で2.84秒、3.10.0のimageは0.35秒でした。どれも1回の到着の数で、promptのpassのどこに来るかで大きく動きます。
-- **tool。** 1手番1つのtool callを求める3.11.0の[tool引数ゲート](SETUP.ja.md#6-tool引数ゲート任意)越しで、Safety Gateは両TPで合格しました。TP=2のJammed XSFP4はTC-11・TC-39・TC-49・TC-67が部分点でTC-62・TC-68・TC-69を落とし、3.10.0のimageと同じでした。TP=3はTC-11・TC-39・TC-67が部分点でTC-62・TC-68・TC-69を落とし、3.10.0のimageのうちTC-21だけが合格に変わりました。3.11.0の前のゲート（前の受け入れと同じく3.0.0の木のもの）越しでもゲートなしでも、Safety Gateは両TPで合格しました。そのゲート越しでTP=2はTC-11・TC-14・TC-39・TC-52・TC-60が部分点でTC-62とTC-68を落とし、TP=3はTC-14・TC-39・TC-50・TC-52が部分点でTC-29・TC-62・TC-68を落としました。ゲートなしでは両TPともTC-43も落としました。3.11.xまでの表のtool-eval-benchは2.8.0です。
-- **既知の振る舞い。** TP=3では、stop文字列の要求は上限まで続き、短いgreedyの返答は自分のhashを持ちます。3.9.0と同じです（[検証](docs/validation.ja.md#xsfp4)）。
+- **loadの行。** rank 0のloadの行は、TP=2でJammed XSFP4 NZ5とJammed XSFP4が84.79 GiB、XSFP4が91.37 GiBのmodel、TP=3で64.11 GiB、TP=4で47.80 GiBを示します。poolはTP=2で窓1本とprompt cacheの残り、Jammed XSFP4 NZ5で512行のpageを2,948〜2,982、Jammed XSFP4で2,995、XSFP4で2,055、TP=3で窓2本と残りの4,745〜4,766 page、TP=4で窓3本と残りの8,006〜8,036 pageを取りました。保持する状態のslotはTP=2で3.6 GiB、TP=3で5.3 GiB、TP=4で4.0 GiBを取り、全部が入りました。TP=2のXSFP4だけは、余地に入る12（16のうち）です。`PARALLEL=` を空にするとエンジンはTP=2でstreamを8本取り、2,712 pageで、保持する16状態が1本あたり4を下回るという警告を出しました。TP=2とTP=4のrank 0の `kv pool idle` の行はどれも合っていました：約束されたpageは0で、空きのpageとstoreのpageでpoolの全部です。
+- **保持する状態のslotが先。** 上流1.2.10（#3125）から、起動の計画は、エンジン自身の窓の先の窓よりslotを先に置きます。TP=4のpoolは窓3本と32のslot全部になりました。3.12.0では窓4本（8,198〜8,215 page）で、保持は24状態、エンジンの警告つきでした。TP=3のJammed XSFP4は窓2本と32全部（5,505 page）で、3.12.0では窓3本と8でした（[TP=3で16 GiBにする理由](#配信の既定)）。
+- **メモリ。** TP=2のJammed XSFP4 NZ5では、rank 0のホストの `MemAvailable` は起動後に9.1〜9.4 GiB、検査が走っている間は8〜9 GiBでした。起動の時にsystemに残す9 GiBを下回り、memory guardの5 GiBより3 GiB上です（[TP=2を1,048,576にする理由](#配信の既定)）。TP=3では起動後に16.5〜16.6 GiB、最低は15 GiBで、16を下回りました（[TP=3で16 GiBにする理由](#配信の既定)）。
+- **TP=3とTP=4のdraftありのdecode。** tokenは同じで、TP=3のdecode検査の `count` は72.22 tok/s（3.12.0は57.94、3.9.0は65.67）、`bench --kinds decode` は77.34（63.23、68.52）でした。TP=4は71.31（3.12.0は58.31）と89.85（74.14）、40の返答はTP=3で900.2秒（3.12.0は1,124.5）、TP=4で793.2秒（985.1）です。3.12.0の表は、`--mtp-confidence` の下でTP=3のdraftありのdecodeが3.10.0より遅いと書いていました。上流の直し（[TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864)）は1.2.8からリリースに入っています。1.2.7から1.2.10の間の変更それぞれの効きは、分けて測っていません。
+- **TP=4のdecodeの1 stepを、promptの長さとstreamの数ごとに。** draftを切って（`"draft": false`、greedy、思考なし）、同時に1・4・8本のstreamが、保持した同じprefixから再開する4,096・65,536・262,144・1,040,384 tokenのpromptの上で、256 tokenずつdecodeしました。cellの値は、全streamがdecodeしている間の、streamごとのtokenとtokenの間の時間を全streamぶん集めた中央値を、3回の繰り返しでさらに中央値にしたものです（ms、小さいほど速い）。表は、3.16.0の2回の起動を3.12.0の2回と並べたものです。同じ4台ですが1週間離れていて、交互には回していません。どのstreamの返答も、4回の起動でtokenのhashが同じでした。12 cellのうち8つが速く、2つがopen、2つが遅くなりました。遅いのは65,536 tokenの1本（+1.21%）と8本（+0.37%）で、3.16.0の2回とも遅く出ました。262,144 tokenから上は全cellが速く、差は1.09%から11.11%です。判定の決まりは次のとおりです。3.16.0の2回の平均が3.12.0の2回の平均より長く、その差が3.12.0の2回の幅と0.25%の両方を超えるcellを「遅い」、3.12.0の2回のどちらよりも短いcellを「速い」、どちらよりも長いが差がそこまでではないcellを「open」とします。3.12.0の2回の間に入ったcellはありませんでした。起動の違いは、エンジンのほかに窓の値付けにもあります。3.16.0の2回は `TF_GLM_EXPERT_FORM=factored` を名指していて、受け入れの中の先の起動でエンジンが名指しの形に取り直した値付け（`40.24 ms at 1 row, 37.00 at 4, 97.16 at 32`）の上で走りました。3.12.0の2回は `25.33 ms at 1 row, 37.47 at 4, 102.53 at 32` の上です。形を名指さなかった受け入れの最初の起動は、`25.36 ms at 1 row, 38.39 at 4, 102.85 at 32` と測りました。
+
+  | promptのtoken × stream | 3.12.0の2回（ms） | 3.16.0の2回（ms） | 3.16.0の平均の、3.12.0の平均との差 | |
+  |---|---|---|---|---|
+  | 4,096 × 1 | 26.61 / 26.56 | 26.57 / 26.71 | +0.21% | open |
+  | 4,096 × 4 | 48.10 / 48.13 | 48.20 / 48.20 | +0.17% | open |
+  | 4,096 × 8 | 72.39 / 71.97 | 71.94 / 71.98 | −0.31% | 速い |
+  | 65,536 × 1 | 26.99 / 26.99 | 27.37 / 27.26 | +1.21% | 遅い |
+  | 65,536 × 4 | 49.06 / 49.11 | 48.97 / 49.07 | −0.14% | 速い |
+  | 65,536 × 8 | 72.28 / 72.22 | 72.53 / 72.50 | +0.37% | 遅い |
+  | 262,144 × 1 | 28.12 / 28.11 | 27.73 / 27.89 | −1.09% | 速い |
+  | 262,144 × 4 | 51.74 / 52.42 | 50.40 / 50.29 | −3.34% | 速い |
+  | 262,144 × 8 | 76.41 / 76.79 | 73.27 / 73.24 | −4.37% | 速い |
+  | 1,040,384 × 1 | 32.39 / 32.28 | 30.81 / 30.84 | −4.68% | 速い |
+  | 1,040,384 × 4 | 69.14 / 69.24 | 62.95 / 63.00 | −8.98% | 速い |
+  | 1,040,384 × 8 | 112.14 / 112.20 | 99.58 / 99.83 | −11.11% | 速い |
+- **1.2.7の後の上流の既定。** 1.2.9から、promptのDSAのindexerは専用のkernelで走り（`TF_GLM_INDEX_CUDA`、#3159）、選びをdeviceの上でします（`TF_GLM_DSEL`、#2722）。どちらも既定です。TP=4の1,035,295 tokenのpromptの最初のtokenは、既定で587.3秒と578.7秒、`TF_GLM_INDEX_CUDA=0` で624.9秒で、返答は同じでした。1.2.10は、expertの2つの形をloadの時に測って速い方を保ちます（`TF_GLM_EXPERT_FORM`、#3151）：XSFP4とJammed XSFP4 NZ5の起動は `factored`、TP=3のJammed XSFP4は `classic` でした（[設定](docs/configuration.ja.md#各rankが読み比べないもの)）。
+- **Jammed XSFP4 NZ5とBF16。** 全検査の起動は、[checkpoint](#checkpoint)の表の128文書を採点しました：TP=2で 92.89% / +1.08% / 0.0463 で、Jammed XSFP4とXSFP4の間です。TP=3のXSFP4は、その表の3つの数をもう一度同じ値で返しました。
+- **切ったpromptの後の要求。** 3秒で切った約93,000 tokenのpromptの後の次の要求は、TP=2で2.87秒、TP=3で1.60秒、TP=4で1.69秒で答えました。どれも1回の到着の数で、promptのpassのどこに来るかで大きく動きます。
+- **tool。** 1手番1つのtool callを求める3.11.0の[tool引数ゲート](SETUP.ja.md#6-tool引数ゲート任意)越しで、Safety Gateは3つの起動とも合格しました。TP=2のJammed XSFP4 NZ5はTC-11・TC-39・TC-57・TC-67が部分点でTC-62・TC-68・TC-69を落とし、TP=2とTP=3のXSFP4はTC-11・TC-39・TC-67が部分点で同じ3つを落としました。ゲートなしではJammed XSFP4 NZ5は同じ93点で、Safety GateはTC-51で不合格でした：`create_calendar_event` の結果を待たずに、同じ手番で `send_email` を呼びます。その回はTC-11とTC-52が部分点で、TC-43・TC-62・TC-68も落としました。ゲートは1手番1つのtool callを求めるので、ゲート越しでは合格します。
+- **TP=3の熱。** 上の待ちのほか、rank 0のホストは、1,035,295 tokenのpromptの取り直しで94.0 °C、全検査の起動で92.7 °Cに達しました（昼）。夜に回した3.12.0の起動は91.3 °Cでした。
+- **既知の振る舞い。** TP=3とTP=4では、stop文字列の要求は上限まで続きます。TP=3では、短いgreedyの返答が自分のhashを持ちます。3.9.0・3.12.0と同じです（[検証](docs/validation.ja.md#xsfp4)）。
 
 前の版の値は[前の版の測定値](docs/measurements.ja.md)にあります。
 
@@ -218,7 +239,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 - **Jammed XSFP4には `csf0_v1` のkernelが要ります。** 形はこの系列のもので、kernelはこの系列のエンジンが3.10.0から、上流のリリースが1.2.3から持っています（#2041、2026-11-04から上流のmainにある）。vLLM、他のNVFP4のloader、そのkernelを持たないエンジンは読めず、3.8.0のエンジンは読み込みの時に名前を挙げて断ります。blockのスケールが粗いので、返答はXSFP4と違います（[checkpoint](#checkpoint)）。
 - **Jammed XSFP4 NZ5には `NVFP4_NZ5` のkernelが要ります。** kernelは上流のリリースが1.2.10から（#2894）、この系列のエンジンが3.16.0から持っています。Jammed XSFP4は読めてもこのkernelを持たないエンジンは、読み込みの時に名前を挙げて断ります（3.10.0のimageで確かめた）。同じbyteをJammed XSFP4として読むと、+5がすべて0になるからです。vLLMと他のNVFP4のloaderは読めません。codeの読み方が違うので、返答はこのcheckpointのものです。3.16.0の受け入れが配信したのはTP=2だけです（[checkpoint](#checkpoint)）。
-- **TP=2で4本、TP=3で8本。** それを超える要求はstreamを待ちます。streamは1つのKVのpoolを分け合います。3.16.0の受け入れでは、TP=2はJammed XSFP4 NZ5で2,948〜2,982 page、Jammed XSFP4で2,995 page、XSFP4で2,055 page（どれも窓いっぱいの1本分）、TP=3はXSFP4で4,745〜4,766 page、Jammed XSFP4で5,505 page（どちらも2本分）でした。TP=4は3.12.0の受け入れで8,198〜8,215 page（4本分）です。長い会話が同時に何本も並ぶ負荷は測っていません（[配信の既定](#配信の既定)）。
+- **TP=2で4本、TP=3で8本。** それを超える要求はstreamを待ちます。streamは1つのKVのpoolを分け合います。3.16.0の受け入れでは、TP=2はJammed XSFP4 NZ5で2,948〜2,982 page、Jammed XSFP4で2,995 page、XSFP4で2,055 page（どれも窓いっぱいの1本分）、TP=3はXSFP4で4,745〜4,766 page、Jammed XSFP4で5,505 page（どちらも2本分）、TP=4は8,006〜8,036 page（3本分）でした。長い会話が同時に何本も並ぶ負荷は測っていません（[配信の既定](#配信の既定)）。
 - **画像と動画はエンジンの制限の中で。** 画像は1要求に最大4枚で、送られた履歴にある画像を全部数えます（前のturnを画像ごと送り直すclientはそこに届きます）。4枚で4,096 tokenを分け合い、1枚10 MiB・1要求20 MiBまで。PNG・JPEG・WebPのdata URLで、GIFと動く絵は断ります。動画はuserのmessageだけで、1要求に2本（1本16 MiB・合わせて20 MiB・1時間まで）、1秒に2 frameで最大256 frameを取り、16,384 tokenを分け合います。0.5秒より短いclipは断ります。画像と動画のtokenは窓から取られます。HTTPSのURLには `serve.sh` が渡さない `--vision-urls` が要ります。音声のpartは400で断ります。
 - **生成したtokenのlog確率は無い。** `logprobs` と `top_logprobs` は400で断ります。`prompt_logprobs` はstreamでない `/v1/completions` でだけ配信します。
 - **要求を回す間、どのrankも2つのCPUのcoreを空回りさせ続けます。** rank 0はdecodeの間、他のrankはそれを待つ間です（上流1.1.2のエンジンからは、#1053により、rank 0にstreamが無い間は他のrankは眠ります）。containerの既定のcoreは、少しの速さと長くなる起動と引き換えに、CPUのzoneを熱の見張りが止める温度より下に保ちます。全coreでは、返答の長い連続がその温度に達するか、その手前まで来ました（[効率coreにする理由](#配信の既定)）。

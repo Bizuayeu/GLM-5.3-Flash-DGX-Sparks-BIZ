@@ -4,6 +4,34 @@
 
 今の版より前の3.x系の各版が受け入れで測った値を、新しい順に並べます。今の版の値はREADMEの[リリースでの測定値](../README.ja.md#リリースでの測定値)にあり、次の版が出るとその版の項をここへ移します。値の取り方は[ベンチマークの方法](benchmarks.ja.md)に、起動を受け入れる基準値は[検証](validation.ja.md)にあります。
 
+## 3.12.0
+
+**3.12.0**（2026-11-12、エンジン `93a2e93e`、上流1.2.7そのもの、image `glm53-tf3:3.12.0`）。エンジンはこの系列のcommitを持たない上流1.2.7で、既定のcheckpointはTPで決まります：TP=2はJammed XSFP4、TP=3と、新しく試験的なTP=4はXSFP4です（[checkpoint](../README.ja.md#checkpoint)）。リリースのimageを、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました。rankのファイルには、名指した所のほか `CHECKPOINT` も `CONTEXT` も書いていません。既定のTP=2のJammed XSFP4とTP=3のXSFP4では、全検査の起動、decode検査のhashと `bench --kinds edit` の返答を同じく返した2回目の起動、tool-eval-benchの起動です。TP=2のXSFP4では、rankのファイルにその `CHECKPOINT` の行を足した1回の起動で、decode検査と `bench` のdecode・edit・prefillです。既定のTP=2のJammed XSFP4とTP=3のXSFP4では、3.11.0のゲート越しのtool-eval-benchの起動も1回ずつです。TP=3のJammed XSFP4では、rankのファイルにその `CHECKPOINT` の行を足した1回の起動で、decode検査と `bench` のdecode・edit・prefill、labelの後に `--prompt-cache-gib 6` を足した1回の起動で、decode検査です。TP=4では、switchの無いリングの別の4台で、tool-eval-bench以外の全検査の起動と2回目の起動です。decode検査のhash、`bench --kinds edit` の返答、NLLは、TP=3で3.9.0のもの、TP=2のJammed XSFP4で3.10.0のものと同じです（[検証](validation.ja.md)）。199,307・499,254・1,035,295 tokenのpromptの合言葉は、どのTPでもすべて見つかりました。見張りが止めた起動はありません。TP=2の全検査の起動が熱で2秒待ち、表のほかの起動は待っていません。TP=2のXSFP4、3.11.0のゲート越しのtool-eval-bench、TP=3のJammed XSFP4の起動は、このリリースの `hostwatch.sh` で回し、どれも2〜3秒ごとの行と最後の `done` を残し、熱で待った起動はありません。draftありのdecodeの速さは各checkpointが自分で書いた返答の上の数で、checkpointの間では比べられません。
+
+| 3.12.0 | TP=2、Jammed XSFP4 | TP=2、XSFP4 | TP=3、XSFP4 | TP=4、XSFP4 |
+|---|---|---|---|---|
+| 起動（秒）：全検査の起動 / 2回目の起動 | 118 / 53 | 64 | 114 / 56 | 113 / 48 |
+| decode検査 count / prose / code（tok/s） | 44.07 / 35.32 / 44.81 | 50.20 / 33.81 / 44.45 | 57.94 / 33.09 / 48.51 | 58.31 / 38.95 / 56.77 |
+| MTPの受理長、同じタスク | 3.200 / 1.964 / 3.262 | 4.080 / 1.826 / 3.399 | 4.197 / 2.040 / 3.650 | 3.483 / 2.086 / 3.599 |
+| `bench --kinds decode`（tok/s、中央値） | 58.21 | 56.64 | 63.23 | 74.14 |
+| `bench --kinds edit`（tok/s、中央値） | 144.41 | 142.37 | 192.21 | 239.69 |
+| 38,960 tokenのprefill（tok/s、3回の中央値） | 1,535.0 | 1,507.3 | 1,940.9 | 1,868.0 |
+| 199,307 tokenのprompt（秒） | 134.8 | — | 105.0 | 107.9 |
+| 499,254 tokenと1,035,295 tokenのprompt、最初のtoken（秒） | 360.3 / 835.5 | — | 277.9 / 635.3 | 280.9 / 626.9 |
+| 約93,000 tokenのpromptを3秒で切った後、次の要求が答えるまで（秒）、切らないpromptの最初のtokenとの比べ | 2.85 対 62.7 | — | 1.59 対 49.2 | 1.69 対 50.8 |
+| teacher-forced NLL、ja / en / code / math | 2.5349 / 2.9247 / 1.3125 / 0.6235 | — | 2.5369 / 2.9244 / 1.3098 / 0.6224 | 2.5262 / 2.9140 / 1.3083 / 0.6248 |
+| tool-eval-bench 3.0.0、3.11.0のゲート越し / その前のゲート越し / ゲートなし | 93 / 93 / 92 | — | 93 / 93 / 91 | — |
+| 化けた文字のある日本語と韓国語の答え、temperature 0 / sampled | 0 / 0 | — | 0 / 0 | 0 / 0 |
+| 6,000 tokenのpromptの後の最大1,024 tokenの40の返答（秒、rank 0のホストの最も熱いzone） | 1,236.0、83.8 °C | — | 1,124.5、82.3 °C | 985.1、74.2 °C |
+| 起動の中で最も熱いzone、rankごと（°C） | 92.3 / 89.6 | 89.3 / 85.5 | 91.3 / 89.1 / 89.2 | 79.3 / 83.3 / 82.7 / 84.2 |
+| 最も低い `MemAvailable`、rankごと（GiB） | 8 / 9 | 8 / 9 | 16 / 17 / 22 | 13 / 14 / 14 / 14 |
+
+- **loadの行。** rank 0のloadの行は、TP=2でJammed XSFP4が84.68 GiB、XSFP4が91.26 GiBのmodel、TP=3で64.01 GiBを示します。poolはTP=2で窓1本とprompt cacheの残り、Jammed XSFP4で512行のpageを2,961〜2,981、XSFP4で2,059、TP=3で窓2本と残り、4,706〜4,780 pageを取りました。保持する状態のslotはTP=2で3.6 GiB、TP=3で5.3 GiBを取り、全部が入りました（[TP=3で16 GiBにする理由](../README.ja.md#配信の既定)）。rank 0の `kv pool idle` の行はどれも合っていました：約束されたpageは0で、空きのpageとstoreのpageでpoolの全部です。
+- **TP=3のdraftありのdecodeは3.10.0より遅い。** XSFP4でdecode検査の `count` は57.94 tok/s（3.9.0は65.67）、`bench --kinds decode` は63.23（68.52）で、tokenは同じです。Jammed XSFP4では `bench --kinds decode` が62.45（3.10.0は68.55）でした。`--mtp-confidence` の下では、temperature 0のstreamが毎roundで鎖の上限までdraftを作り、窓は確率がconfidenceの床より上の頭だけを検証します。上流の直し（[TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864)）は、それを持つ最初のリリースで入ります。TP=4はTP=3の `MTP_CONFIDENCE` を使います。
+- **切ったpromptの後の要求。** 3秒で切った約93,000 tokenのpromptの後の次の要求は、TP=2で2.85秒、TP=3で1.59秒で答えました。3.10.0の表では0.29と1.01です。同じホストで上流1.2.4は、TP=2のXSFP4で2.84秒、3.10.0のimageは0.35秒でした。どれも1回の到着の数で、promptのpassのどこに来るかで大きく動きます。
+- **tool。** 1手番1つのtool callを求める3.11.0の[tool引数ゲート](../SETUP.ja.md#6-tool引数ゲート任意)越しで、Safety Gateは両TPで合格しました。TP=2のJammed XSFP4はTC-11・TC-39・TC-49・TC-67が部分点でTC-62・TC-68・TC-69を落とし、3.10.0のimageと同じでした。TP=3はTC-11・TC-39・TC-67が部分点でTC-62・TC-68・TC-69を落とし、3.10.0のimageのうちTC-21だけが合格に変わりました。3.11.0の前のゲート（前の受け入れと同じく3.0.0の木のもの）越しでもゲートなしでも、Safety Gateは両TPで合格しました。そのゲート越しでTP=2はTC-11・TC-14・TC-39・TC-52・TC-60が部分点でTC-62とTC-68を落とし、TP=3はTC-14・TC-39・TC-50・TC-52が部分点でTC-29・TC-62・TC-68を落としました。ゲートなしでは両TPともTC-43も落としました。3.11.xまでの表のtool-eval-benchは2.8.0です。
+- **既知の振る舞い。** TP=3では、stop文字列の要求は上限まで続き、短いgreedyの返答は自分のhashを持ちます。3.9.0と同じです（[検証](validation.ja.md#xsfp4)）。
+
 ## 3.10.0
 
 **3.10.0**（2026-11-03、エンジン `a9642aef`、上流1.2.1にこの系列の6つのcommit、image `glm53-tf3:3.10.0`）。エンジンはJammed XSFP4の `csf0_v1` の形を読む6つのcommitを足し、配信の既定は3.9.0のままです。リリースのimageを、全containerを効率coreに置いて、それ自身の `serve.sh` と `cluster.sh` で起動しました。rankのファイルに `CHECKPOINT` も `CONTEXT` も書かないXSFP4の各TPの1回は、3.9.0のdecode検査のhashと `bench --kinds edit` の同じ返答を返しました（decodeはTP=2が54.08 tok/s、TP=3が68.72、prefillは1,415.1と1,675.3で、3.9.0は53.78と68.52、1,422.2と1,673.8です）。Jammed XSFP4の各TPの4回は、rankのファイルにその `CHECKPOINT` の1行だけを足した起動で、全検査の起動、同じhashと返答を返した2回目の起動、`PARALLEL=` を空にした起動、同時の要求の起動です。199,307・499,254・1,035,295 tokenのpromptの合言葉はすべて見つかりました。見張りが止めた起動はありません。TP=3では、受け入れの台本がJammed XSFP4の1回目を読み込みの後に、XSFP4の窓2本のpageに合わせた空きの線で止め、約4分後に全検査の起動を起こし直しました。表の46秒は同じ重みの2度目の読み込みのもので、XSFP4の93秒のような1度目のものではありません。表は両方のcheckpointを並べます。Jammed XSFP4の列はこれらの起動のもので、XSFP4の列は3.9.0の受け入れ、3.9.0のimage（エンジン `1db3edbe`、上流1.2.1そのもの）での各TPの4回の起動のものです。そのdecode検査のhashと編集の返答を、このimageも同じく返しました。3.11.0のtool引数ゲートの行だけは例外で、3.11.0もそのまま使うこのimageでの、各checkpointの各TPの1回の起動のものです。draftありのdecodeの速さは各checkpointが自分で書いた返答の上の数で、checkpointの間では比べられません（[checkpoint](../README.ja.md#checkpoint)）。
