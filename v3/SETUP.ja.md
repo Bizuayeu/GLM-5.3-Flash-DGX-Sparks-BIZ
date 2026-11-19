@@ -10,7 +10,7 @@
 
 ## 2. checkoutとcheckpoint
 
-全ホストで同じ確認済みのcommitをcheckoutします（`v3.*` のリリースのtag）。checkpointはTPで決まります（[checkpoint](README.ja.md#checkpoint)）：3.12.0から、TP=2は `Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4` を [`config/jammed.lock.json`](config/jammed.lock.json) のrevisionで、TP=3とTP=4は `Bizuayeu/GLM-5.3-Flash-XSFP4` を [`config/xsfp4.lock.json`](config/xsfp4.lock.json) のrevisionで使います。`v3/` から道具の仮想環境を用意し、[2.x系の手順2](../v2/SETUP.ja.md#2-checkoutとcheckpoint)のとおりに、自分のTPが配信する方を取得して検証します。下はTP=3の例で、取得は状況とlogを `state/xsfp4` に置きます：
+全ホストで同じ確認済みのcommitをcheckoutします（`v3.*` のリリースのtag）。checkpointはTPで決まります（[checkpoint](README.ja.md#checkpoint)）：3.16.0から、TP=2はJammed XSFP4 NZ5（`Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4-NZ5`）を [`config/nz5.lock.json`](config/nz5.lock.json) のrevisionで（3.12.0〜3.15.0はJammed XSFP4）、TP=3とTP=4は `Bizuayeu/GLM-5.3-Flash-XSFP4` を [`config/xsfp4.lock.json`](config/xsfp4.lock.json) のrevisionで使います。`v3/` から道具の仮想環境を用意し、[2.x系の手順2](../v2/SETUP.ja.md#2-checkoutとcheckpoint)のとおりに、自分のTPが配信する方を取得して検証します。下はTP=3の例で、取得は状況とlogを `state/xsfp4` に置きます：
 
 ```sh
 python3 -m venv .venv
@@ -22,7 +22,7 @@ python -m glm53_tf verify-download --tp 3 --hf .venv/bin/hf --output ../records/
 
 エンジンは各ホストのHugging Faceのcache（既定は `~/.cache/huggingface/hub`）からcheckpointを読み、containerには読み取り専用でmountします。cacheを写してもらったホストでは、代わりに同じ `--tp` の `download` を一度（`--background` なしで）回し、`state/` にsnapshotを記録させます。写したfileはそのまま使い、足りないものだけを取ります。そのあと上の `verify-download` を `--wait` なしで回します（写し方は[2.x系の手順2](../v2/SETUP.ja.md#2-checkoutとcheckpoint)）。
 
-TP=2では両方のコマンドに `--tp 2` を付け、`verify-download` には別の出力先（`../records/checksum-jammed`）を渡します。状況は `state/jammed` に残ります。自分のTPの既定と違う方を配信する時は、`--tp` の代わりに `--checkpoint jammed` か `--checkpoint xsfp4` を付け、手順4で全rankのファイルに1行を足します。ホストに無いcheckpointのfolderで起動すると、`serve.sh` が取得の仕方を名指して止まります。
+TP=2では両方のコマンドに `--tp 2` を付け、`verify-download` には別の出力先（`../records/checksum-nz5`）を渡します。状況は `state/nz5` に残ります。自分のTPの既定と違うものを配信する時は、`--tp` の代わりに `--checkpoint xsfp4`・`--checkpoint jammed`・`--checkpoint nz5` のどれかを付け、手順4で全rankのファイルに1行を足します。ホストに無いcheckpointのfolderで起動すると、`serve.sh` が取得の仕方を名指して止まります。
 
 
 ## 3. image
@@ -30,23 +30,23 @@ TP=2では両方のコマンドに `--tp 2` を付け、`verify-download` には
 GB10ホストの1台（linux/arm64）で、checkoutのルートからbuildします：
 
 ```sh
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.12.0 .
-docker image inspect --format '{{.Id}}' glm53-tf3:3.12.0
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.16.0 .
+docker image inspect --format '{{.Id}}' glm53-tf3:3.16.0
 ```
 
-buildは、[`config/engine.lock.json`](config/engine.lock.json) のcommit（`ENGINE_REF`）のTensorFoldのBIZ releaseからエンジンをcompileします。Zigのcompilerはlockが名指す版で、SHA-256で確かめます。構造化出力の `libtfgrammar` も、lockが固定するxgrammarのreleaseからcommitで確かめてbuildします。画像と動画の入力のために、lockがSHA-256で固定するreleaseのtarballから、libjpeg-turbo・libwebpのdecoder・静的なFFmpegをbuildし、そのFFmpegの上にエンジンの `libtfvideo` を作ります。実行のimageには、`/usr/local/bin` に `tensorfold-native` と `tf-cuda-test`、`/usr/local/lib` に `libtfgrammar.so`・`libturbojpeg.so.0`・`libwebpdecoder.so.3`・`libtfvideo.so`、NCCL 2.30.7とRDMAのuserspace、HTTPの検査のための `python3` と `tokenizers`、`/opt/glm53-tf3/` に `serve.sh`とTPごとの既定（`tp2.env`・`tp3.env`・`tp4.env`）とwireのkernel（`tp_mailbox.fatbin`）、エンジンのcommitとmediaのreleaseと各binary・libraryのSHA-256を書いた `/usr/share/doc/tf3/ENGINE`、このリポジトリ・xgrammar・libjpeg-turbo・libwebp・FFmpeg・エンジンの表示（`/usr/share/doc/tf3/` の下）が入ります。2つのbaseのimageはdigestで固定しています。参照機では、baseのimageを取ってから3.2.0のimageのbuildに約13分かかりました。同じcommitでも別のホストでbuildするとbinaryのSHA-256が変わることがあります（参照機のbuildでもそうでした）。2つのbuildが同じに答えるかは、hashではなくdecode検査で見ます。他のホストへimageを写し（リンク越しに `docker save glm53-tf3:3.12.0 | ssh <host> docker load`）、全ホストのimage IDを比べます。同じでなければいけません。
+buildは、[`config/engine.lock.json`](config/engine.lock.json) のcommit（`ENGINE_REF`）のTensorFoldのBIZ releaseからエンジンをcompileします。Zigのcompilerはlockが名指す版で、SHA-256で確かめます。構造化出力の `libtfgrammar` も、lockが固定するxgrammarのreleaseからcommitで確かめてbuildします。画像と動画の入力のために、lockがSHA-256で固定するreleaseのtarballから、libjpeg-turbo・libwebpのdecoder・静的なFFmpegをbuildし、そのFFmpegの上にエンジンの `libtfvideo` を作ります。実行のimageには、`/usr/local/bin` に `tensorfold-native` と `tf-cuda-test`、`/usr/local/lib` に `libtfgrammar.so`・`libturbojpeg.so.0`・`libwebpdecoder.so.3`・`libtfvideo.so`、NCCL 2.30.7とRDMAのuserspace、HTTPの検査のための `python3` と `tokenizers`、`/opt/glm53-tf3/` に `serve.sh`とTPごとの既定（`tp2.env`・`tp3.env`・`tp4.env`）とwireのkernel（`tp_mailbox.fatbin`）、エンジンのcommitとmediaのreleaseと各binary・libraryのSHA-256を書いた `/usr/share/doc/tf3/ENGINE`、このリポジトリ・xgrammar・libjpeg-turbo・libwebp・FFmpeg・エンジンの表示（`/usr/share/doc/tf3/` の下）が入ります。2つのbaseのimageはdigestで固定しています。参照機では、baseのimageを取ってから3.2.0のimageのbuildに約13分かかりました。同じcommitでも別のホストでbuildするとbinaryのSHA-256が変わることがあります（参照機のbuildでもそうでした）。2つのbuildが同じに答えるかは、hashではなくdecode検査で見ます。他のホストへimageを写し（リンク越しに `docker save glm53-tf3:3.16.0 | ssh <host> docker load`）、全ホストのimage IDを比べます。同じでなければいけません。
 
 ## 4. 各ホストのcontainerとrankのファイル
 
 ```sh
-v3/scripts/create_container.sh glm53-tf3:3.12.0 ~/glm53-tf3   # container glm53-tf3、~/glm53-tf3 を /work に
+v3/scripts/create_container.sh glm53-tf3:3.16.0 ~/glm53-tf3   # container glm53-tf3、~/glm53-tf3 を /work に
 cp v3/examples/tp3-rank0.env ~/glm53-tf3/rank.env             # このホストのrank：tp2-rank0/1、tp3-rank0/1/2 か tp4-rank0/1/2/3
 cp v3/examples/tp4-rank0.graph.xml ~/glm53-tf3/graph.xml      # TP=4ではrankのNCCLのgraphも。rankのファイルがこれを名指す
 ```
 
 `create_container.sh` はcontainerに割り当てるcoreを出します。`CPUSET` が無ければ最大周波数の最も低いcoreで、GB10では効率coreの `cpuset 0-4,10-14` です。エンジンのthreadが空回りする間も、CPUの温度を低く保ちます（[配信の既定](README.ja.md#配信の既定)）。前に `CPUSET=` を付けると全core、`CPUSET=<list>` で書いたcoreです。
 
-`~/glm53-tf3/rank.env` をこのホストの値に直します：`MASTER`（リンク上のrank 0のアドレス、全rankで同じ）、`NCCL_IB_HCA`（リンクのRDMAデバイス、2本のrail）、`NCCL_IB_GID_INDEX`、`NCCL_SOCKET_IFNAME`。29583が使われていれば `NCCL_PORT` も。exampleは参照機のファイルで、各行が何と測られたかを書いています。このファイルは `bash` が読み込むもので、`docker --env-file` には渡しません。exampleがコメントにしている行は既定を変えます：`PARALLEL`、`CONTEXT`、`VISION`、熱の帯、TP=3ではKVのpage（`TF_KV_PAGES=off` と空の `TF_KV_SHARE=`）は全rankで同じに、`API_KEY_FILE` はrank 0だけで（[設定](docs/configuration.ja.md#rankのファイル)）。自分のTPの既定と違うcheckpointは、全rankのファイルにもう1行です：TP=2では `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<config/xsfp4.lock.jsonのrevision>`、TP=3とTP=4では `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<config/jammed.lock.jsonのrevision>`。TP=4のexampleは参照機の4台のリング（04 → 05 → 07 → 06 → 04、対角に線なし）のものです：TP=3のNCCLの行に、リングだけを使うこと、rankのgraph、cuMemを入れて初めて使う時につなぐこと、`TF_GLM_PREFILL_REDUCE=gather` を足しています（[NCCL](docs/configuration.ja.md#nccl)）。`tp2-04-05`・`tp2-06-07`・`tp2-04-06`・`tp2-05-07` のexampleは、同じリングを2組の対として配信し、それぞれ自分のclusterのファイルを持ちます。04-05と06-07はそれぞれTP=2で配信し、04-06と05-07は起動しておらず、2組を同時に配信したこともありません。
+`~/glm53-tf3/rank.env` をこのホストの値に直します：`MASTER`（リンク上のrank 0のアドレス、全rankで同じ）、`NCCL_IB_HCA`（リンクのRDMAデバイス、2本のrail）、`NCCL_IB_GID_INDEX`、`NCCL_SOCKET_IFNAME`。29583が使われていれば `NCCL_PORT` も。exampleは参照機のファイルで、各行が何と測られたかを書いています。このファイルは `bash` が読み込むもので、`docker --env-file` には渡しません。exampleがコメントにしている行は既定を変えます：`PARALLEL`、`CONTEXT`、`VISION`、熱の帯、TP=3ではKVのpage（`TF_KV_PAGES=off` と空の `TF_KV_SHARE=`）は全rankで同じに、`API_KEY_FILE` はrank 0だけで（[設定](docs/configuration.ja.md#rankのファイル)）。自分のTPの既定と違うcheckpointは、全rankのファイルにもう1行です：TP=2でXSFP4なら `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-XSFP4/snapshots/<config/xsfp4.lock.jsonのrevision>`、Jammed XSFP4ならどのTPでも `CHECKPOINT=/hub/models--Bizuayeu--GLM-5.3-Flash-Jammed-XSFP4/snapshots/<config/jammed.lock.jsonのrevision>`。TP=3とTP=4でJammed XSFP4 NZ5を名指す行も同じ形で、[`config/nz5.lock.json`](config/nz5.lock.json) のrevisionのfolderを書きます。3.16.0の受け入れは、そこでは配信していません（[checkpoint](README.ja.md#checkpoint)）。TP=4のexampleは参照機の4台のリング（04 → 05 → 07 → 06 → 04、対角に線なし）のものです：TP=3のNCCLの行に、リングだけを使うこと、rankのgraph、cuMemを入れて初めて使う時につなぐこと、`TF_GLM_PREFILL_REDUCE=gather` を足しています（[NCCL](docs/configuration.ja.md#nccl)）。`tp2-04-05`・`tp2-06-07`・`tp2-04-06`・`tp2-05-07` のexampleは、同じリングを2組の対として配信し、それぞれ自分のclusterのファイルを持ちます。04-05と06-07はそれぞれTP=2で配信し、04-06と05-07は起動しておらず、2組を同時に配信したこともありません。
 
 エンジンにはホストでのbuildの段がありません。kernelはbinaryの中にあります。
 

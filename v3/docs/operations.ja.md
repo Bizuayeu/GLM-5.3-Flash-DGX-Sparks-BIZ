@@ -54,7 +54,7 @@ rankどうしはTCPのsocketではなくRoCEで話す必要があります：
 
 ```sh
 docker rm -f glm53-tf3                                  # containerは起動の合間は眠っているだけ
-v3/scripts/create_container.sh glm53-tf3:3.12.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.16.0 ~/glm53-tf3
 ```
 
 `create_container.sh` はcontainerに名前を付けるので、古いものを先に消します（または改名します：`docker rename glm53-tf3 glm53-tf3-old` の後に `docker stop`）。ホストのディレクトリは残ります：rankのファイルとlogです。containerの中では何もbuildしません。
@@ -67,7 +67,7 @@ v3/scripts/create_container.sh glm53-tf3:3.12.0 ~/glm53-tf3
 
 1. 一台でbuildします（[手順書 §3](../SETUP.ja.md#3-image)）。先に全ホストで、使っているimageに二つ目のtagを付けて残します。戻るのがcontainer一つで済みます。
 2. 他のホストへ読み込み、全ホストのimageのIDを比べます。等しくなければなりません。各containerの `/usr/share/doc/tf3/ENGINE` が、エンジンのcommitと各binaryのSHA-256を示します。
-3. TPごとの既定のcheckpointが変わるリリース（3.12.0のTP=2、Jammed XSFP4へ）では、先に全ホストでそれをdownloadして確かめる（`download --tp 2`、`verify-download --tp 2`）か、前のものの `CHECKPOINT` の行を全rankのファイルに足します（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）。どちらも無い起動は `serve.sh` で止まり、downloadを名指します。
+3. TPごとの既定のcheckpointが変わるリリース（3.12.0のTP=2はJammed XSFP4へ、3.16.0のTP=2はJammed XSFP4 NZ5へ）では、先に全ホストでそれをdownloadして確かめる（`download --tp 2`、`verify-download --tp 2`）か、前のものの `CHECKPOINT` の行を全rankのファイルに足します（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)）。どちらも無い起動は `serve.sh` で止まり、downloadを名指します。
 4. 止めてから、全ホストで新しいimageからcontainerを作り直します（[上](#containerを作り直す)）。
 5. 起動し、decode検査から[検証](validation.ja.md)を回します。同じエンジンのcommitのimageは基準のhashを出さなければなりません。エンジンを動かすリリースは、どのhashがなぜ変わるかをその検証に書きます（3.1.0：上流のtiledのkernelでのTP=2。3.3.0：上流1.1.2で、TP=3もそのkernelで）。それ以外の違いは説明すべき所見で、置き換える値ではありません。
 

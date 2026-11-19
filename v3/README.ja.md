@@ -11,18 +11,18 @@
 ## 要約
 
 - **状況。** 3.12.0はエンジンを、この系列のcommitを持たない上流のTensorFold 1.2.7そのものに移し、既定のcheckpointをTPで決めます：TP=2は[Jammed XSFP4](#checkpoint)、TP=3と、switchの無いリングの4台で新しく試験的なTP=4はXSFP4です（[配信の既定](#配信の既定)）。リリースのimageを、全containerを効率coreに置いてそれ自身の `serve.sh` と `cluster.sh` で起動すると、TP=3のXSFP4で3.9.0の、TP=2のJammed XSFP4で3.10.0の、decode検査のhash・編集の返答・NLLを返しました。どのTPでも、1,035,295 tokenのpromptを含めて長い入力の合言葉はすべて見つかり、`mojibake` は、temperature 0でもsampledでも、日本語と韓国語の答えに化けた文字を見つけませんでした（[リリースでの測定値](#リリースでの測定値)）。3.11.0のtool引数ゲート越しのtool-eval-benchは、TP=2のJammed XSFP4とTP=3のXSFP4で93、Safety Gateは合格で、3.10.0のimageと同じでした。TP=3のdraftありのdecodeは、tokenは同じまま3.10.0のエンジンより遅く、上流の直し（[TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864)）がリリースに入るまで続きます。上流1.2.6から、rankのファイルの空の値はほとんどの設定でunsetと読まれます（[設定](docs/configuration.ja.md#rank-0のserver)）。TP=3ではstop文字列の要求が上限まで走り、短いgreedyの返答が自分のhashを持ちます。どちらも[検証](docs/validation.ja.md#xsfp4)に書いた既知の振る舞いです。[検証](docs/validation.ja.md)の基準値はXSFP4のものと、[その節](docs/validation.ja.md#jammed-xsfp4)のJammed XSFP4のもので、その節が名指す受け入れが決め、最も新しいのは2026-11-12の参照機での3.12.0の受け入れです。主張の範囲はここまでです。他のホストは同じ検査を回して受け入れます。
-- **何であるか。** XSFP4かJammed XSFP4を、TensorFoldのネイティブエンジンの固定したcommitで一つのOpenAI互換endpointとして配信するための、build手順・起動の台本・受け入れ検査です。2台なら直結のConnectX-7リンクでTP=2、3台ならswitchなしのリングでTP=3、試験的に4台ならswitchなしのリングでTP=4です。公開している測定値はMSI EdgeXpert（MS-C931）で取りました。Macでは、TensorFoldが自身のMLXの重みでGLM-5.3-Flashを配信します（[Macでは](../README.ja.md#macでは)）。
+- **何であるか。** XSFP4・Jammed XSFP4・Jammed XSFP4 NZ5のどれかを、TensorFoldのネイティブエンジンの固定したcommitで一つのOpenAI互換endpointとして配信するための、build手順・起動の台本・受け入れ検査です。2台なら直結のConnectX-7リンクでTP=2、3台ならswitchなしのリングでTP=3、試験的に4台ならswitchなしのリングでTP=4です。公開している測定値はMSI EdgeXpert（MS-C931）で取りました。Macでは、TensorFoldが自身のMLXの重みでGLM-5.3-Flashを配信します（[Macでは](../README.ja.md#macでは)）。
 - **反復性。** draftした応答はserialと同じで、起動は同じTPの前の起動のtoken idを出します。ネイティブエンジンのtokenはそれ自身のもので、2.x系のものではありません：kernelとBF16のKV cacheの丸めが違うので、二つの系列はtokenごとではなくteacher-forced NLLで比べます（[2.x系との違い](#2x系との違い)）。
 - **構造化出力とpromptのscore。** JSON schemaつきの `response_format`、`required` か名指しの関数の `tool_choice`（GLM自身のtoolのmarkupで書く）、`/v1/completions` の `prompt_logprobs` は、1.1.1からGLMのCUDAのエンジンで上流のTensorFold自身のものです。この系列のpull request #1016・#1017・#1018の後に上流が書きました（[API](#api)）。
 - **画像と動画。** chatの要求は、PNG・JPEG・WebPの画像と、H.264・HEVC・VP8・VP9・MPEG-4の動画をdata URLで持てます。rank 0にあるcheckpointのvision towerが、エンジンの `--vision` で読みます。`serve.sh` は既定でこれを渡します（[制限](#制限)）。
-- **精度。** XSFP4とJammed XSFP4ではrouted expertはW4A16、他のprojectionはcheckpointが保存する形のままで、多くは8 bit、vision towerのMLPとmergerはNVFP4です（[checkpoint](#checkpoint)）。KVはBF16です（2.x系はFP8のKV cacheを持ちます）。NVIDIAのmodel cardは別のレシピ・別の機材でFP4-Localを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
-- **ライセンス。** コードとエンジンはApache-2.0、重みは運用者がダウンロードし、NVIDIA Open Model Agreement（XSFP4とJammed XSFP4、商用に使える）です。imageには構造化出力のためにxgrammar（Apache-2.0）、画像と動画のためにlibjpeg-turbo・libwebp（BSD系）とFFmpegのdecoder（LGPL-2.1）が入ります。配信の経路に非商用の条件はありません（[ライセンスの早見表](../README.ja.md#ライセンスの早見表)）。
+- **精度。** XSFP4・Jammed XSFP4・Jammed XSFP4 NZ5ではrouted expertはW4A16、他のprojectionはcheckpointが保存する形のままで、多くは8 bit、vision towerのMLPとmergerはNVFP4です（[checkpoint](#checkpoint)）。KVはBF16です（2.x系はFP8のKV cacheを持ちます）。NVIDIAのmodel cardは別のレシピ・別の機材でFP4-Localを測っており、その精度表はこの配信を表しません。この配信を表す数字は[検証](docs/validation.ja.md)にあります。
+- **ライセンス。** コードとエンジンはApache-2.0、重みは運用者がダウンロードし、NVIDIA Open Model Agreement（XSFP4・Jammed XSFP4・Jammed XSFP4 NZ5、商用に使える）です。imageには構造化出力のためにxgrammar（Apache-2.0）、画像と動画のためにlibjpeg-turbo・libwebp（BSD系）とFFmpegのdecoder（LGPL-2.1）が入ります。配信の経路に非商用の条件はありません（[ライセンスの早見表](../README.ja.md#ライセンスの早見表)）。
 - **未検証。** 画像と動画のURL（`--vision-urls`、無効）、長い会話が同時に何本も並ぶ負荷、他のrank数と機材（[制限](#制限)）。ハーネス連携（ZCode・Claude Code）、アプリケーション全体の品質と本番の信頼性。
 
 ## 何であるか
 
-- **重み**：既定はTP=3とTP=4で `Bizuayeu/GLM-5.3-Flash-XSFP4`（[`config/xsfp4.lock.json`](config/xsfp4.lock.json)）、TP=2で `Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4`（[`config/jammed.lock.json`](config/jammed.lock.json)）（[checkpoint](#checkpoint)）で、NVIDIAのGLM-5.3-Flash-FP4-Localと[Z.aiのGLM-5.3-Flash](https://huggingface.co/zai-org/GLM-5.3-Flash)から作られています。
-- **エンジン**：TensorFoldのネイティブエンジン（`tensorfold-native`）。[Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold) のbranch `release/3.12.0` として公開するBIZ版で、上流のTensorFold v1.2.7そのもの（`93a2e93e`）です。この系列のcommitは持ちません。3.10.0のbranchが1.2.1に足した6つのcommitは、上流のリリースが1.2.3から持っています（#2041）。6つのcommitはJammed XSFP4の `csf0_v1` の形を専用の5つのkernelで読みます。その形を持たないcheckpointは上流の道をそのまま通ります。上流は2026-10-25にこの系列の最初のpull requestを取り込み、1.1.5はそれらを持つ最初のリリースでした。#1050はNVIDIAのGLM-5.3-Flash-FP4-Localを保存された形のまま読み、それと共に、experts以外にFP4-Localのtensorを持つXSFP4のcheckpointも読みます：各projectionの形をcheckpointの `MIXED_PRECISION` のレシピから見分け、MXFP8と128×128 blockのFP8のprojectionを保存の形のまま計算し、FP4-Localの圧縮したexpertのscaleを読み、float32のnormの重みをfloat32のまま保ちます。#1178はrank 0のNCCLのidをrankどうしの生存の線で他のrankへ送るので、TP=3は上流のbootstrapで起動し、3.6.0のリリースのbranchがそのために持っていたidのファイル（`TF_GLM_NCCL_ID_FILE`）とこの系列の二つのcommitは要りません。#1163と#1211は、各streamのKV cacheとエンジン自身のsequenceを一つのpoolのpageに置きます。1.1.5では3 rankで、1.1.6（#1322）からは2 rankでもです（[配信の既定](#配信の既定)）。3.9.0の既定はその後に入ったものを使います：promptがdecodeの横とrankの間で動く#1352・#1404（1.1.9）、`--mtp-confidence` とmultirank RoCEのwire（#1516・#1524、1.2.0）、poolのpageに残すprompt（#1732、1.2.1。#2211から `TF_KV_SHARE` で、3.11.xまでは `TF_GLM_KV_SHARE`）です。#1616と#1636（1.2.0）は重みを複数のthreadで読んで詰めるので、起動が短くなります。indexがmodelのfolderの中のfolderにあるshardを名指せること（FP4-LocalとXSFP4のindexに要る）は、1.1.3から上流自身のcodeにあり、3.5.xまでのリリースのbranchはpull request #1179のpatchとして持っていました。1.1.5から、serverはGLM-5.3のchat templateに `clear_thinking` を渡します（[設定](docs/configuration.ja.md#rank-0のserver)）。3.0.0〜3.2.0の熱の待ちの天井への見込み（`TF_HEAT_CEILING`）は無くなり、熱の待ちは上流の帯だけです（[配信の既定](#配信の既定)）。imageは一つのcommitに固定します（[`config/engine.lock.json`](config/engine.lock.json)）。
+- **重み**：既定はTP=3とTP=4で `Bizuayeu/GLM-5.3-Flash-XSFP4`（[`config/xsfp4.lock.json`](config/xsfp4.lock.json)）、TP=2で `Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4-NZ5`（[`config/nz5.lock.json`](config/nz5.lock.json)）で、選べるものに `Bizuayeu/GLM-5.3-Flash-Jammed-XSFP4`（[`config/jammed.lock.json`](config/jammed.lock.json)）があります（[checkpoint](#checkpoint)）。どれもNVIDIAのGLM-5.3-Flash-FP4-Localと[Z.aiのGLM-5.3-Flash](https://huggingface.co/zai-org/GLM-5.3-Flash)から作られています。
+- **エンジン**：TensorFoldのネイティブエンジン（`tensorfold-native`）。[Bizuayeu/TensorFold](https://github.com/Bizuayeu/TensorFold) のbranch `release/3.16.0` として公開するBIZ版で、上流のTensorFold v1.2.10そのもの（`2a674b55`）です。この系列のcommitは持ちません。3.10.0のbranchが1.2.1に足した6つのcommitは、上流のリリースが1.2.3から持っています（#2041）。6つのcommitはJammed XSFP4の `csf0_v1` の形を専用の5つのkernelで読みます。Jammed XSFP4 NZ5の `NVFP4_NZ5` の形（`csf0_v1` と同じ並びで、4 bitのcode `0b1000` を+5と読む）も、上流のリリースが1.2.10から読みます（#2894）。どちらの形も持たないcheckpointは上流の道をそのまま通ります。上流は2026-10-25にこの系列の最初のpull requestを取り込み、1.1.5はそれらを持つ最初のリリースでした。#1050はNVIDIAのGLM-5.3-Flash-FP4-Localを保存された形のまま読み、それと共に、experts以外にFP4-Localのtensorを持つXSFP4のcheckpointも読みます：各projectionの形をcheckpointの `MIXED_PRECISION` のレシピから見分け、MXFP8と128×128 blockのFP8のprojectionを保存の形のまま計算し、FP4-Localの圧縮したexpertのscaleを読み、float32のnormの重みをfloat32のまま保ちます。#1178はrank 0のNCCLのidをrankどうしの生存の線で他のrankへ送るので、TP=3は上流のbootstrapで起動し、3.6.0のリリースのbranchがそのために持っていたidのファイル（`TF_GLM_NCCL_ID_FILE`）とこの系列の二つのcommitは要りません。#1163と#1211は、各streamのKV cacheとエンジン自身のsequenceを一つのpoolのpageに置きます。1.1.5では3 rankで、1.1.6（#1322）からは2 rankでもです（[配信の既定](#配信の既定)）。3.9.0の既定はその後に入ったものを使います：promptがdecodeの横とrankの間で動く#1352・#1404（1.1.9）、`--mtp-confidence` とmultirank RoCEのwire（#1516・#1524、1.2.0）、poolのpageに残すprompt（#1732、1.2.1。#2211から `TF_KV_SHARE` で、3.11.xまでは `TF_GLM_KV_SHARE`）です。#1616と#1636（1.2.0）は重みを複数のthreadで読んで詰めるので、起動が短くなります。indexがmodelのfolderの中のfolderにあるshardを名指せること（FP4-LocalとXSFP4のindexに要る）は、1.1.3から上流自身のcodeにあり、3.5.xまでのリリースのbranchはpull request #1179のpatchとして持っていました。1.1.5から、serverはGLM-5.3のchat templateに `clear_thinking` を渡します（[設定](docs/configuration.ja.md#rank-0のserver)）。3.0.0〜3.2.0の熱の待ちの天井への見込み（`TF_HEAT_CEILING`）は無くなり、熱の待ちは上流の帯だけです（[配信の既定](#配信の既定)）。imageは一つのcommitに固定します（[`config/engine.lock.json`](config/engine.lock.json)）。
 - **image**：[`docker/Dockerfile`](docker/Dockerfile)。エンジンはNVIDIAのCUDA 13.3.1のbuild用imageで、lockが名指すZigのcompiler（SHA-256で確かめる）がcompileし、`libtfgrammar` は固定したcommitのxgrammarのreleaseからbuildします。実行のimageはCUDA 13.3.1にNCCL 2.30.7とRDMAのuserspaceです。2つのbaseのimageはdigestで固定しています。`/usr/share/doc/tf3/ENGINE` がエンジンのcommitと各binaryのSHA-256を名指し、`/usr/share/doc/tf3/engine/` にエンジンのライセンスと表示があります。
 - **起動**：[`scripts/`](scripts/) のshellの台本と、rankごとの環境ファイル一つ（[`examples/`](examples/) に参照機のファイル）。順番は[SETUP.ja.md](SETUP.ja.md)にあります。ホストでは何もbuildしません：kernelはbinaryの中にあります。
 - **他のレシピ**：このリポジトリがTensorFoldの他のレシピから取ったものと、それらのlicenseは、2.x系の[表](../v2/README.ja.md#tensorfoldの他のレシピ)にあります。3.x系のTP=3のrankのファイルは、2.x系がMiaAI-LabのTensorFoldのレシピから取って測ったfabricの設定のうち二つ、4本のNCCLのchannelとsubnet-aware routingを持ち続けます（[決定](docs/decisions.ja.md#fabric)）。上流のTensorFold自身の、CUDAでのこのモデルのレシピは[GLM-5.3-Flash on CUDA](https://github.com/ashhart/TensorFold/blob/main/docs/recipes/glm-5.3-flash-cuda.md)です。
@@ -34,7 +34,7 @@
 - **ホストカーネル**：1.x系・2.x系と同じです。今のDGX OSの更新が入れるカーネルは、既定のままでは複数ノードのRoCEを壊すことがあり、参照機は `kho=off` で起動しています（[ホストカーネルと複数ノードRoCE](../docs/hosts.ja.md#ホストカーネルと複数ノードroce)）。2026-11-07 からは `7.0.0-1025-nvidia` を、`initcall_blacklist` に `power_wrap_init` も入れて起動し、ConnectX-7 と基板のファームウェアも新しくなっています。この上の3.x系の受け入れは3.12.0が最初で、前の版から引き継いだ数は、その前の `7.0.0-1019-nvidia` で測りました（[ホストの更新](../docs/hosts.ja.md#ホストの更新)）。
 - **GPUクロック**は全ホストで上限を設けます（[GPUクロックの上限](../docs/hosts.ja.md#gpuクロックの上限)）。上限と温度の記録は[`host/`](../host/README.ja.md)が据え付けます。3.x系の数字は全部この上限の下で測りました。
 - **Docker**：NVIDIAのGPU runtimeとRDMAデバイスが要ります（`/dev/infiniband` が無いホストでは、NCCLがsocketに落ちるので `create_container.sh` が断ります）。
-- **disk**：全ホストにcheckpointを丸ごとと、image。XSFP4は178 GB、Jammed XSFP4は172 GBを取ります。
+- **disk**：全ホストにcheckpointを丸ごとと、image。XSFP4は178 GB、Jammed XSFP4とJammed XSFP4 NZ5はそれぞれ172 GBを取ります。
 - **操作する機械**：全ホストへSSHでき、`cluster.sh` を動かす機械一台。
 - **Python 3.11以上**：各ホストで、この系列の道具（[`glm53_tf/`](glm53_tf/)：ダウンロード、検証、tool引数ゲート、検査）を `v3/` から動かします（[手順書 §2](SETUP.ja.md#2-checkoutとcheckpoint)）。
 
@@ -45,13 +45,13 @@
 ```sh
 # 一度だけ、ある1台の v3/ からその仮想環境で。その後cacheを他のホストへ写し、写しごとに検証する（SETUP §2）
 python -m glm53_tf download --tp 2 --background
-python -m glm53_tf verify-download --tp 2 --hf .venv/bin/hf --output ../records/checksum-jammed --wait
+python -m glm53_tf verify-download --tp 2 --hf .venv/bin/hf --output ../records/checksum-nz5 --wait
 
 # checkoutの根で、1台がimageをbuildし、他はそれを読み込む。image IDを比べる（SETUP §3）
-docker build -f v3/docker/Dockerfile -t glm53-tf3:3.12.0 .
+docker build -f v3/docker/Dockerfile -t glm53-tf3:3.16.0 .
 
 # 各ホストで、checkoutのルートから（SETUP §4）
-v3/scripts/create_container.sh glm53-tf3:3.12.0 ~/glm53-tf3
+v3/scripts/create_container.sh glm53-tf3:3.16.0 ~/glm53-tf3
 cp v3/examples/tp2-rank0.env ~/glm53-tf3/rank.env     # もう1台は tp2-rank1。その後このホストの値に直す
 
 # 操作する機械で（SETUP §5・§8）
@@ -102,7 +102,7 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env)・[`config/tp3.env
 
 | 設定 | TP=2（2台） | TP=3（3台） |
 |---|---|---|
-| checkpoint | 3.12.0からJammed XSFP4、lockのrevision（`config/tp2.env` の `CHECKPOINT`、[checkpoint](#checkpoint)） | XSFP4、lockのrevision（`config/tp3.env`） |
+| checkpoint | 3.16.0からJammed XSFP4 NZ5、lockのrevision（`config/tp2.env` の `CHECKPOINT`、[checkpoint](#checkpoint)。3.12.0〜3.15.0はJammed XSFP4） | XSFP4、lockのrevision（`config/tp3.env`） |
 | KV cache | latentとindexのkeyをBF16（エンジンの既定。`--kv-cache fp8` で選べるFP8のlatent cacheは受け入れの外：[制限](#制限)）、KVのpageに：全streamのcacheとエンジン自身のsequenceが1つのpoolのpageを取る（2 rankからのエンジンの既定、`TF_KV_PAGES`。全rankのファイルの `TF_KV_PAGES=off` と空の `TF_KV_SHARE=` は、TP=2は3.8.xまで、TP=3は3.7.0までと同じくstreamごとの窓） | 同じ |
 | draft | checkpointのMTP head（エンジンの既定） | 同じ。draftの連なりは確率が0.5未満のdraftで終わる（`MTP_CONFIDENCE`、エンジンの `--mtp-confidence`） |
 | 窓（`--context`） | 1,048,576 token（モデルの上限） | 同じ |
@@ -133,7 +133,7 @@ TPで分かれるものは [`config/tp2.env`](config/tp2.env)・[`config/tp3.env
 
 **TP=2を1,048,576にする理由。** BF16のKVは、tokenあたり2.x系のFP8のcacheの約2倍のメモリを取ります。3.8.xまではstreamの窓がまるごとmodelの横に置かれたので、TP=2の窓は245,760 token、3.5.0からはXSFP4で524,288 tokenまででした。KVのpageでは窓はpoolのpageで、streamの本数によりません：512行のpageを2,052（12.77 GiB）でモデルの上限の1,048,576 token全部が入り、3.12.0の受け入れでは1,035,295 tokenのpromptがJammed XSFP4で835.5秒で最初のtokenを返し、合言葉を全部見つけました。3.12.0から既定のJammed XSFP4では、エンジン自身のreserve 12.3 GiBで余地20.0 GiB・2,451 pageと、窓とprompt cacheの残りの一部が入り、`config/tp2.env` の9 GiBでは余地23.2〜23.3 GiB・2,961〜2,981 pageで、rank 0の起動後の空きは9.1〜9.5 GiB、memory guardの5 GiBの上です。全rankのファイルの `CHECKPOINT` の行でTP=2に配信するXSFP4では、9 GiBが窓の場所を作ります：3.9.0のエンジンでは自身のreserve 12.2 GiBの余地が12.0 GiBで、窓のpageの12.77 GiBに足りず、3.12.0の受け入れでは9 GiBで余地16.7 GiB・2,059 page、rank 0の空き9.1 GiBで、`TF_KV_SHARE=16` の状態は12でした（どの `--prompt-cache-gib` でも、この余地に入るのは12です）。この受け入れでは、TP=2のXSFP4をエンジン自身のreserveでは起動していません。`TF_GLM_CHUNK_SOLO=4096` の広いpromptのpassは全rankでさらにメモリを取るので、この窓では切ります（[決定](docs/decisions.ja.md#窓とstream)）。全rankのファイルの `CONTEXT` で別の値を選びます：524,288ならreserveを戻せて、広いpassも入ります。
 
-**効率coreにする理由。** エンジンは要求を回す間、全rankで2本のCPUのthreadを空回りさせ続けます。rank 0ではdecodeの間、他のrankではそれを待つ間です（上流1.1.2のエンジンより前は、他のrankは要求の無い間も空回りしました。#1053は、rank 0にstreamが無い間それらを眠らせます）：一つはGPUを待ち、もう一つはそのkernel時間から見てNCCLのものである見込みが高いthreadです。全coreでは、これらがCPUのthermal zone（GB10の7つのzoneのうち5つ）を温めました：約6,000 tokenのpromptの後の1,024 tokenの返答を40本続けると、3.0.0のエンジンでは、TP=2でrank 0の最も熱いzoneが94.7 °Cに達し、熱の見張りが7本目でエンジンを止めました。3.1.0のエンジンは全coreでも効率coreと同じ1,535秒で40本を終えましたが、rank 0のホストは93.0 °Cに達し（止める温度まで1 °C）、効率coreでは74.9 °Cでした。全coreで2つの要求を同時に回すと88.5 °Cでした。熱の待ちはprompt chunkの合間に働くので、これを抑えられません。3.0.0のエンジンでは、効率coreで40本の返答がそのzone 85.1 °Cで終わり、rank 1のホストは約70 °Cではなく57〜63 °Cで待ちました。その代わり速さの1〜3%を失い、起動は約25秒長くなりました（[3.0.0の測定値](docs/measurements.ja.md#300)）。熱の帯を下げる（86/82/87）と、待ったpromptが26〜89%遅くなり、1,048,576 tokenのpromptの最高温度は下がりませんでした。空回りせずに眠るCUDAのcontextはdecodeが12%遅く、もう一つのthreadは空回りしたままでした。1.1.1から、上流の[runbook](https://github.com/ashhart/TensorFold/blob/v1.2.7/RUNBOOK.md#gb10-cpu-pinning-for-long-cuda-runs)もこれらの測定からGB10の各rankに同じcoreを挙げています。`CPUSET=` でcontainerに全coreを与えます。
+**効率coreにする理由。** エンジンは要求を回す間、全rankで2本のCPUのthreadを空回りさせ続けます。rank 0ではdecodeの間、他のrankではそれを待つ間です（上流1.1.2のエンジンより前は、他のrankは要求の無い間も空回りしました。#1053は、rank 0にstreamが無い間それらを眠らせます）：一つはGPUを待ち、もう一つはそのkernel時間から見てNCCLのものである見込みが高いthreadです。全coreでは、これらがCPUのthermal zone（GB10の7つのzoneのうち5つ）を温めました：約6,000 tokenのpromptの後の1,024 tokenの返答を40本続けると、3.0.0のエンジンでは、TP=2でrank 0の最も熱いzoneが94.7 °Cに達し、熱の見張りが7本目でエンジンを止めました。3.1.0のエンジンは全coreでも効率coreと同じ1,535秒で40本を終えましたが、rank 0のホストは93.0 °Cに達し（止める温度まで1 °C）、効率coreでは74.9 °Cでした。全coreで2つの要求を同時に回すと88.5 °Cでした。熱の待ちはprompt chunkの合間に働くので、これを抑えられません。3.0.0のエンジンでは、効率coreで40本の返答がそのzone 85.1 °Cで終わり、rank 1のホストは約70 °Cではなく57〜63 °Cで待ちました。その代わり速さの1〜3%を失い、起動は約25秒長くなりました（[3.0.0の測定値](docs/measurements.ja.md#300)）。熱の帯を下げる（86/82/87）と、待ったpromptが26〜89%遅くなり、1,048,576 tokenのpromptの最高温度は下がりませんでした。空回りせずに眠るCUDAのcontextはdecodeが12%遅く、もう一つのthreadは空回りしたままでした。1.1.1から、上流の[runbook](https://github.com/ashhart/TensorFold/blob/v1.2.10/RUNBOOK.md#gb10-cpu-pinning-for-long-cuda-runs)もこれらの測定からGB10の各rankに同じcoreを挙げています。`CPUSET=` でcontainerに全coreを与えます。
 
 ## 設定
 
@@ -160,7 +160,7 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 
 | | 2.x（TensorFoldのPythonのエンジン） | 3.x（TensorFoldのネイティブエンジン） |
 |---|---|---|
-| エンジン | TensorFold 0.6.5のBIZ版。PythonとTritonのkernelで、kernelは実行時にcompile | TensorFold 1.2.7のBIZ版（3.0.0は1.0.12、3.1.0と3.2.0は1.1.1、3.3.0〜3.5.xは1.1.2、3.6.0と3.7.0は1.1.3、3.8.xは1.1.5、3.9.0〜3.11.xは1.2.1）。ZigとCUDAで、kernelはbinaryの中 |
+| エンジン | TensorFold 0.6.5のBIZ版。PythonとTritonのkernelで、kernelは実行時にcompile | TensorFold 1.2.10のBIZ版（3.0.0は1.0.12、3.1.0と3.2.0は1.1.1、3.3.0〜3.5.xは1.1.2、3.6.0と3.7.0は1.1.3、3.8.xは1.1.5、3.9.0〜3.11.xは1.2.1、3.12.0〜3.15.0は1.2.7）。ZigとCUDAで、kernelはbinaryの中 |
 | 出力の反復性 | エンジンの契約として、draftした応答はserialと同じ、再開したpromptは最初からと同じ、chunkの切り方で結果が変わらない | draftした応答はserialと同じで、起動はtoken idを繰り返す。tokenは2.x系のものと違う（別のkernel、BF16 KV）ので、系列の間はNLLで比べる |
 | KVと窓 | latentとindexのkeyをFP8。TP=2で300,000 token、TP=3で1,048,576 | BF16をKVのpageに。どのTPでも1,048,576 token（TP=2は3.8.xまで524,288） |
 | 同時の要求 | 1 | TP=2で4、TP=3とTP=4で8。decodeのroundとKVのpoolを分け合う（3.8.xまでは既定で1） |
@@ -173,7 +173,8 @@ rank 0がエンジンのHTTP APIを出します。受け入れで使ったもの
 | 応答の欄 | `tensorfold` に `accepted`・`drafted`・`rounds`・`cached`・`prefill_s`・`heat_wait_s`・`sha256` | `tensorfold` と `speculative`（上記）。cacheしたtokenは `usage` に。熱の待ちはlogだけ |
 | 熱の設定 | `TF_GLM_HEAT_HIGH`・`TF_GLM_HEAT_LOW`・`TF_GLM_HEAT_CEILING` | `TF_HEAT_HIGH`・`TF_HEAT_LOW`、同じ帯。天井なし |
 | XSFP4のcheckpoint | 配信しない | TP=3とTP=4で既定（3.4.0から3.11.xまではどのTPでも） |
-| Jammed XSFP4のcheckpoint | 配信しない | 3.12.0からTP=2で既定（3.10.0からrankのファイルの1行で選べる） |
+| Jammed XSFP4のcheckpoint | 配信しない | 3.10.0からrankのファイルの1行で選べる（3.12.0〜3.15.0はTP=2で既定） |
+| Jammed XSFP4 NZ5のcheckpoint | 配信しない | 3.16.0からTP=2で既定 |
 | NVIDIAのNVFP4のcheckpoint | 固定したcheckpoint | 配信しない（3.6.0から。3.5.xまでは選べた） |
 | imageとcontainer | `glm53-tf`、extensionをcontainerごとにbuild（`build_ext.sh`） | `glm53-tf3`、ホストでは何もbuildしない |
 | containerのcore | 全core | `CPUSET` が別に言わなければ効率core |

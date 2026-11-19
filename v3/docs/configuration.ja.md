@@ -39,7 +39,7 @@
 | `MODEL_NAME`・`HOST`・`PORT` | `glm-tf`・`127.0.0.1`・`8095` | rank 0のmodel idと待ち受け（`--name`・`--host`・`--port`） | rank 0 |
 | `REASONING_EFFORT` | `high` | effortを指定しない要求のeffort（`--reasoning-effort`）：`low`・`medium`・`high`・`xhigh`。他の値は `max` も含めて起動時に全rankを止める。空の値は何も渡さず、chat templateに任せる。要求そのものは `none`・`minimal`・`low`・`medium`・`high`・`xhigh`・`max` を指定できる。思考を切った要求（`chat_template_kwargs.enable_thinking: false`）にはこの値は届かない：chat templateは自分の既定のMaxの頭を描き、3.16.0からは要求が別のeffortを指定できる（`enable_thinking: false` と一緒に `reasoning_effort: "high"`）。templateが受け取ったeffortは、返事の `tensorfold.reasoning_effort` に出る | rank 0 |
 | `API_KEY_FILE` | なし | loopbackの外で配信するときのrank 0のkeyのファイル（`--api-key-file`、[APIのkey](#apiのkey)） | rank 0 |
-| `CHECKPOINT` | 3.12.0からリリースのファイルの値：TP=2では `/hub` の下のJammed XSFP4のsnapshot、TP=3とTP=4ではXSFP4のsnapshot（どちらもlockのrevision）。空の値は既定 | container内のcheckpointのfolder。3.x系が受け入れるのはXSFP4とJammed XSFP4で、TPの既定と違う方は、そのlockのrevisionでこの行を全rankのファイルに書く（[checkpoint](../README.ja.md#checkpoint)）。ホストに無いfolderは、`download --tp` を名指して起動時に `serve.sh` を止める | 同じ。起動時にdigestで比べる |
+| `CHECKPOINT` | リリースのファイルの値：3.16.0から、TP=2では `/hub` の下のJammed XSFP4 NZ5のsnapshot（3.12.0〜3.15.0はJammed XSFP4）、TP=3とTP=4ではXSFP4のsnapshot（どれもlockのrevision）。空の値は既定 | container内のcheckpointのfolder。3.x系が受け入れるのはXSFP4・Jammed XSFP4・Jammed XSFP4 NZ5で、TPの既定と違うものは、そのlockのrevisionでこの行を全rankのファイルに書く（[checkpoint](../README.ja.md#checkpoint)）。ホストに無いfolderは、起動時に `serve.sh` を止め、取得の仕方を名指す：TPの既定のものなら `download --tp`、rankのファイルが名指したものならその名の `download --checkpoint` | 同じ。起動時にdigestで比べる |
 | `TF_HEAT_HIGH`・`TF_HEAT_LOW` | `92`・`88`（°C） | prefillの熱の待ちの帯（[rankの間で比べるもの](#rankの間で比べるもの)）。`serve.sh` は空のものをそのまま渡し、エンジンは片方だけを断るので、待たないときは両方を空にする | 同じ。起動時に比べる |
 | 他の変数 | なし | エンジンにexportされる：[エンジンの環境変数](#エンジンの環境変数)（`TF_GLM_*`・`TF_ROCE*` など）と[NCCLの設定](#nccl) | それぞれによる |
 
@@ -122,11 +122,14 @@ rankはほかに、worldと各rank、`--kv-cache`、draftと `--drafter`、`--vi
 | `TF_ROCE_HCA` | `NCCL_IB_HCA` | その経路が分けて使うデバイス、2つまで。`=` の接頭辞と `:port` の接尾辞は外す |
 | `TF_ROCE_GID_INDEX` | 各デバイスのRoCE v2のIPv4のGID | その経路が使うGIDのindex |
 | `TF_ROCE_MAX_KB` | `4096` | rankがその経路で送る最も大きいgather、KiB単位。空の値・`0`・数でない語は起動を止める |
+| `TF_GLM_INDEX_CUDA` | 3.16.0から有効（上流の既定は1.2.9から） | promptのchunkのDSAの索引器の採点とpoolを、専用の2つのkernelで回す（#1449）。`0` は前のkernel（`tf_glm_scores`）のまま、`scores` は採点のkernelだけ（切り分け用）で、ほかの語は起動を止める。使えないrankはlogに `the indexer kernels are not used` と書き、`0` と同じに進む |
+| `TF_GLM_DSEL` | 3.16.0から有効（上流の既定は1.2.9から） | decodeの窓のDSAのselectが、行ごとに多くのblockへ広がる（#2722）。`0` は1行1blockのままで、rankのlogにそう出る |
 | `TF_GLM_PDL` | 有効 | `0` はdependent launch（前のkernelが終わる間に行列積の重みを流し込む）を止める |
 | `TF_NVFP4_DECODE_WARPS` | `4` | NVFP4のexpertのdecodeのkernelのwarp、`1` か `4`。他の値は空も含めて読み込みを失敗させる |
 | `TF_QMMF_HALF_BELOW` | `96` | decodeのMXFP8とBF16のmatmulは、64列のblockがこの数より少ないとき半分のtileを使う。和は同じ。`0` は使わない。空の値は既定で、整数でない値は読み込みを失敗させる |
 | `TF_GLM_PROMPT_STEPS` | 有効 | rank 0だけ：`0` はpromptの処理を丸ごと回し、chunkの合間に他のstreamのroundを挟まない |
 | `TF_GLM_SHARED` | 有効 | rank 0だけ：`0` は各streamのdraftの窓に、他のstreamと共有するforwardではなく専用のforwardを与える |
+| `TF_GLM_EXPERT_FORM` | unset：エンジンが選ぶ | rank 0だけ、3.16.0から（上流1.2.10、#3151）：`classic` か `factored` が、decodeの窓でexpertが取る形を全rankの分として名指す（どちらでも同じbit）。unsetか空なら、buildのdraftつきの最初の読み込みが2つを測って勝った方を残し、何も測らない読み込みは `classic` を取る。rank 0の `glm: windows` の行がどちらかを書く。ほかの語は起動を止める |
 | `TF_GLM_LINK_WAIT` | 無効 | `1` は他のrankへの各stepをuploadして待つ。以前のエンジンの振る舞い |
 | `TF_GLM_PROF` | 無効 | logにprofilingの行 |
 | `TF_GLM_DRAFT_CONFIDENCE`・`TF_GLM_DFLASH2_LOG`・`TF_GLM_DFLASH2_PROF` | `0.7`・無効・無効 | DFlash2のdrafter（`--drafter`）だけ |
@@ -234,7 +237,7 @@ TP=4のexample（参照機の4台のリング、3.12.0から試験的）は、TP
 
 | コマンド | option（既定） | 環境 |
 |---|---|---|
-| `download` | `--tp`（`2`・`3`・`4`。そのTPが配信するcheckpoint）か `--checkpoint`（`xsfp4` か `jammed`）のどちらかが必須。`--background`（Linux。logと状態は `state/<checkpoint>/` の下。戻る前にjobの状態を書くので `verify-download --wait` をすぐ続けられ、別のdownloadがフォルダを持つ間は断る） | 無ければ `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` と `HF_HUB_DOWNLOAD_TIMEOUT=120` を設定し、Hugging Face自身の変数を読む。`HF_HUB_CACHE` でcacheを動かしたら、`create_container.sh` の `HF_HUB` もそこへ |
+| `download` | `--tp`（`2`・`3`・`4`。そのTPが配信するcheckpoint）か `--checkpoint`（`xsfp4`・`jammed`・`nz5` のどれか）のどちらかが必須。`--background`（Linux。logと状態は `state/<checkpoint>/` の下。戻る前にjobの状態を書くので `verify-download --wait` をすぐ続けられ、別のdownloadがフォルダを持つ間は断る） | 無ければ `HF_XET_NUM_CONCURRENT_RANGE_GETS=4` と `HF_HUB_DOWNLOAD_TIMEOUT=120` を設定し、Hugging Face自身の変数を読む。`HF_HUB_CACHE` でcacheを動かしたら、`create_container.sh` の `HF_HUB` もそこへ |
 | `verify-download` | `--hf`（`hf` のclient）と `--output` は必須。`--tp` か `--checkpoint` のどちらかも、`download` と同じく必須。`--wait`（30秒ごとに見る。downloadが一時停止の間は2で終わる） | なし |
 | `tool-gate` | `--port`（8896）、`--upstream`（`http://127.0.0.1:8095`、loopbackのHTTPのoriginだけ）、`--log`（stderr）、`--timeout`（エンジンへの1回の呼び出しに2400秒）、`--parallel-tool-calls`（既定は `one`：toolのある要求はエンジンに1手番1つの呼び出しを求め、system messageでそう伝える。`client`：clientが送ったとおり） | 127.0.0.1でだけ待ち受け、64 MiBを越える要求の本文は413で断り、要求のkeyはそのまま渡す |
 | `decode-check` | なし | `BASE`（`http://127.0.0.1:8095`）、`MODEL`（`glm-tf`）、`PROMPT_KIND`（`count`・`prose`・`code`）、`SAMPLES`（3）、`MAX_TOKENS`（512）、`PROMPT_TOKENS`（2048）、`TOKENS_OUT`（completionを書くファイル）、`TENSORFOLD_API_KEY` |
@@ -249,7 +252,8 @@ TP=4のexample（参照機の4台のリング、3.12.0から試験的）は、TP
 | ファイル | 固定するもの | 読むもの |
 |---|---|---|
 | [`config/xsfp4.lock.json`](../config/xsfp4.lock.json) | XSFP4のrepositoryとrevision | `download` と `verify-download` に `--tp 3`・`--tp 4`・`--checkpoint xsfp4`。`config/tp3.env`・`config/tp4.env` の `CHECKPOINT` が同じrevisionを名指し、試験がそれらを一致させる |
-| [`config/jammed.lock.json`](../config/jammed.lock.json) | Jammed XSFP4のrepositoryとrevision | `download` と `verify-download` に `--tp 2` か `--checkpoint jammed`。`config/tp2.env` の `CHECKPOINT` が同じrevisionを名指し、試験がそれらを一致させる（[checkpoint](../README.ja.md#checkpoint)） |
+| [`config/jammed.lock.json`](../config/jammed.lock.json) | Jammed XSFP4のrepositoryとrevision | `download` と `verify-download` に `--checkpoint jammed`。3.16.0からはどのリリースのファイルも名指さないので、rankのファイルの `CHECKPOINT` の行が名指す（[checkpoint](../README.ja.md#checkpoint)） |
+| [`config/nz5.lock.json`](../config/nz5.lock.json) | Jammed XSFP4 NZ5のrepositoryとrevision | `download` と `verify-download` に `--tp 2` か `--checkpoint nz5`。`config/tp2.env` の `CHECKPOINT` が同じrevisionを名指し、試験がそれらを一致させる |
 | [`config/engine.lock.json`](../config/engine.lock.json) | エンジンのfork・release branch・commit、その下の上流のrelease、Zigのcompiler（URLとSHA-256）、xgrammar、mediaのlibraryのrelease（SHA-256）、buildのflag | imageのbuild：[`docker/Dockerfile`](../docker/Dockerfile) の引数で、試験がlockと一致させる |
 | [`config/nll_set.json`](../config/nll_set.json) | NLLの集合のtextと、それを切ったtokenizer（SHA-256で） | `score-nll` |
 | [`requirements/huggingface.lock.txt`](../requirements/huggingface.lock.txt) | Hugging Faceのclient | 道具の仮想環境（[手順書 §2](../SETUP.ja.md#2-checkoutとcheckpoint)） |
