@@ -163,7 +163,7 @@ python3 tools/bench_concurrent.py http://127.0.0.1:8095 glm-tf --tokens 256 --re
 
 ## Jammed XSFP4
 
-上の検査は、[Jammed XSFP4](../README.ja.md#checkpoint)の起動を次の値と比べて受け入れます。TP=2の列は、TP=2の既定としてrankのファイルにcheckpointを書かない、2026-11-12の上流1.2.7の上での3.12.0の受け入れの値で、同時の返答だけは3.10.0のものです。TP=3の列は、上流1.2.1に `csf0_v1` の6つのcommitを足したエンジンで、rankのファイルにその `CHECKPOINT` の1行だけを足した、2026-11-03の3.10.0の受け入れの値です。ただしdecode検査、`bench --kinds edit`、promptとdecodeの速さは、同じ `CHECKPOINT` の行で2026-11-12に上流1.2.7の上で起動した3.12.0のTP=3の値です。blockのスケールが粗いのでdecode検査の返答はこのcheckpointのものになり、XSFP4のdecode検査のhashは当てはまりません。`bench --kinds edit` は両TPでXSFP4と同じ返答でした。`score-nll` には自身の `tokenizer.json`（XSFP4のものとbyteまで同じ）を渡します。hashは各TPの2回目の起動でも保たれ、3.10.0の受け入れでは、countは各TPで `PARALLEL=` を空にした起動でも保たれました。2026-11-19の3.16.0の受け入れ（上流1.2.10、`tp2-04-05` のexampleの対）は、rankのファイルの `CHECKPOINT` の行で起こした1回の起動で、TP=2のhash・editの返答・NLLをもう一度同じ値で返しました。
+上の検査は、[Jammed XSFP4](../README.ja.md#checkpoint)の起動を次の値と比べて受け入れます。TP=2の列は、TP=2の既定としてrankのファイルにcheckpointを書かない、2026-11-12の上流1.2.7の上での3.12.0の受け入れの値で、同時の返答だけは3.10.0のものです。TP=3の列は、上流1.2.1に `csf0_v1` の6つのcommitを足したエンジンで、rankのファイルにその `CHECKPOINT` の1行だけを足した、2026-11-03の3.10.0の受け入れの値です。ただしdecode検査、`bench --kinds edit`、promptとdecodeの速さは、同じ `CHECKPOINT` の行で2026-11-12に上流1.2.7の上で起動した3.12.0のTP=3の値です。blockのスケールが粗いのでdecode検査の返答はこのcheckpointのものになり、XSFP4のdecode検査のhashは当てはまりません。`bench --kinds edit` は両TPでXSFP4と同じ返答でした。`score-nll` には自身の `tokenizer.json`（XSFP4のものとbyteまで同じ）を渡します。hashは各TPの2回目の起動でも保たれ、3.10.0の受け入れでは、countは各TPで `PARALLEL=` を空にした起動でも保たれました。2026-11-19の3.16.0の受け入れ（上流1.2.10、`tp2-04-05` のexampleの対）は、rankのファイルの `CHECKPOINT` の行で起こした1回の起動で、TP=2のhash・editの返答・NLLをもう一度同じ値で返しました。同じ受け入れのTP=3（参照機）でも、同じ形の1回の起動がTP=3のhashとeditの返答を同じ値で返しました。
 
 | 検査 | TP=2 | TP=3 |
 |---|---|---|
