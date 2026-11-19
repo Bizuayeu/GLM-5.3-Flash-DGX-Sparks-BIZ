@@ -6,6 +6,50 @@
 
 TensorFoldのネイティブエンジンで配信する3.x系です。`v3.*` のタグは、見出しにリリースの日付が入った節をこのファイルから公開します。2.x系の履歴は[v2/CHANGELOG.ja.md](../v2/CHANGELOG.ja.md)にあります。
 
+## 3.16.0 — 2026-11-19
+
+TP=2の既定をJammed XSFP4 NZ5にし、エンジンを、この系列のcommitを持たない上流のTensorFold v1.2.10そのもの（`2a674b55`）へ移します。このcheckpointの `NVFP4_NZ5` の形を読める、上流の最初のリリースです。TP=3とTP=4はこれまでどおりXSFP4です。imageは `glm53-tf3:3.16.0`（`sha256:7130d97805fd0126af7f13143196956e59904870aecef3bee60cde9608c95a42`）です。
+
+### Engine
+
+- forkのbranch `release/3.16.0` は上流のv1.2.10（`2a674b55`）そのものです。`config/engine.lock.json` とDockerfileの `ENGINE_REF` がそのcommitに固定します。3.12.0から3.15.0までは1.2.7でした。
+- 上流は1.2.10から、Jammed XSFP4 NZ5の `NVFP4_NZ5` の形を読みます（[TensorFold #2894](https://github.com/ashhart/TensorFold/pull/2894)）：`csf0_v1` の並びで、4 bitのcode `0b1000` を+5と読みます。
+- 上流の2つのswitchが1.2.9から既定でonになり、リリースのファイルはどちらも設定しません：prompt chunkの索引器を専用のkernelに載せること（`TF_GLM_INDEX_CUDA`、#3159。3.12.0が次のリリースへ回したもの）と、decodeの窓のDSAの選びを多くのblockでまとめること（`TF_GLM_DSEL`、#2722）です。両方を `0` にしても、TP=2のdecode検査のtokenは同じ、TP=4の長いpromptの返答も同じでした。TP=4の1,035,295 tokenのpromptの最初のtokenは、`TF_GLM_INDEX_CUDA=0` で624.9秒、既定で587.3秒と578.7秒です。切るには全rankのファイルに `0` を書きます（[設定](docs/configuration.ja.md#各rankが読み比べないもの)）。
+- 保持するpromptの状態のslotは、エンジン自身の窓の先の窓より先に置かれます（上流1.2.10、#3125）。余地に窓がもう1本入っても、保持する状態は減りません。TP=4のpoolは窓3本と32のslot全部になりました（3.12.0は窓4本と24状態で、エンジンの警告つき）。TP=3のJammed XSFP4は窓2本と32全部で（3.12.0は窓3本と8）、そのための `--prompt-cache-gib` は要りません（[TP=3で16 GiBにする理由](README.ja.md#配信の既定)）。
+- `--mtp-confidence` の下のdraftありのdecodeが、tokenは同じまま速くなりました（[TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864)、上流は1.2.8から）：TP=3のdecode検査の `count` は72.22 tok/s（3.12.0は57.94）、`bench --kinds decode` は77.34（63.23）、TP=4は71.31（58.31）と89.85（74.14）です。1.2.7から1.2.10の間の変更それぞれの効きは、分けて測っていません。
+- 思考を切った要求では、要求が名指したeffortがchat templateに届き、serverの `--reasoning-effort`（`REASONING_EFFORT`）は思考を切ったpromptを変えなくなりました（上流1.2.9、#3017）。3.15.0までにserverの `REASONING_EFFORT` の下で取った、思考を切った返答は、同じにならない事があります。
+- rank 0のファイルの `TF_GLM_EXPERT_FORM=classic` か `factored` は、decodeの窓でexpertが取る形を名指します。書かなければ、エンジンはbuildの最初のdraftありのloadで2つを測り、速い方を保ちます（上流1.2.10、#3151）。形を名指すと、窓の値付けを取り直します。
+- TP=4の `TF_GLM_PREFILL_REDUCE=split` は、switchの無いリングでは名指しで断られ、その行は `gather` を名指します。3.12.0のエンジンは、設定を名指さずにNCCLのerrorで止まりました。
+
+### Serving defaults
+
+- TP=2の既定のcheckpointはJammed XSFP4 NZ5です（[`config/nz5.lock.json`](config/nz5.lock.json)、`config/tp2.env` の `CHECKPOINT`）。Jammed XSFP4と同じ大きさ（rank 0でどちらも84.79 GiB）で、このエンジンのTP=2ではBF16により近くなります：NLLはBF16より1.08%高く（Jammed XSFP4は1.35%）、KLの下限は0.0463（0.0482）で、差の文書ごとの95%区間は0を含みません（[checkpoint](README.ja.md#checkpoint)）。返答とdecode検査のhashはこのcheckpointのものです。Jammed XSFP4は `CHECKPOINT` の1行で選べます。**Jammed XSFP4だけを持つ対**は、先にJammed XSFP4 NZ5を取得する（`download --tp 2`、`verify-download --tp 2`）か、全rankのファイルにJammed XSFP4の `CHECKPOINT` の行を足します（[手順書 §2](SETUP.ja.md#2-checkoutとcheckpoint)）。どちらも無い起動は、`serve.sh` がdownloadを名指して止めます。
+- `config/tp2.env`・`tp3.env`・`tp4.env` の他の値は3.15.0のままです。TP=2では、systemに残す9 GiBで2,948〜2,982 pageと16のslot全部、rank 0の起動後の空きは9.1〜9.4 GiB、検査が走っている間は8〜9 GiBでした。TP=3では、16 GiBで4,745〜4,766 pageと32のslot全部、起動後の空きは16.5〜16.6 GiB、検査が走っている間の最低は15 GiBで、16を下回りました：reserveは計画が起動の時に残す量で、床はmemory guardの5 GiBです（[TP=3で16 GiBにする理由](README.ja.md#配信の既定)）。
+
+### Image and launch
+
+- checkpointのfolderが無い時の `serve.sh` の断りは、どのdownloadで取れるかを言います：TPの既定のfolderなら `download --tp N`、rankのファイルが名指したfolderなら `download --checkpoint NAME` です（3.15.0まではどちらも `download --tp` を名指していました）。
+- `serve.sh` は、自分の2つの変数（`release_context`、`release_checkpoint`）をエンジンの環境に渡しません。
+- imageの `THIRD_PARTY_NOTICES.md` に、Jammed XSFP4 NZ5の行が入りました。
+
+### Tools
+
+- `download` と `verify-download` は `--checkpoint nz5` を受け、`--tp 2` はそれを指すようになりました。**`--tp 2` でJammed XSFP4を取得していたscript**は、`--checkpoint jammed` を名指します。
+
+### Documentation
+
+- READMEのcheckpoint・配信の既定・制限・[リリースでの測定値](README.ja.md#リリースでの測定値)は3.16.0のもので、Jammed XSFP4 NZ5が3つ目の列です。3.12.0の測定値の段は[測定値](docs/measurements.ja.md#3120)へ移しました。
+- [検証](docs/validation.ja.md#jammed-xsfp4-nz5)に、TP=2のJammed XSFP4 NZ5の基準値が入りました。XSFP4のTP=3のprefillとdecodeの基準値は3.16.0のものです。
+- README・手順書・運用のコマンドは `glm53-tf3:3.16.0` をbuildして名指します。
+
+### Accepted
+
+2026-11-19に参照機で、リリースのimage（`glm53-tf3:3x-380dcbd`、`glm53-tf3:3.16.0` と同じimage）をそれ自身の `serve.sh` と `cluster.sh` で、全containerを効率coreに置いて起動しました。TP=2は `tp2-04-05` のexampleの対で回しました。3.12.0は `tp2-rank*` のexampleの対だったので、TP=2の速さは3.12.0と並べません。既定のTP=2のJammed XSFP4 NZ5では、rankのファイルに `CHECKPOINT` も `CONTEXT` も書かず、2回の起動がdecode検査のhashと `bench --kinds edit` の返答を同じ値で返し（これが基準値になりました）、1回目が199,307・499,254・1,035,295 tokenのpromptの合言葉をすべて見つけ、`mojibake` は化けた文字を見つけませんでした。TP=2のXSFP4とJammed XSFP4では、それぞれrankのファイルに `CHECKPOINT` の行を足した1回の起動が、基準値のdecode検査のhashと `bench --kinds edit` の返答を返し、Jammed XSFP4はNLLも同じでした。既定のTP=3のXSFP4では、2回の起動が基準値のhashと編集の返答を、1回目がNLLを返し、合言葉はすべて見つかり、`mojibake` は化けた文字を見つけませんでした。昼の測りで、499,254 tokenと1,035,295 tokenのpromptは熱で6秒と14秒待ちました。TP=3のJammed XSFP4では、その `CHECKPOINT` の行を足した1回の起動が、基準値のhashと編集の返答を返しました。3.11.0のtool引数ゲート越しのtool-eval-benchは、TP=2のJammed XSFP4 NZ5とXSFP4、TP=3のXSFP4で93、Safety Gateは合格でした。TP=4のXSFP4では、参照機の4台のリングで、起動が3.12.0のdecode検査のhash・編集の返答・NLLを返し、合言葉をすべて見つけました。draftを切ったdecodeの1 stepは、promptの長さとstreamの数の12 cellのうち8つで3.12.0より速く、2つがopen、2つが遅く、遅い2つは1.21%と0.37%でした（[リリースでの測定値](README.ja.md#リリースでの測定値)）。見張りが止めた起動はありません。
+
+### Not in 3.16.0
+
+2026-11-19の時点でopenの、この系列の上流のpull request（#3249、#3333、#3543）は、それを持つ最初のリリースで入ります。`long-input` はeffortを要求の最上位で送り、`bench` とdecode検査は `chat_template_kwargs` で送ります。そろえると長い入力の要求が変わるので、その基準値を取り直すリリースで直します。
+
 ## 3.15.0 — 2026-11-13
 
 imageの外の道具とその試験と文書の版です。imageのファイルは変わらず、3.12.0のままです（`glm53-tf3:3.12.0`、`sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`）。

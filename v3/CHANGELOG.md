@@ -4,6 +4,50 @@
 
 The 3.x line, served by TensorFold's native engine. A `v3.*` tag publishes its section from this file once the section's heading carries the release date. The 2.x line's history is in [v2/CHANGELOG.md](../v2/CHANGELOG.md).
 
+## 3.16.0 — 2026-11-19
+
+TP=2 serves Jammed XSFP4 NZ5 by default, and the engine moves onto upstream TensorFold v1.2.10 itself (`2a674b55`), with no commit of this line's: upstream's first release that reads the checkpoint's `NVFP4_NZ5` form. TP=3 and TP=4 serve XSFP4 as before. The image is `glm53-tf3:3.16.0` (`sha256:7130d97805fd0126af7f13143196956e59904870aecef3bee60cde9608c95a42`).
+
+### Engine
+
+- The fork's branch `release/3.16.0` is upstream v1.2.10 (`2a674b55`) itself; `config/engine.lock.json` and the Dockerfile's `ENGINE_REF` pin that commit. 3.12.0 to 3.15.0 were on 1.2.7.
+- Upstream reads Jammed XSFP4 NZ5's `NVFP4_NZ5` form from 1.2.10 ([TensorFold #2894](https://github.com/ashhart/TensorFold/pull/2894)): `csf0_v1`'s layout with the 4-bit code `0b1000` read as +5.
+- Two of upstream's switches are on by default from 1.2.9, and the release files set neither: a prompt chunk's indexer on kernels of its own (`TF_GLM_INDEX_CUDA`, #3159; 3.12.0 left it for the next release) and a decode window's DSA select over many blocks (`TF_GLM_DSEL`, #2722). With both at `0` the decode check gave the same tokens at TP=2, and at TP=4 the long prompts the same replies, the 1,035,295-token prompt's first token after 624.9 s with `TF_GLM_INDEX_CUDA=0` against 587.3 and 578.7 s by default. `0` in every rank file turns one off ([configuration](docs/configuration.md#read-on-each-rank-not-compared)).
+- The kept prompt states' slots come before the windows past the engine's own (upstream 1.2.10, #3125), so a room that holds one more whole window no longer keeps fewer states. At TP=4 the pool holds three windows and all 32 slots, where 3.12.0's held four windows and 24 states with the engine's warning; Jammed XSFP4 at TP=3 holds two windows and all 32, where 3.12.0's held three and 8, and needs no `--prompt-cache-gib` for them ([why 16 GiB at TP=3](README.md#serving-defaults)).
+- Decode with drafts under `--mtp-confidence` is faster, with the same tokens ([TensorFold #2864](https://github.com/ashhart/TensorFold/pull/2864), in upstream from 1.2.8): at TP=3 the decode check's `count` gave 72.22 tok/s against 3.12.0's 57.94 and `bench --kinds decode` 77.34 against 63.23, and at TP=4 71.31 against 58.31 and 89.85 against 74.14. What each change between 1.2.7 and 1.2.10 gave was not measured apart.
+- With thinking off, the effort a request names reaches the chat template, and the server's `--reasoning-effort` (`REASONING_EFFORT`) no longer changes a thinking-off prompt (upstream 1.2.9, #3017). A thinking-off reply taken on 3.15.0 or before under a `REASONING_EFFORT` of the server's may not repeat.
+- `TF_GLM_EXPERT_FORM=classic` or `factored` in rank 0's file names the form the experts take in decode windows, where the engine otherwise times the two at a build's first load with drafts and keeps the faster (upstream 1.2.10, #3151). Naming a form takes the window costs again.
+- At TP=4 `TF_GLM_PREFILL_REDUCE=split` is refused by name on a switchless ring, with a line that names `gather`; 3.12.0's engine stopped at NCCL's error with no setting named.
+
+### Serving defaults
+
+- TP=2's default checkpoint is Jammed XSFP4 NZ5 ([`config/nz5.lock.json`](config/nz5.lock.json), `config/tp2.env`'s `CHECKPOINT`). At Jammed XSFP4's size, 84.79 GiB on rank 0 for both, it stands closer to BF16 on this engine at TP=2: an NLL 1.08% above BF16's against 1.35%, and a KL bound of 0.0463 against 0.0482, the per-document 95% intervals of the differences holding no zero ([checkpoints](README.md#checkpoints)). Its replies and decode-check hashes are its own. Jammed XSFP4 stays a choice by one `CHECKPOINT` line. **A pair that holds only Jammed XSFP4** downloads Jammed XSFP4 NZ5 first (`download --tp 2`, `verify-download --tp 2`) or adds Jammed XSFP4's `CHECKPOINT` line to every rank file ([setup §2](SETUP.md#2-checkout-and-checkpoint)); a start without either stops in `serve.sh`, naming the download.
+- The other values of `config/tp2.env`, `tp3.env` and `tp4.env` are 3.15.0's. At TP=2 the 9 GiB left to the system gave 2,948 to 2,982 pages and all 16 kept states' slots, with 9.1 to 9.4 GiB free on rank 0 after load and 8 to 9 GiB while the checks ran. At TP=3 the 16 GiB gave 4,745 to 4,766 pages and all 32 slots, with 16.5 to 16.6 GiB free after load and 15 GiB at the lowest while the checks ran, under the 16: the reserve is what the plan leaves at load, and the memory guard's 5 GiB is the floor ([why 16 GiB at TP=3](README.md#serving-defaults)).
+
+### Image and launch
+
+- `serve.sh`'s refusal of a missing checkpoint folder says which download fetches it: `download --tp N` for the TP size's own folder, and `download --checkpoint NAME` when a rank file names the folder (up to 3.15.0 it named `download --tp` for both).
+- `serve.sh` keeps its own two variables (`release_context`, `release_checkpoint`) out of the engine's environment.
+- `THIRD_PARTY_NOTICES.md` in the image has a row for Jammed XSFP4 NZ5.
+
+### Tools
+
+- `download` and `verify-download` take `--checkpoint nz5`, and `--tp 2` now means it. **A script that fetched Jammed XSFP4 with `--tp 2`** names `--checkpoint jammed`.
+
+### Documentation
+
+- The README's checkpoints, serving defaults, limits and [measured on the release](README.md#measured-on-the-release) are 3.16.0's, with Jammed XSFP4 NZ5 as a third column; 3.12.0's measured part is in [measurements](docs/measurements.md#3120).
+- [Validation](docs/validation.md#jammed-xsfp4-nz5) has Jammed XSFP4 NZ5's reference values at TP=2, and TP=3's prefill and decode reference on XSFP4 is 3.16.0's.
+- The commands in the README, setup and operations build and name `glm53-tf3:3.16.0`.
+
+### Accepted
+
+On the reference hosts on 2026-11-19, with the release image (`glm53-tf3:3x-380dcbd`, the same image as `glm53-tf3:3.16.0`) started by its own `serve.sh` and `cluster.sh` and every container on the efficiency cores. TP=2 ran on the pair of the `tp2-04-05` examples, where 3.12.0's ran on the pair of the `tp2-rank*` examples, so its speeds are not set beside 3.12.0's. At TP=2 on Jammed XSFP4 NZ5, the default, with no `CHECKPOINT` or `CONTEXT` in the rank files: two launches gave the same decode-check hashes and `bench --kinds edit` reply, now its reference values, the first found every passphrase of the 199,307, 499,254 and 1,035,295-token prompts, and `mojibake` found no broken character. On XSFP4 and on Jammed XSFP4 at TP=2, each with its `CHECKPOINT` line in the rank files, one launch gave the reference decode-check hashes and `bench --kinds edit` reply, and Jammed XSFP4's the NLL. At TP=3 on XSFP4, the default: two launches gave the reference hashes and edit reply and the first the NLL, every passphrase was found, and `mojibake` found no broken character; its 499,254 and 1,035,295-token prompts waited 6 and 14 s for heat by day. At TP=3 on Jammed XSFP4, with its `CHECKPOINT` line, one launch gave the reference hashes and edit reply. Through 3.11.0's tool-argument gate tool-eval-bench gave 93 at TP=2 on Jammed XSFP4 NZ5 and on XSFP4 and at TP=3 on XSFP4, the Safety Gate passed. At TP=4 on XSFP4, on the reference ring of four, the launches gave 3.12.0's decode-check hashes, edit reply and NLL and found every passphrase, and its decode step with drafts off was faster than 3.12.0's in eight of twelve cells of prompt length and streams, open in two and slower in two, by 1.21% and 0.37% ([measured on the release](README.md#measured-on-the-release)). No watcher stopped a launch.
+
+### Not in 3.16.0
+
+Upstream pull requests of this line's still open on 2026-11-19 (#3249, #3333, #3543) come with the first release that carries them. `long-input` still sends its effort at the top level where `bench` and the decode check send it in `chat_template_kwargs`; aligning them changes the long inputs' requests, so it goes with a release that takes their references again.
+
 ## 3.15.0 — 2026-11-13
 
 Tools outside the image, their tests and documents. No file of the image changes; it stays 3.12.0's (`glm53-tf3:3.12.0`, `sha256:103b79933cfca32e14ce1ef0809b82ea16882b42d518dd55de212e8358be1e67`).
