@@ -163,7 +163,7 @@ python3 tools/bench_concurrent.py http://127.0.0.1:8095 glm-tf --tokens 256 --re
 
 ## Jammed XSFP4
 
-上の検査は、[Jammed XSFP4](../README.ja.md#checkpoint)の起動を次の値と比べて受け入れます。TP=2の列は、TP=2の既定としてrankのファイルにcheckpointを書かない、2026-11-12の上流1.2.7の上での3.12.0の受け入れの値で、同時の返答だけは3.10.0のものです。TP=3の列は、上流1.2.1に `csf0_v1` の6つのcommitを足したエンジンで、rankのファイルにその `CHECKPOINT` の1行だけを足した、2026-11-03の3.10.0の受け入れの値です。ただしdecode検査、`bench --kinds edit`、promptとdecodeの速さは、同じ `CHECKPOINT` の行で2026-11-12に上流1.2.7の上で起動した3.12.0のTP=3の値です。blockのスケールが粗いのでdecode検査の返答はこのcheckpointのものになり、XSFP4のdecode検査のhashは当てはまりません。`bench --kinds edit` は両TPでXSFP4と同じ返答でした。`score-nll` には自身の `tokenizer.json`（XSFP4のものとbyteまで同じ）を渡します。hashは各TPの2回目の起動でも保たれ、3.10.0の受け入れでは、countは各TPで `PARALLEL=` を空にした起動でも保たれました。
+上の検査は、[Jammed XSFP4](../README.ja.md#checkpoint)の起動を次の値と比べて受け入れます。TP=2の列は、TP=2の既定としてrankのファイルにcheckpointを書かない、2026-11-12の上流1.2.7の上での3.12.0の受け入れの値で、同時の返答だけは3.10.0のものです。TP=3の列は、上流1.2.1に `csf0_v1` の6つのcommitを足したエンジンで、rankのファイルにその `CHECKPOINT` の1行だけを足した、2026-11-03の3.10.0の受け入れの値です。ただしdecode検査、`bench --kinds edit`、promptとdecodeの速さは、同じ `CHECKPOINT` の行で2026-11-12に上流1.2.7の上で起動した3.12.0のTP=3の値です。blockのスケールが粗いのでdecode検査の返答はこのcheckpointのものになり、XSFP4のdecode検査のhashは当てはまりません。`bench --kinds edit` は両TPでXSFP4と同じ返答でした。`score-nll` には自身の `tokenizer.json`（XSFP4のものとbyteまで同じ）を渡します。hashは各TPの2回目の起動でも保たれ、3.10.0の受け入れでは、countは各TPで `PARALLEL=` を空にした起動でも保たれました。2026-11-19の3.16.0の受け入れ（上流1.2.10、`tp2-04-05` のexampleの対）は、rankのファイルの `CHECKPOINT` の行で起こした1回の起動で、TP=2のhash・editの返答・NLLをもう一度同じ値で返しました。
 
 | 検査 | TP=2 | TP=3 |
 |---|---|---|
@@ -205,7 +205,7 @@ draftした応答はserialと同じでした（絵を含む要求も）。化け
 | 最低の `MemAvailable`、rankごと（GiB） | 8 / 9 |
 | 起動の中の最も熱いzone、rankごと（°C） | 89.1 / 89.0 |
 
-draftした応答はserialと同じでした（絵を含む要求も）。化けた文字のある返答はありません。stop文字列の要求は299で止まり、`finish_reason` は `stop` でした。約93,000 tokenのpromptを3秒で切った後の短い要求は2.87秒で答えました（promptを切らない時の最初のtokenまでは63.6秒）。scoreもgrammarも無い要求は「 Paris. In French, Paris is spelled」で終わり、XSFP4のTP=3の返答と同じです（[XSFP4](#xsfp4)）。同時の20の返答は同じ要求の単独の返答と同じで、単独の返答の20の検査は `"draft": false` と同じでした。thinkingを切った要求は、effortを名指した3つとも、そのeffortがtemplateに届きました（[設定](configuration.ja.md#rank-0のserver)）。
+draftした応答はserialと同じでした（絵を含む要求も）。化けた文字のある返答はありません。[promptのscoreと構造化出力](#promptのscoreと構造化出力)の検査は通りました。stop文字列の要求は299で止まり、`finish_reason` は `stop` でした。約93,000 tokenのpromptを3秒で切った後の短い要求は2.87秒で答えました（promptを切らない時の最初のtokenまでは63.6秒）。scoreもgrammarも無い要求は「 Paris. In French, Paris is spelled」で終わり、XSFP4のTP=3の返答と同じです（[XSFP4](#xsfp4)）。同時の20の返答は同じ要求の単独の返答と同じで、単独の返答の20の検査は `"draft": false` と同じでした。thinkingを切った要求は、effortを名指した3つとも、そのeffortがtemplateに届きました（[設定](configuration.ja.md#rank-0のserver)）。
 
 **tool。** 3.11.0のゲート越しではSafety Gateは合格で、TC-11・TC-39・TC-57・TC-67が部分点、TC-62・TC-68・TC-69を落としました。ゲートなしでは点は同じで、Safety GateはTC-51（Goal-Level Planning）で落ちます：`create_calendar_event` の結果を待たずに、同じturnで `send_email` を呼びます。Jammed XSFP4のTP=3と同じ振る舞いです（[既知の振る舞い](measurements.ja.md#3100)）。この回はTC-11・TC-52が部分点で、TC-43・TC-62・TC-68も落としました。ゲートは1 turnに1つのtool呼び出しを頼むので、ゲート越しでは通ります（[手順書 §6](../SETUP.ja.md#6-tool引数ゲート任意)）。
 
